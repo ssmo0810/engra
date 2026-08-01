@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f10">
+<title>engra — AI 교대 인수인계</title>
+<style>
+  @media (hover: hover) and (pointer: fine) { html { scroll-snap-type: y proximity; } }
+  html, body { margin:0; padding:0; background:#0f0f10; -webkit-text-size-adjust:100%; }
+  * { box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  a { color:#EA002C; text-decoration:none; }
+  a:hover { color:#F47725; }
+  ::selection { background:#EA002C; color:#fff; }
+  html:not([data-js]) [data-at], html:not([data-js]) [data-rev] { opacity:1 !important; transform:none !important; }
+  html:not([data-js]) [data-bar] { transform:scaleX(1) !important; }
+  html:not([data-js]) [data-pin] > div { position:static !important; height:auto !important; min-height:auto !important; padding-top:64px !important; padding-bottom:64px !important; }
+  html:not([data-js]) [data-type]::after { content:attr(data-type); }
+  html:not([data-js]) [data-cursor] { display:none !important; }
+  @keyframes drift { from { transform:translateX(0); } to { transform:translateX(-1440px); } }
+  @keyframes blink { 50% { opacity:0; } }
+  @keyframes bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(7px); } }
+  @media (max-height: 780px) { [data-chart] { display:none !important; } }
+  @media (max-height: 660px) { [data-sub] { display:none !important; } }
+  @media (max-width: 900px) {
+    [data-grid4] { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+    [data-chart] { display:none !important; }
+  }
+  @media (max-width: 720px) {
+    [data-qa] { grid-template-columns:minmax(0,1fr) !important; }
+    [data-phases] { grid-template-columns:minmax(0,1fr) !important; gap:0 !important; }
+    [data-phases] > [data-at] { padding:14px 0 14px 16px !important; border-left:2px solid #e2e2dd; }
+    [data-bar] { display:none !important; }
+    [data-sub] { display:none !important; }
+    [data-hide-sm] { display:none !important; }
+    [data-impact] { grid-template-columns:minmax(0,1fr) !important; }
+  }
+  @media (max-width: 460px) {
+    [data-grid4] { grid-template-columns:minmax(0,1fr) !important; }
+  }
+  html:not([data-js]) [data-sub], html:not([data-js]) [data-hide-sm], html:not([data-js]) [data-chart] { display:revert !important; }
+  html:not([data-js]) [data-jsonly] { display:none !important; }
+  html:not([data-js]) [data-final] { position:static !important; opacity:1 !important; white-space:normal !important; }
+  html:not([data-js]) [data-dash] { stroke-dashoffset:0 !important; }
+</style>
+</head>
+<body>
+
+
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Pretendard','Malgun Gothic','Noto Sans KR',sans-serif; background:#0f0f10; color:#f4f4f5; overflow-x:clip">
+
+  <section style="position:relative; min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:120px 24px; overflow:hidden; background:#0f0f10">
+    <div style="position:absolute; inset:0; opacity:.55; pointer-events:none">
+      <svg viewBox="0 0 1440 500" preserveAspectRatio="none" style="width:100%; height:100%; display:block">
+        <g style="animation:drift 34s linear infinite">
+          <path d="M0,250 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0" fill="none" stroke="#3a3a3f" stroke-width="1.5"></path>
+        </g>
+        <g style="animation:drift 21s linear infinite">
+          <path d="M0,320 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0" fill="none" stroke="#2b2b30" stroke-width="1"></path>
+        </g>
+        <g style="animation:drift 48s linear infinite">
+          <path d="M0,180 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0" fill="none" stroke="#EA002C" stroke-width="1" opacity=".35"></path>
+        </g>
+      </svg>
+    </div>
+    <div style="position:absolute; inset:0; background:radial-gradient(ellipse at 50% 45%, rgba(15,15,16,.15) 0%, rgba(15,15,16,.92) 62%, #0f0f10 100%); pointer-events:none"></div>
+
+    <div style="position:relative; text-align:center; max-width:900px; display:flex; flex-direction:column; align-items:center; gap:34px">
+      <div style="display:flex; align-items:center; gap:12px">
+        <span style="width:7px; height:7px; border-radius:50%; background:#EA002C; display:block"></span>
+        <span style="font-size:44px; font-weight:800; letter-spacing:-.045em; color:#fff">engra</span>
+      </div>
+      <h1 style="margin:0; font-size:clamp(30px,5.4vw,62px); font-weight:300; line-height:1.35; letter-spacing:-.035em; color:#fff; text-wrap:pretty">데이터는 <strong style="font-weight:800">이미 알고 있다.</strong><br>engra는 그것을 <strong style="font-weight:800; color:#EA002C">다음 근무조</strong>에게 전달한다.</h1>
+      <p style="margin:0; font-size:clamp(14px,3.6vw,16px); line-height:1.85; color:#8f8f97; max-width:520px">교대 1시간 전, AI가 이번 근무 구간의 운전 데이터를 읽고 특이사항 초안을 대신 씁니다.</p>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:26px; animation:bob 2.6s ease-in-out infinite">
+        <span style="font-size:11px; letter-spacing:.22em; color:#5c5c63; font-family:ui-monospace,SFMono-Regular,Menlo,monospace">SCROLL</span>
+        <svg width="14" height="22" viewBox="0 0 14 22" fill="none" style="display:block"><path d="M7 0 L7 19 M1 13 L7 19 L13 13" stroke="#5c5c63" stroke-width="1.4"></path></svg>
+      </div>
+    </div>
+  </section>
+
+  <section style="background:#fafaf9; color:#0f0f10; padding:clamp(90px,13vw,180px) 24px">
+    <div style="max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(56px,7vw,96px)">
+      <div data-rev style="max-width:900px; opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+        <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">THE PROBLEM</span>
+        <h2 style="margin:22px 0 0; font-size:clamp(28px,4.6vw,56px); font-weight:300; line-height:1.4; letter-spacing:-.035em; text-wrap:pretty"><strong style="font-weight:800">12시간, 21,600개</strong>의 데이터 포인트.<br>전달되는 건 <span style="font-weight:800; color:#EA002C">몇 줄의 기억.</span></h2>
+        <p style="margin:28px 0 0; font-size:16px; line-height:1.9; color:#5d5d64; max-width:620px">24시간 연속 공정은 12시간 2교대로 돌아갑니다. 제어시스템은 수백 개 태그를 초 단위로 기록하지만, 다음 조에게 넘어가는 것은 근무자의 기억에 의존한 수기 일지 몇 줄입니다.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px">
+        <div data-rev data-delay="0" style="opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); background:#fff; border:1px solid #e7e7e4; border-radius:14px; padding:34px 30px 38px; display:flex; flex-direction:column; gap:14px">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:#EA002C; font-weight:600">01</span>
+          <h3 style="margin:0; font-size:19px; font-weight:700; letter-spacing:-.02em">기준이 사람마다 다르다</h3>
+          <p style="margin:0; font-size:15px; line-height:1.85; color:#6b6b72">누군가는 적고 누군가는 넘어갑니다. 같은 현상이 조마다 다른 문장으로 남거나, 아예 남지 않습니다.</p>
+        </div>
+        <div data-rev data-delay="90" style="opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); background:#fff; border:1px solid #e7e7e4; border-radius:14px; padding:34px 30px 38px; display:flex; flex-direction:column; gap:14px">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:#EA002C; font-weight:600">02</span>
+          <h3 style="margin:0; font-size:19px; font-weight:700; letter-spacing:-.02em">알람에 안 걸리면 사라진다</h3>
+          <p style="margin:0; font-size:15px; line-height:1.85; color:#6b6b72">순도 헌팅, 서서히 오르는 온도 드리프트. 임계값을 넘지 않은 이상 징후는 기록에 남을 이유를 얻지 못합니다.</p>
+        </div>
+        <div data-rev data-delay="180" style="opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1); background:#fff; border:1px solid #e7e7e4; border-radius:14px; padding:34px 30px 38px; display:flex; flex-direction:column; gap:14px">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:#EA002C; font-weight:600">03</span>
+          <h3 style="margin:0; font-size:19px; font-weight:700; letter-spacing:-.02em">기억은 12시간을 못 버틴다</h3>
+          <p style="margin:0; font-size:15px; line-height:1.85; color:#6b6b72">근무 초반의 미세한 변화는 퇴근 무렵 흐려집니다. 일지를 쓰는 시점에 남아 있는 건 인상적인 사건뿐입니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pin data-beats="5" style="background:#0f0f10; color:#f4f4f5; position:relative">
+    <div style="position:sticky; top:0; height:100svh; display:flex; flex-direction:column; justify-content:center; gap:clamp(18px,3.4vh,44px); padding:clamp(30px,6vh,80px) 24px; overflow:hidden">
+      <div style="max-width:1080px; margin:0 auto; width:100%">
+        <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">HOW IT WORKS</span>
+        <h2 style="margin:16px 0 0; font-size:clamp(24px,3.4vw,44px); font-weight:300; line-height:1.35; letter-spacing:-.035em">기록을 <strong style="font-weight:800">데이터가 먼저 쓰고,</strong> 사람이 마무리합니다.</h2>
+      </div>
+
+      <div style="max-width:1080px; margin:0 auto; width:100%; height:2px; background:#22222a; position:relative">
+        <div data-bar style="position:absolute; inset:0; background:linear-gradient(90deg,#EA002C,#F47725); transform-origin:left; transform:scaleX(0); transition:transform .7s cubic-bezier(.16,1,.3,1)"></div>
+      </div>
+
+      <div data-grid4 style="max-width:1080px; margin:0 auto; width:100%; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:clamp(10px,1.4vw,16px)">
+        <div data-at="1" data-off="opacity:.14; transform:translateY(22px) scale(.97); border-color:#1c1c22; background:transparent" data-on="opacity:1; transform:none; border-color:rgba(234,0,44,.3); background:rgba(234,0,44,.05)" style="opacity:.14; transform:translateY(22px) scale(.97); border:1px solid #1c1c22; background:transparent; border-radius:16px; padding:clamp(16px,2.4vh,28px) 22px; display:flex; flex-direction:column; gap:12px; transition:opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1), border-color .6s ease, background .6s ease">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">STEP 1</span>
+          <svg data-chart viewBox="0 0 200 60" style="width:100%; height:clamp(34px,6vh,58px); display:block">
+            <g stroke="#EA002C" stroke-width="1.2" opacity=".85">
+              <line x1="6" y1="10" x2="6" y2="50"></line><line x1="20" y1="20" x2="20" y2="42"></line><line x1="34" y1="6" x2="34" y2="54"></line><line x1="48" y1="24" x2="48" y2="38"></line><line x1="62" y1="14" x2="62" y2="47"></line><line x1="76" y1="22" x2="76" y2="40"></line>
+            </g>
+            <path d="M96,30 L126,30 M118,24 L126,30 L118,36" stroke="#7a7a82" stroke-width="1.3" fill="none"></path>
+            <rect x="138" y="14" width="54" height="32" rx="7" fill="none" stroke="#5a5a62" stroke-width="1.2"></rect>
+            <circle cx="165" cy="30" r="6" fill="none" stroke="#EA002C" stroke-width="1.4"></circle>
+          </svg>
+          <h3 style="margin:0; font-size:clamp(15px,1.7vh,18px); font-weight:700; letter-spacing:-.02em">데이터 일괄 분석</h3>
+          <p style="margin:0; font-size:clamp(13px,1.5vh,14.5px); line-height:1.75; color:#8f8f97">고정 임계값이 아니라 태그별 평소 패턴과 비교합니다. 조용히 벗어난 구간을 찾아냅니다.</p>
+        </div>
+
+        <div data-at="2" data-off="opacity:.14; transform:translateY(22px) scale(.97); border-color:#1c1c22; background:transparent" data-on="opacity:1; transform:none; border-color:rgba(234,0,44,.3); background:rgba(234,0,44,.05)" style="opacity:.14; transform:translateY(22px) scale(.97); border:1px solid #1c1c22; background:transparent; border-radius:16px; padding:clamp(16px,2.4vh,28px) 22px; display:flex; flex-direction:column; gap:12px; transition:opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1), border-color .6s ease, background .6s ease">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">STEP 2</span>
+          <svg data-chart viewBox="0 0 200 60" style="width:100%; height:clamp(34px,6vh,58px); display:block">
+            <rect x="10" y="8" width="92" height="44" rx="7" fill="none" stroke="#5a5a62" stroke-width="1.2"></rect>
+            <line x1="22" y1="22" x2="76" y2="22" stroke="#8f8f97" stroke-width="1.4"></line>
+            <line x1="22" y1="31" x2="88" y2="31" stroke="#8f8f97" stroke-width="1.4"></line>
+            <line x1="22" y1="40" x2="60" y2="40" stroke="#EA002C" stroke-width="1.4"></line>
+            <circle cx="150" cy="30" r="20" fill="none" stroke="#5a5a62" stroke-width="1.2"></circle>
+            <path d="M150,17 L150,30 L160,36" stroke="#EA002C" stroke-width="1.6" fill="none" stroke-linecap="round"></path>
+          </svg>
+          <h3 style="margin:0; font-size:clamp(15px,1.7vh,18px); font-weight:700; letter-spacing:-.02em">초안 생성 · 교대 1시간 전</h3>
+          <p style="margin:0; font-size:clamp(13px,1.5vh,14.5px); line-height:1.75; color:#8f8f97">발생 시각, 추이 미니 차트, 과거 유사 사례의 조치 코멘트까지 붙은 초안이 준비됩니다.</p>
+        </div>
+
+        <div data-at="3" data-off="opacity:.14; transform:translateY(22px) scale(.97); border-color:#1c1c22; background:transparent" data-on="opacity:1; transform:none; border-color:rgba(234,0,44,.3); background:rgba(234,0,44,.05)" style="opacity:.14; transform:translateY(22px) scale(.97); border:1px solid #1c1c22; background:transparent; border-radius:16px; padding:clamp(16px,2.4vh,28px) 22px; display:flex; flex-direction:column; gap:12px; transition:opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1), border-color .6s ease, background .6s ease">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">STEP 3</span>
+          <svg data-chart viewBox="0 0 200 60" style="width:100%; height:clamp(34px,6vh,58px); display:block">
+            <rect x="16" y="8" width="18" height="18" rx="4" fill="none" stroke="#EA002C" stroke-width="1.4"></rect>
+            <path d="M20,17 L24,22 L31,12" stroke="#EA002C" stroke-width="1.6" fill="none" stroke-linecap="round"></path>
+            <line x1="46" y1="17" x2="132" y2="17" stroke="#8f8f97" stroke-width="1.4"></line>
+            <rect x="16" y="36" width="18" height="18" rx="4" fill="none" stroke="#4d4d55" stroke-width="1.4"></rect>
+            <line x1="46" y1="45" x2="108" y2="45" stroke="#4d4d55" stroke-width="1.4"></line>
+            <path d="M156,26 l10,10 l18,-22" stroke="#F47725" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          <h3 style="margin:0; font-size:clamp(15px,1.7vh,18px); font-weight:700; letter-spacing:-.02em">선택 · 보완 · 승인</h3>
+          <p style="margin:0; font-size:clamp(13px,1.5vh,14.5px); line-height:1.75; color:#8f8f97">근무자가 채택할 항목을 고르고 현장의 맥락을 덧붙입니다. 최종 판단은 언제나 사람입니다.</p>
+        </div>
+
+        <div data-at="4" data-off="opacity:.14; transform:translateY(22px) scale(.97); border-color:#1c1c22; background:transparent" data-on="opacity:1; transform:none; border-color:rgba(234,0,44,.3); background:rgba(234,0,44,.05)" style="opacity:.14; transform:translateY(22px) scale(.97); border:1px solid #1c1c22; background:transparent; border-radius:16px; padding:clamp(16px,2.4vh,28px) 22px; display:flex; flex-direction:column; gap:12px; transition:opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1), border-color .6s ease, background .6s ease">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">STEP 4</span>
+          <svg data-chart viewBox="0 0 200 60" style="width:100%; height:clamp(34px,6vh,58px); display:block">
+            <rect x="14" y="38" width="70" height="12" rx="3" fill="none" stroke="#5a5a62" stroke-width="1.2"></rect>
+            <rect x="14" y="23" width="70" height="12" rx="3" fill="none" stroke="#5a5a62" stroke-width="1.2"></rect>
+            <rect x="14" y="8" width="70" height="12" rx="3" fill="none" stroke="#EA002C" stroke-width="1.3"></rect>
+            <circle cx="146" cy="26" r="16" fill="none" stroke="#8f8f97" stroke-width="1.4"></circle>
+            <line x1="158" y1="38" x2="172" y2="52" stroke="#8f8f97" stroke-width="1.6" stroke-linecap="round"></line>
+          </svg>
+          <h3 style="margin:0; font-size:clamp(15px,1.7vh,18px); font-weight:700; letter-spacing:-.02em">축적 · 질의</h3>
+          <p style="margin:0; font-size:clamp(13px,1.5vh,14.5px); line-height:1.75; color:#8f8f97">승인된 일지가 쌓여 "이 증상, 과거엔 어떻게 조치했나?"에 답하는 근거가 됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-pin data-beats="8" style="background:#141416; color:#f4f4f5; position:relative; border-top:1px solid #1f1f23">
+    <div style="position:sticky; top:0; height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:clamp(14px,2.4vh,30px); padding:clamp(22px,4vh,60px) 24px; overflow:hidden">
+      <div style="text-align:center; display:flex; flex-direction:column; gap:10px; align-items:center">
+        <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">THE DRAFT</span>
+        <h2 style="margin:0; font-size:clamp(21px,2.8vw,36px); font-weight:300; line-height:1.35; letter-spacing:-.035em">AI가 초안을 쓰고, <strong style="font-weight:800">사람이 결정한다.</strong></h2>
+      </div>
+
+      <div data-at="0" style="flex:none; width:100%; max-width:980px; background:#1a1a1d; border:1px solid #2a2a30; border-radius:18px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,.45); opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 20px; border-bottom:1px solid #26262c; background:#151518; flex-wrap:wrap">
+          <div style="display:flex; align-items:center; gap:10px">
+            <span style="width:6px; height:6px; border-radius:50%; background:#EA002C; display:block"></span>
+            <span style="font-size:14px; font-weight:700; letter-spacing:-.02em">engra · 인수인계 초안</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#7a7a82">
+            <span>주간조 07:00–19:00</span><span style="color:#3a3a40">|</span><span>생성 18:00</span>
+          </div>
+        </div>
+
+        <div style="padding:clamp(10px,1.6vh,16px); display:flex; flex-direction:column; gap:clamp(7px,1.2vh,10px)">
+
+          <div data-at="1" data-off="border-color:#26262c; background:transparent" data-on="border-color:rgba(234,0,44,.28); background:rgba(234,0,44,.05)" style="display:flex; align-items:flex-start; gap:14px; padding:clamp(9px,1.5vh,17px); border:1px solid #26262c; background:transparent; border-radius:13px; flex-wrap:wrap; transition:border-color .5s ease, background .5s ease">
+            <div data-at="1" data-off="border-color:#3d3d45; background:transparent" data-on="border-color:#EA002C; background:#EA002C" style="flex:none; width:22px; height:22px; margin-top:2px; border-radius:6px; border:1.5px solid #3d3d45; background:transparent; display:flex; align-items:center; justify-content:center; transition:border-color .4s ease, background .4s ease">
+              <svg data-at="1" data-off="opacity:0" data-on="opacity:1" width="12" height="12" viewBox="0 0 12 12" fill="none" style="opacity:0; transition:opacity .35s ease .12s"><path d="M2 6.2 L4.8 9 L10 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </div>
+            <div style="flex:1 1 190px; min-width:0; display:flex; flex-direction:column; gap:clamp(5px,.9vh,9px)">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C">14:02 – 14:31</span>
+                <span style="font-size:10px; padding:3px 8px; border-radius:999px; background:rgba(234,0,44,.14); color:#ff5f7d; font-weight:600">평소 변동 대비 4.2배</span>
+              </div>
+              <p style="margin:0; font-size:clamp(13.5px,1.6vh,15px); line-height:1.65; color:#eaeaee; font-weight:500">제품 순도 헌팅 — 29분간 진동 폭이 확대되었습니다. 알람 임계는 넘지 않았습니다.</p>
+              <div data-sub style="display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:9px; background:rgba(244,119,37,.09); border:1px solid rgba(244,119,37,.22)">
+                <span style="font-size:10px; font-weight:700; color:#F47725; letter-spacing:.06em; flex:none">과거 조치 추천</span>
+                <span style="font-size:13px; color:#c9c9d0; line-height:1.6">샘플링 의뢰 — 6/12 일지 참조</span>
+              </div>
+              <div data-at="2" style="display:flex; align-items:baseline; gap:9px; padding-top:2px; opacity:0; transform:translateY(6px); transition:opacity .4s ease, transform .4s ease">
+                <span style="flex:none; font-size:10px; font-weight:700; color:#6b6b72; letter-spacing:.05em; font-family:ui-monospace,SFMono-Regular,Menlo,monospace">근무자</span>
+                <span style="min-width:0; font-size:clamp(12.5px,1.5vh,14px); line-height:1.6; color:#c9c9d0">
+                  <span data-type="샘플링 의뢰 완료. 결과 회신 전입니다." data-at="2"></span><span data-cursor style="width:2px; height:.95em; background:#EA002C; display:inline-block; vertical-align:-1px; margin-left:2px; animation:blink 1s steps(1,end) infinite; opacity:0; transition:opacity .3s"></span>
+                </span>
+              </div>
+            </div>
+            <svg data-chart viewBox="0 0 220 56" style="flex:1 1 180px; height:52px; min-width:160px">
+              <line x1="0" y1="28" x2="220" y2="28" stroke="#2e2e34" stroke-width="1" stroke-dasharray="3 4"></line>
+              <polyline data-at="1" data-dash data-off="stroke-dashoffset:640" data-on="stroke-dashoffset:0" points="0,28 15,26 30,30 45,27 60,29 75,26 90,28 100,10 108,46 116,8 124,48 132,12 140,44 148,10 156,46 164,14 172,42 180,18 190,32 200,27 210,28 220,28" fill="none" stroke="#EA002C" stroke-width="1.6" stroke-linejoin="round" stroke-dasharray="640" style="stroke-dashoffset:640; transition:stroke-dashoffset 1s ease"></polyline>
+            </svg>
+          </div>
+
+          <div data-at="3" data-off="border-color:#26262c; background:transparent" data-on="border-color:rgba(234,0,44,.28); background:rgba(234,0,44,.05)" style="display:flex; align-items:flex-start; gap:14px; padding:clamp(9px,1.5vh,17px); border:1px solid #26262c; background:transparent; border-radius:13px; flex-wrap:wrap; transition:border-color .5s ease, background .5s ease">
+            <div data-at="3" data-off="border-color:#3d3d45; background:transparent" data-on="border-color:#EA002C; background:#EA002C" style="flex:none; width:22px; height:22px; margin-top:2px; border-radius:6px; border:1.5px solid #3d3d45; background:transparent; display:flex; align-items:center; justify-content:center; transition:border-color .4s ease, background .4s ease">
+              <svg data-at="3" data-off="opacity:0" data-on="opacity:1" width="12" height="12" viewBox="0 0 12 12" fill="none" style="opacity:0; transition:opacity .35s ease .12s"><path d="M2 6.2 L4.8 9 L10 3" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </div>
+            <div style="flex:1 1 190px; min-width:0; display:flex; flex-direction:column; gap:clamp(5px,.9vh,9px)">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C">09:40 – 18:20</span>
+                <span style="font-size:10px; padding:3px 8px; border-radius:999px; background:rgba(244,119,37,.14); color:#F47725; font-weight:600">임계 여유 62%</span>
+              </div>
+              <p style="margin:0; font-size:clamp(13.5px,1.6vh,15px); line-height:1.65; color:#eaeaee; font-weight:500">압축기 토출 온도 완만 상승 — 8시간에 걸친 드리프트. 현재 속도 유지 시 다음 근무 중반 도달 예상.</p>
+              <div data-at="4" style="display:flex; align-items:baseline; gap:9px; padding-top:2px; opacity:0; transform:translateY(6px); transition:opacity .4s ease, transform .4s ease">
+                <span style="flex:none; font-size:10px; font-weight:700; color:#6b6b72; letter-spacing:.05em; font-family:ui-monospace,SFMono-Regular,Menlo,monospace">근무자</span>
+                <span style="min-width:0; font-size:clamp(12.5px,1.5vh,14px); line-height:1.6; color:#c9c9d0">
+                  <span data-type="냉각수 유량 여유 없음. 야간조 중점 감시 요망." data-at="4"></span><span data-cursor style="width:2px; height:.95em; background:#EA002C; display:inline-block; vertical-align:-1px; margin-left:2px; animation:blink 1s steps(1,end) infinite; opacity:0; transition:opacity .3s"></span>
+                </span>
+              </div>
+            </div>
+            <svg data-chart viewBox="0 0 220 56" style="flex:1 1 180px; height:52px; min-width:160px">
+              <line x1="0" y1="12" x2="220" y2="12" stroke="#4a2a12" stroke-width="1" stroke-dasharray="3 4"></line>
+              <path data-at="3" data-dash data-off="stroke-dashoffset:640" data-on="stroke-dashoffset:0" d="M0,46 C60,45 110,40 160,31 C190,26 205,22 220,19" fill="none" stroke="#F47725" stroke-width="1.8" stroke-dasharray="640" style="stroke-dashoffset:640; transition:stroke-dashoffset 1s ease"></path>
+            </svg>
+          </div>
+
+          <div data-at="5" data-off="opacity:1; border-color:#26262c" data-on="opacity:.4; border-color:#1f1f25" style="display:flex; align-items:flex-start; gap:14px; padding:clamp(9px,1.5vh,17px); border:1px solid #26262c; border-radius:13px; flex-wrap:wrap; transition:opacity .5s ease, border-color .5s ease">
+            <div data-at="5" data-off="border-color:#3d3d45" data-on="border-color:#33333b" style="flex:none; width:22px; height:22px; margin-top:2px; border-radius:6px; border:1.5px solid #3d3d45; display:flex; align-items:center; justify-content:center; transition:border-color .4s ease">
+              <svg data-at="5" data-off="opacity:0" data-on="opacity:1" width="10" height="10" viewBox="0 0 10 10" fill="none" style="opacity:0; transition:opacity .35s ease"><path d="M1 1 L9 9 M9 1 L1 9" stroke="#6b6b72" stroke-width="1.8" stroke-linecap="round"></path></svg>
+            </div>
+            <div style="flex:1 1 190px; min-width:0; display:flex; flex-direction:column; gap:clamp(5px,.9vh,9px)">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#7a7a82">11:18, 16:05</span>
+                <span data-at="5" data-off="opacity:0" data-on="opacity:1" style="font-size:10px; padding:3px 8px; border-radius:999px; background:#212127; color:#8f8f97; font-weight:600; opacity:0; transition:opacity .4s ease">제외 · 정비 이력에 이미 기록됨</span>
+              </div>
+              <p style="margin:0; font-size:clamp(13.5px,1.6vh,15px); line-height:1.65; color:#a0a0a8; font-weight:500">밸브 개도 이상 — 지시값과 응답 사이 순간 편차가 2회 반복되었습니다.</p>
+            </div>
+            <svg data-chart viewBox="0 0 220 56" style="flex:1 1 180px; height:52px; min-width:160px">
+              <polyline points="0,40 42,40 46,12 62,12 66,40 122,40 126,11 142,11 146,40 220,40" fill="none" stroke="#5a5a62" stroke-width="1.6" stroke-linejoin="round"></polyline>
+            </svg>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 20px; border-top:1px solid #26262c; background:#151518; flex-wrap:wrap">
+          <span style="position:relative; font-size:13px; color:#8f8f97; line-height:1.5">
+            <span data-jsonly data-at="6" data-off="opacity:1" data-on="opacity:0" style="transition:opacity .35s ease">2건 채택 / 3건 중 · 근무자 확인 대기</span>
+            <span data-final data-at="6" data-off="opacity:0" data-on="opacity:1" style="position:absolute; left:0; top:0; white-space:nowrap; color:#ff5f7d; opacity:0; transition:opacity .35s ease .12s">일지가 확정되었습니다 · 야간조에게 전달됨</span>
+          </span>
+          <span data-at="6" data-off="background:#EA002C" data-on="background:rgba(234,0,44,.14)" style="position:relative; display:inline-flex; align-items:center; justify-content:center; padding:11px 26px; border-radius:9px; font-size:14px; font-weight:700; letter-spacing:-.01em; background:#EA002C; transition:background .4s ease">
+            <span data-jsonly data-at="6" data-off="opacity:1" data-on="opacity:0" style="color:#fff; transition:opacity .3s ease">승인</span>
+            <span data-final data-at="6" data-off="opacity:0" data-on="opacity:1" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#ff5f7d; opacity:0; transition:opacity .3s ease .12s">확정됨</span>
+          </span>
+        </div>
+      </div>
+      <p data-sub style="margin:0; font-size:12px; color:#5c5c63">화면·수치·태그는 모두 데모용 가상 데이터입니다.</p>
+    </div>
+  </section>
+
+  <section data-pin data-beats="4" style="background:#fafaf9; color:#0f0f10; position:relative">
+    <div style="position:sticky; top:0; height:100svh; display:flex; align-items:center; padding:clamp(30px,6vh,80px) 24px; overflow:hidden">
+      <div data-qa style="max-width:980px; margin:0 auto; width:100%; display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:clamp(22px,5vw,64px); align-items:center">
+        <div>
+          <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">IT GETS BETTER</span>
+          <h2 style="margin:20px 0 0; font-size:clamp(24px,3.4vw,42px); font-weight:300; line-height:1.4; letter-spacing:-.035em">일지는 쌓일수록<br><strong style="font-weight:800">답이 됩니다.</strong></h2>
+          <p data-hide-sm style="margin:24px 0 0; font-size:clamp(14px,1.7vh,16px); line-height:1.9; color:#5d5d64; max-width:420px">승인된 일지는 일관된 형식으로 축적됩니다. 같은 증상이 다시 나타나면, 과거의 판단과 조치를 근거와 함께 불러올 수 있습니다.</p>
+        </div>
+        <div style="background:#fff; border:1px solid #e7e7e4; border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:12px; box-shadow:0 18px 44px rgba(15,15,16,.06); min-height:clamp(190px,32vh,270px)">
+          <div data-at="1" style="align-self:flex-end; max-width:88%; background:#0f0f10; color:#fff; padding:13px 17px; border-radius:14px 14px 4px 14px; font-size:clamp(13.5px,1.6vh,14.5px); line-height:1.7; opacity:0; transform:translateY(14px); transition:opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1)">
+            <span data-type="이 온도 상승, 지난달에도 있었나요?" data-at="1"></span><span data-cursor style="width:2px; height:.95em; background:#EA002C; display:inline-block; vertical-align:-1px; margin-left:2px; animation:blink 1s steps(1,end) infinite; opacity:0; transition:opacity .3s"></span>
+          </div>
+          <div data-at="2" style="align-self:flex-start; max-width:94%; background:#f4f4f2; color:#22222a; padding:15px 17px; border-radius:14px 14px 14px 4px; font-size:clamp(13.5px,1.6vh,14.5px); line-height:1.75; display:flex; flex-direction:column; gap:11px; opacity:0; transform:translateY(14px); transition:opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1)">
+            <span>네, 유사 패턴이 <strong style="font-weight:700">2건</strong> 있었습니다. 두 번 모두 야간조에서 시작해 다음 주간조에 회복되었습니다.</span>
+            <div data-at="3" style="display:flex; flex-direction:column; gap:8px; padding-left:12px; border-left:2px solid #EA002C; opacity:0; transform:translateY(10px); transition:opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1)">
+              <span style="font-size:13px; color:#5d5d64; line-height:1.6"><strong style="color:#0f0f10; font-weight:600">6/12 야간조</strong> · 샘플링 의뢰 후 정상 확인</span>
+              <span style="font-size:13px; color:#5d5d64; line-height:1.6"><strong style="color:#0f0f10; font-weight:600">6/28 야간조</strong> · 냉각수 유량 조정, 4시간 내 안정</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-counters style="background:#0f0f10; color:#f4f4f5; padding:clamp(90px,13vw,170px) 24px">
+    <div style="max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:clamp(44px,6vw,72px)">
+      <div data-rev style="text-align:center; opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+        <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">EXPECTED IMPACT</span>
+        <h2 style="margin:22px 0 0; font-size:clamp(26px,3.8vw,44px); font-weight:300; line-height:1.4; letter-spacing:-.035em">한 번의 교대에서 <strong style="font-weight:800">달라지는 것</strong></h2>
+      </div>
+      <div data-impact style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:20px">
+        <div data-rev data-delay="0" style="border:1px solid #26262c; border-radius:16px; padding:38px 28px; display:flex; flex-direction:column; gap:12px; align-items:center; text-align:center; opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+          <span style="font-size:clamp(44px,6vw,66px); font-weight:800; letter-spacing:-.05em; line-height:1; color:#fff; display:flex; align-items:baseline">
+            <span data-count="90">90</span><span style="color:#EA002C">%+</span>
+          </span>
+          <span style="font-size:15px; color:#8f8f97; line-height:1.7">특이사항 포함률</span>
+        </div>
+        <div data-rev data-delay="90" style="border:1px solid #26262c; border-radius:16px; padding:38px 28px; display:flex; flex-direction:column; gap:12px; align-items:center; text-align:center; opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+          <span style="font-size:clamp(44px,6vw,66px); font-weight:800; letter-spacing:-.05em; line-height:1; color:#fff; display:flex; align-items:baseline">
+            <span data-count="60">60</span><span style="color:#EA002C">분 전</span>
+          </span>
+          <span style="font-size:15px; color:#8f8f97; line-height:1.7">교대 전 초안 자동 생성</span>
+        </div>
+        <div data-rev data-delay="180" style="border:1px solid #26262c; border-radius:16px; padding:38px 28px; display:flex; flex-direction:column; gap:12px; align-items:center; text-align:center; opacity:0; transform:translateY(28px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+          <span style="font-size:clamp(44px,6vw,66px); font-weight:800; letter-spacing:-.05em; line-height:1; color:#fff; display:flex; align-items:baseline">
+            <span data-count="100">100</span><span style="color:#EA002C">%</span>
+          </span>
+          <span style="font-size:15px; color:#8f8f97; line-height:1.7">기록 기준 표준화</span>
+        </div>
+      </div>
+      <p style="margin:0; text-align:center; font-size:12px; color:#5c5c63">위 수치는 실측값이 아닌 서비스 목표치입니다.</p>
+    </div>
+  </section>
+
+  <section data-pin data-beats="5" style="background:#fafaf9; color:#0f0f10; position:relative">
+    <div style="position:sticky; top:0; height:100svh; display:flex; flex-direction:column; justify-content:center; gap:clamp(22px,4vh,54px); padding:clamp(30px,6vh,80px) 24px; overflow:hidden">
+      <div style="max-width:960px; margin:0 auto; width:100%; text-align:center">
+        <span style="font-size:11px; letter-spacing:.24em; color:#EA002C; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:600">WHAT'S NEXT</span>
+        <h2 style="margin:16px 0 0; font-size:clamp(24px,3.6vw,46px); font-weight:300; line-height:1.4; letter-spacing:-.035em; text-wrap:pretty">교대 현장에서 시작해,<br><strong style="font-weight:800">모든 업무의 인수인계로.</strong></h2>
+      </div>
+
+      <div data-phases style="max-width:960px; margin:0 auto; width:100%; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:clamp(14px,2vw,26px); position:relative">
+        <div style="position:absolute; left:0; right:0; top:0; height:2px; background:#e2e2dd"></div>
+        <div data-bar style="position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg,#EA002C,#F47725); transform-origin:left; transform:scaleX(0); transition:transform .7s cubic-bezier(.16,1,.3,1)"></div>
+
+        <div data-at="1" style="padding:clamp(18px,2.8vh,32px) 20px 0 0; display:flex; flex-direction:column; gap:10px; opacity:0; transform:translateY(22px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">PHASE 1</span>
+          <h3 style="margin:0; font-size:clamp(15px,1.9vh,18px); font-weight:700; letter-spacing:-.02em">단일 공정 파일럿</h3>
+          <p style="margin:0; font-size:clamp(13px,1.6vh,14.5px); line-height:1.8; color:#6b6b72">한 개 라인의 2교대에 적용해 초안 정확도와 채택률을 측정합니다.</p>
+        </div>
+        <div data-at="2" style="padding:clamp(18px,2.8vh,32px) 20px 0; display:flex; flex-direction:column; gap:10px; opacity:0; transform:translateY(22px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">PHASE 2</span>
+          <h3 style="margin:0; font-size:clamp(15px,1.9vh,18px); font-weight:700; letter-spacing:-.02em">공장 단위 확대 · 질의 검색</h3>
+          <p style="margin:0; font-size:clamp(13px,1.6vh,14.5px); line-height:1.8; color:#6b6b72">축적된 일지를 근거로 과거 조치를 검색하고 인용하는 기능을 엽니다.</p>
+        </div>
+        <div data-at="3" style="padding:clamp(18px,2.8vh,32px) 0 0 20px; display:flex; flex-direction:column; gap:10px; opacity:0; transform:translateY(22px); transition:opacity .6s cubic-bezier(.16,1,.3,1), transform .6s cubic-bezier(.16,1,.3,1)">
+          <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#EA002C; font-weight:600">PHASE 3</span>
+          <h3 style="margin:0; font-size:clamp(15px,1.9vh,18px); font-weight:700; letter-spacing:-.02em">비공정 업무 인수인계</h3>
+          <p style="margin:0; font-size:clamp(13px,1.6vh,14.5px); line-height:1.8; color:#6b6b72">데이터가 남는 모든 업무로 확장합니다. 인계는 기억이 아니라 기록에서 출발합니다.</p>
+        </div>
+      </div>
+
+      <div data-at="4" style="max-width:820px; margin:0 auto; width:100%; text-align:center; opacity:0; transform:translateY(30px); transition:opacity .7s cubic-bezier(.16,1,.3,1), transform .7s cubic-bezier(.16,1,.3,1)">
+        <p style="margin:0; font-size:clamp(18px,2.7vw,32px); font-weight:300; line-height:1.5; letter-spacing:-.03em; color:#0f0f10; text-wrap:pretty">근무는 12시간마다 끝나지만,<br><strong style="font-weight:800">공정의 기억은 끊기지 않습니다.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <footer style="background:#0f0f10; color:#f4f4f5; position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:center; padding:clamp(80px,12vw,140px) 24px 70px">
+    <div style="position:absolute; inset:0; opacity:.28; pointer-events:none">
+      <svg viewBox="0 0 1440 400" preserveAspectRatio="none" style="width:100%; height:100%; display:block">
+        <g style="animation:drift 40s linear infinite">
+          <path d="M0,200 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0 q60,-58 120,0 q60,58 120,0" fill="none" stroke="#EA002C" stroke-width="1" opacity=".45"></path>
+        </g>
+        <g style="animation:drift 26s linear infinite">
+          <path d="M0,240 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0 q40,-26 80,0 q40,26 80,0" fill="none" stroke="#2b2b30" stroke-width="1"></path>
+        </g>
+      </svg>
+    </div>
+    <div style="position:absolute; inset:0; background:radial-gradient(ellipse at 50% 50%, rgba(15,15,16,.2) 0%, rgba(15,15,16,.9) 60%, #0f0f10 100%); pointer-events:none"></div>
+
+    <div style="position:relative; max-width:1040px; margin:0 auto; width:100%; display:flex; flex-direction:column; gap:clamp(44px,7vh,80px)">
+      <div data-rev style="display:flex; flex-direction:column; align-items:center; gap:16px; text-align:center; opacity:0; transform:translateY(22px); transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1)">
+        <div style="display:flex; align-items:center; gap:11px">
+          <span style="width:6px; height:6px; border-radius:50%; background:#EA002C; display:block"></span>
+          <span style="font-size:22px; font-weight:800; letter-spacing:-.045em; color:#fff; line-height:1">engra</span>
+        </div>
+        <p style="margin:0; font-size:14.5px; line-height:1.8; color:#8f8f97; max-width:380px">데이터가 먼저 쓰고, 사람이 마무리하는 인수인계.</p>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap; padding-top:26px; border-top:1px solid #1f1f23">
+        <span style="font-size:13px; color:#6b6b72">Team Engra</span>
+        <span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; color:#5c5c63; letter-spacing:.06em">SK AI 해커톤 2026 출품작 · <span id="jsflag">js: off</span></span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+
+var BEAT_VH = 0.72;
+var TOUCH = true;
+try { TOUCH = !!(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse)').matches); } catch (e) {}
+
+function parseDecl(str) {
+  var out = {}, parts = (str || '').split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var d = parts[i], k = d.indexOf(':');
+    if (k < 0) continue;
+    out[trim(d.slice(0, k))] = trim(d.slice(k + 1));
+  }
+  return out;
+}
+function trim(s) { return s.replace(/^\s+|\s+$/g, ''); }
+function list(root, sel) {
+  var n = root.querySelectorAll(sel), a = [];
+  for (var i = 0; i < n.length; i++) a.push(n[i]);
+  return a;
+}
+function applyState(el, on) {
+  var src = on ? el._on : el._off;
+  for (var k in src) { if (src.hasOwnProperty(k)) el.style.setProperty(k, src[k]); }
+}
+
+function Engra() {
+  this.pins = [];
+  this.revs = [];
+  this.counters = [];
+  this.vh = 0;
+  this.key = null;
+  this.counting = false;
+}
+
+Engra.prototype.setup = function () {
+  var self = this;
+  if (!this.vh) this.vh = window.innerHeight || 800;
+  var vh = Math.max(320, this.vh);
+  this.pins = [];
+
+  var pins = list(document, '[data-pin]');
+  for (var p = 0; p < pins.length; p++) {
+    var sec = pins[p];
+    var beats = Number(sec.getAttribute('data-beats')) || 1;
+    var sticky = sec.firstElementChild;
+    if (sticky && !sticky.getAttribute('data-wrapped')) {
+      sticky.setAttribute('data-wrapped', '1');
+      var wrap = document.createElement('div');
+      wrap.setAttribute('data-fit', '');
+      var cs = sticky.style;
+      wrap.style.cssText = 'width:100%; display:flex; flex-direction:column; justify-content:center; align-items:' + (cs.alignItems || 'stretch') + '; gap:' + cs.gap + '; padding:' + cs.padding + '; transform-origin:center center; transition:transform .3s ease';
+      while (sticky.firstChild) wrap.appendChild(sticky.firstChild);
+      sticky.appendChild(wrap);
+      cs.gap = '0'; cs.padding = '0'; cs.justifyContent = 'center'; cs.alignItems = 'center';
+    }
+    sec.style.height = (vh + (beats + 1) * vh * BEAT_VH) + 'px';
+
+    var snaps = sec.querySelector('[data-snaps]');
+    if (!snaps) {
+      snaps = document.createElement('div');
+      snaps.setAttribute('data-snaps', '');
+      snaps.style.cssText = 'position:absolute; left:0; top:0; width:1px; height:100%; pointer-events:none';
+      sec.appendChild(snaps);
+    }
+    snaps.innerHTML = '';
+    if (!TOUCH) {
+      for (var k = 0; k <= beats; k++) {
+        var m = document.createElement('div');
+        m.style.cssText = 'position:absolute; left:0; width:1px; height:1px; scroll-snap-align:start; top:' + Math.round((k + 0.45) * vh * BEAT_VH) + 'px';
+        snaps.appendChild(m);
+      }
+    }
+
+    var items = [], maxAt = 1;
+    var ats = list(sec, '[data-at]');
+    for (var i = 0; i < ats.length; i++) {
+      var el = ats[i];
+      if (!el._prepped) {
+        el._prepped = 1;
+        if (el.getAttribute('data-on')) {
+          el._on = parseDecl(el.getAttribute('data-on'));
+          el._off = parseDecl(el.getAttribute('data-off'));
+        } else {
+          el._on = { opacity: '1', transform: 'none' };
+          el._off = { opacity: el.style.opacity || '0', transform: el.style.transform || 'translateY(24px)' };
+        }
+      }
+      var at = Number(el.getAttribute('data-at'));
+      if (at > maxAt) maxAt = at;
+      items.push({ el: el, at: at });
+    }
+
+    var types = [];
+    var ts = list(sec, '[data-type]');
+    for (var t = 0; t < ts.length; t++) {
+      types.push({ el: ts[t], at: Number(ts[t].getAttribute('data-at')), text: ts[t].getAttribute('data-type'), cursor: ts[t].parentNode.querySelector('[data-cursor]'), on: null, iv: 0 });
+    }
+
+    this.pins.push({ sec: sec, beats: beats, maxAt: maxAt, items: items, types: types, bar: sec.querySelector('[data-bar]'), last: -99 });
+  }
+
+  this.revs = [];
+  var rv = list(document, '[data-rev]');
+  for (var r = 0; r < rv.length; r++) {
+    var e2 = rv[r];
+    if (!e2._prepped) {
+      e2._prepped = 1;
+      if (e2.getAttribute('data-on')) {
+        e2._on = parseDecl(e2.getAttribute('data-on'));
+        e2._off = parseDecl(e2.getAttribute('data-off'));
+      } else {
+        e2._on = { opacity: '1', transform: 'none' };
+        e2._off = { opacity: '0', transform: e2.style.transform || 'translateY(28px)' };
+      }
+      e2.style.transitionDelay = (Number(e2.getAttribute('data-delay')) || 0) + 'ms';
+    }
+    this.revs.push({ el: e2, on: null });
+  }
+
+  this.counters = [];
+  var cs2 = list(document, '[data-count]');
+  for (var c = 0; c < cs2.length; c++) this.counters.push({ el: cs2[c], target: Number(cs2[c].getAttribute('data-count')) });
+  this.counterSec = document.querySelector('[data-counters]');
+
+  if (!this.running) {
+    this.running = 1;
+    var step = function () { self.step(); };
+    if (window.addEventListener) {
+      window.addEventListener('scroll', step, false);
+      window.addEventListener('resize', step, false);
+      window.addEventListener('touchmove', step, false);
+    }
+    this.timer = setInterval(step, 50);
+    if (window.requestAnimationFrame) {
+      var loop = function () { window.requestAnimationFrame(loop); step(); };
+      window.requestAnimationFrame(loop);
+    }
+  }
+
+  this.key = null;
+  this.tick();
+  setTimeout(function () { self.fit(); }, 60);
+};
+
+Engra.prototype.step = function () {
+  var key = Math.round(window.pageYOffset || document.documentElement.scrollTop || 0) + 'x' + window.innerHeight + 'x' + window.innerWidth;
+  if (key === this.key) return;
+  var prev = this.key;
+  this.key = key;
+  this.tick();
+  if (prev) {
+    var a = prev.split('x'), b = key.split('x');
+    if (a[2] !== b[2] || Math.abs(Number(a[1]) - Number(b[1])) > 140) {
+      var self = this;
+      this.vh = window.innerHeight;
+      clearTimeout(this.reflow);
+      this.reflow = setTimeout(function () { self.setup(); }, 220);
+    }
+  }
+};
+
+Engra.prototype.fit = function () {
+  var V = window.innerHeight || 800;
+  var w = list(document, '[data-fit]');
+  for (var i = 0; i < w.length; i++) {
+    w[i].style.transform = 'none';
+    var h = w[i].scrollHeight;
+    var k = h > V ? Math.max(0.6, (V - 8) / h) : 1;
+    w[i].style.transform = k < 1 ? 'scale(' + k.toFixed(3) + ')' : 'none';
+  }
+};
+
+Engra.prototype.type = function (t, on) {
+  if (t.on === on) return;
+  t.on = on;
+  clearInterval(t.iv);
+  if (t.cursor) t.cursor.style.opacity = on ? '1' : '0';
+  if (!on) { t.el.innerHTML = ''; return; }
+  var i = 0;
+  t.iv = setInterval(function () {
+    i++;
+    t.el.innerHTML = '';
+    t.el.appendChild(document.createTextNode(t.text.slice(0, i)));
+    if (i >= t.text.length) { clearInterval(t.iv); if (t.cursor) t.cursor.style.opacity = '.45'; }
+  }, 34);
+};
+
+Engra.prototype.tick = function () {
+  var V = window.innerHeight || 800, i, j;
+  for (i = 0; i < this.pins.length; i++) {
+    var p = this.pins[i];
+    var rect = p.sec.getBoundingClientRect();
+    var span = rect.height - V;
+    var prog = span > 0 ? (-rect.top) / span : 0;
+    if (prog < 0) prog = 0; else if (prog > 1) prog = 1;
+    var beat = Math.floor(prog * (p.beats + 1) + 0.0001);
+    if (beat < 0) beat = 0; else if (beat > p.beats) beat = p.beats;
+    if (beat === p.last) continue;
+    p.last = beat;
+    for (j = 0; j < p.items.length; j++) applyState(p.items[j].el, beat >= p.items[j].at);
+    for (j = 0; j < p.types.length; j++) this.type(p.types[j], beat >= p.types[j].at);
+    if (p.bar) p.bar.style.transform = 'scaleX(' + Math.min(1, beat / p.maxAt).toFixed(3) + ')';
+  }
+
+  for (i = 0; i < this.revs.length; i++) {
+    var rr = this.revs[i];
+    var b = rr.el.getBoundingClientRect();
+    var on = b.top < V * 0.88 && b.bottom > 0;
+    if (on !== rr.on) { rr.on = on; applyState(rr.el, on); }
+  }
+
+  if (this.counterSec) {
+    var cb = this.counterSec.getBoundingClientRect();
+    var vis = cb.top < V * 0.7 && cb.bottom > 0;
+    if (vis && !this.counting) { this.counting = true; this.countUp(); }
+    else if (!vis && this.counting) {
+      this.counting = false;
+      for (i = 0; i < this.counters.length; i++) this.counters[i].el.innerHTML = '0';
+    }
+  }
+};
+
+Engra.prototype.countUp = function () {
+  var self = this, t0 = new Date().getTime();
+  var run = function () {
+    var pr = Math.min(1, (new Date().getTime() - t0) / 1300);
+    var e = 1 - Math.pow(1 - pr, 3);
+    for (var i = 0; i < self.counters.length; i++) {
+      self.counters[i].el.innerHTML = String(Math.round(self.counters[i].target * e));
+    }
+    if (pr < 1 && self.counting) setTimeout(run, 32);
+  };
+  run();
+};
+
+function boot() {
+  try {
+    document.documentElement.setAttribute('data-js', '1');
+    var app = new Engra();
+    app.setup();
+    var f = document.getElementById('jsflag');
+    if (f) f.innerHTML = 'js: on';
+    setTimeout(function () { app.setup(); }, 500);
+    setTimeout(function () { app.setup(); }, 1500);
+    if (window.addEventListener) {
+      window.addEventListener('orientationchange', function () {
+        app.vh = 0;
+        setTimeout(function () { app.setup(); }, 400);
+      }, false);
+    }
+  } catch (err) {
+    document.documentElement.removeAttribute('data-js');
+    var g = document.getElementById('jsflag');
+    if (g) g.innerHTML = 'js: err ' + ((err && err.message) || err);
+  }
+}
+if (document.readyState === 'loading') {
+  if (document.addEventListener) document.addEventListener('DOMContentLoaded', boot, false);
+  else window.onload = boot;
+} else { boot(); }
+
+</script>
+</body>
+</html>
