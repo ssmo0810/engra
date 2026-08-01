@@ -632,32 +632,6 @@ Engra.prototype.countUp = function () {
   run();
 };
 
-function boot() {
-  try {
-    document.documentElement.setAttribute('data-js', '1');
-    var app = new Engra();
-    app.setup();
-    var f = document.getElementById('jsflag');
-    if (f) f.innerHTML = 'js: on';
-    setTimeout(function () { app.setup(); }, 500);
-    setTimeout(function () { app.setup(); }, 1500);
-    if (window.addEventListener) {
-      window.addEventListener('orientationchange', function () {
-        app.vh = 0;
-        setTimeout(function () { app.setup(); }, 400);
-      }, false);
-    }
-  } catch (err) {
-    document.documentElement.removeAttribute('data-js');
-    var g = document.getElementById('jsflag');
-    if (g) g.innerHTML = 'js: err ' + ((err && err.message) || err);
-  }
-}
-if (document.readyState === 'loading') {
-  if (document.addEventListener) document.addEventListener('DOMContentLoaded', boot, false);
-  else window.onload = boot;
-} else { boot(); }
-
 </script>
 </body>
 </html>
