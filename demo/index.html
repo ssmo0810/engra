@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ENGRA — 화면 목업 (DCS / RTDB / ENGRA)</title>
+<style>
+  :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;--accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
+  .top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+  .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
+  .top span{font-size:12.5px;color:var(--sub)}
+  .disc{font-size:12px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;padding:7px 11px;border-radius:6px;margin:12px 0 16px}
+  .tabs{display:flex;gap:6px;border-bottom:2px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .tab{padding:9px 16px;border:none;background:none;font:inherit;font-weight:700;font-size:13.5px;color:var(--sub);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .tab small{display:block;font-weight:400;font-size:11px;color:var(--sub)}
+  .panel{display:none}.panel.on{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;background:#eceae6;color:var(--sub)}
+  .pill.ext{background:#f1f0ee;color:#8a8a8a}.pill.on{background:#dcefe2;color:var(--ok)}
+  .pill.red{background:#ffe0e6;color:#b00020}.pill.amber{background:#fdf0d8;color:var(--warn)}
+  .muted{color:var(--sub)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  .note{font-size:12.5px;color:var(--sub);margin-bottom:11px}
+
+  /* DCS 미믹 */
+  .hmi{background:#c8c9c4;border:1px solid #9a9b96;border-radius:5px;padding:6px;overflow-x:auto}
+  .hminav{display:flex;gap:3px;margin-bottom:5px;flex-wrap:wrap}
+  .hminav div{background:linear-gradient(#fdfdfd,#dedfda);border:1px solid #8f9089;border-radius:2px;font-size:10.5px;padding:3px 9px;font-family:ui-monospace,Menlo,monospace;white-space:nowrap}
+  .hminav div.sel{background:#7fd4f0;border-color:#3d7f96;font-weight:700}
+  .hmibar{background:#1c3f8f;color:#fff;font-size:10.5px;padding:2px 8px;display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace}
+  .hmifoot{display:flex;gap:3px;margin-top:5px}
+  .hmifoot div{background:linear-gradient(#fdfdfd,#dedfda);border:1px solid #8f9089;border-radius:2px;font-size:10px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace}
+  svg.mimic{display:block;background:#e8e9e4;min-width:940px}
+
+  /* RTDB 원시 데이터 표 */
+  .mini2{font:inherit;font-size:11.5px;font-weight:700;padding:4px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--sub);cursor:pointer}
+  .mini2:hover{border-color:var(--accent);color:var(--accent)}
+  .xl{border:1px solid #b0aeaa;border-radius:4px;overflow:hidden;background:#fff}
+  .xlbar{background:#e4e2dd;border-bottom:1px solid #b0aeaa;padding:5px 9px;font-size:11.5px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .xlbar b{font-family:ui-monospace,Menlo,monospace}
+  .xlwrap{overflow:auto;max-height:400px}
+  .xltab{border-collapse:separate;border-spacing:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;min-width:1080px;width:100%}
+  .xltab th{position:sticky;top:0;background:#dfe8f2;border-right:1px solid #bfcbd8;border-bottom:1px solid #9fb0c2;padding:4px 9px;text-align:right;white-space:nowrap;font-size:10.5px;z-index:2;line-height:1.3}
+  .xltab th u{display:block;font-weight:400;color:#78838f;font-size:9.5px;text-decoration:none}
+  .xltab th.tc{left:0;z-index:3;text-align:left;background:#cfdcea}
+  .xltab td{border-right:1px solid #efedea;border-bottom:1px solid #f4f2ef;padding:3px 9px;text-align:right;white-space:nowrap;color:#1c2530}
+  .xltab td.tc{position:sticky;left:0;background:#f6f5f2;text-align:left;border-right:1px solid #bfcbd8;font-weight:600;color:#3a4550}
+  .xltab tbody tr:nth-child(even) td{background:#fafaf8}
+  .xltab tbody tr:nth-child(even) td.tc{background:#f0eeeb}
+  .xltab tbody tr.nw td{background:#fff6d5}
+  .xltab tbody tr.nw td.tc{background:#fbeeb8}
+  .tmini{border:1px solid var(--line);border-radius:8px;background:#fcfcfb;padding:10px 12px;margin-bottom:12px}
+  .tmhd{display:flex;gap:9px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+  .tmhd select{font:inherit;font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:5px;background:#fff}
+  .tmhd span{font-size:11.5px}
+  .tmhd button{margin-left:auto}
+
+  /* ENGRA 초안 */
+  .item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff;transition:.15s}
+  .item.off{opacity:.5;background:#fafafa}
+  .item .row1{display:flex;align-items:flex-start;gap:10px}
+  .item input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+  .item .ttl{font-weight:700;font-size:13.5px;flex:1}
+  .item .meta{font-size:11.5px;color:var(--sub);margin:3px 0 8px 27px}
+  .item .body{margin-left:27px}
+  .why{font-size:12px;background:#f7f6f4;border-left:3px solid #cfcdc8;padding:6px 10px;border-radius:0 5px 5px 0;margin-bottom:8px}
+  .why b{color:var(--ink)}
+  .sug{font-size:12px;background:#f2f7f3;border-left:3px solid #a8ceb5;padding:6px 10px;border-radius:0 5px 5px 0;margin-bottom:8px}
+  .sug .lb{font-size:10.5px;font-weight:700;color:var(--ok);display:block;margin-bottom:2px}
+  .sug button{font:inherit;font-size:11px;border:1px solid #a8ceb5;background:#fff;color:var(--ok);border-radius:4px;padding:1px 7px;cursor:pointer;margin-left:6px}
+  textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:inherit;font-size:12.5px;resize:vertical;min-height:34px}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;background:#fff;border:1px solid var(--line);border-radius:9px;position:sticky;bottom:12px;flex-wrap:wrap}
+  .bar .cnt{font-size:13px}.bar .cnt b{color:var(--accent);font-size:16px}
+  .btn{font:inherit;font-weight:700;font-size:13.5px;padding:9px 22px;border-radius:7px;border:none;cursor:pointer;background:var(--accent);color:#fff}
+  .btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+  .done{background:#f2f8f4;border:1px solid #bcdcc7;border-radius:9px;padding:26px;text-align:center}
+  .done .t{font-size:17px;font-weight:800;color:var(--ok);margin-bottom:6px}
+
+  /* 일지 조회 */
+  .logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-bottom:8px;cursor:pointer;transition:.12s}
+  .logrow:hover{border-color:var(--accent);background:#fffafb}
+  .logrow .d{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;width:104px}
+  .logrow .s{font-size:12.5px;width:52px;color:var(--sub)}
+  .logrow .x{flex:1;font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .logrow .c{font-size:11.5px}
+  .logrow .arw{color:#c9c7c2;font-size:15px}
+  .det h3{font-size:15px;margin-bottom:2px}
+  .det .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
+  .ent{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:14px}
+  .ent .t{font-weight:700;font-size:13px}
+  .ent .m{font-size:11.5px;color:var(--sub);margin-bottom:4px}
+  .ent .c{font-size:12.5px;background:#f7f6f4;padding:6px 10px;border-radius:5px}
+  .ex{border-left:3px solid #d8d6d1;padding:2px 0 2px 12px;margin-bottom:9px;opacity:.72}
+  .ex .t{font-size:12.5px}
+  .back{font:inherit;font-size:12.5px;background:none;border:none;color:var(--accent);cursor:pointer;padding:0;margin-bottom:12px;font-weight:700}
+  /* 수동 추가 항목 */
+  .item.man{border-style:dashed}
+  .item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;border-bottom:1px solid var(--line);padding:1px 2px;background:none}
+  .item .tin:focus{outline:none;border-bottom-color:var(--accent)}
+  .item .min{width:100%;font:inherit;font-size:11.5px;color:var(--sub);border:none;border-bottom:1px dashed var(--line);padding:1px 2px;margin-bottom:8px;background:none}
+  .item .min:focus{outline:none;border-bottom-color:var(--accent)}
+  .del{font:inherit;font-size:11.5px;background:none;border:1px solid var(--line);color:var(--sub);border-radius:5px;padding:2px 9px;cursor:pointer}
+  .del:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <h1><b>ENGRA</b> 화면 목업</h1>
+  <span>DCS → RTDB → ENGRA 흐름의 화면 구성안</span>
+</div>
+<div class="disc">모든 태그명·수치·일지는 <b>가상의 모의 데이터</b>이며 실제 설비·운전 데이터와 무관합니다. DCS·RTDB 화면은 데이터의 출처를 보이기 위한 참고용 재현이며, ENGRA는 이 두 시스템에 개입하거나 이를 대체하지 않습니다.</div>
+
+<div class="tabs">
+  <button class="tab on" onclick="tab(0,this)">① DCS<small>실시간 감시 · 기존 시스템</small></button>
+  <button class="tab" onclick="tab(1,this)">② RTDB<small>구간 데이터 추출</small></button>
+  <button class="tab" onclick="tab(2,this)">③ ENGRA 초안 검토<small>핵심 화면</small></button>
+  <button class="tab" onclick="tab(3,this)">④ 일지 조회<small>축적 · 검색</small></button>
+</div>
+
+<!-- ① DCS -->
+<div class="panel on">
+  <div class="card">
+    <h2>제어시스템 공정 개요 화면 <span class="pill">기존 시스템 · ENGRA 개입 없음</span></h2>
+    <p class="note">근무자가 근무 중 주시하는 화면입니다. 공정 흐름도 위에 태그값이 직접 표시되며, 임계값을 넘으면 색으로 경보가 표시됩니다. 실시간 감시와 알람은 전적으로 DCS의 역할이고 ENGRA는 이 화면에 어떤 형태로도 나타나지 않습니다.</p>
+    <div class="hmi">
+      <div class="hminav">
+        <div>01-공기압축부</div><div>02-정제부</div><div>03-저온부</div>
+        <div class="sel">04-공정개요</div><div>05-제품계통</div><div>06-유틸리티</div><div>07-트렌드</div><div>08-알람이력</div>
+      </div>
+      <div class="hmibar"><span>UNIT-A / 공정 개요</span><span>2026-08-02 18:00:00</span></div>
+      <svg class="mimic" viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,monospace">
+        <defs>
+          <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5a5a5a"/></marker>
+        </defs>
+        <style>
+          .pipe{fill:none;stroke-width:2}
+          .air{stroke:#5a5a5a}.n2{stroke:#2f6bd8}.o2{stroke:#1e8a4c}.liq{stroke:#8a3fb0}.cw{stroke:#3aa8c8}
+          .eq{fill:#f4f4f1;stroke:#3a3a3a;stroke-width:1.3}
+          .lbl{font-size:9.5px;fill:#333}
+          .tv{font-size:10.5px;font-weight:700;fill:#0b3d91}
+          .tn{font-size:8.5px;fill:#6a6a6a}
+          .box{fill:#fbfbf8;stroke:#a9a9a4;stroke-width:.8}
+        </style>
+
+        <!-- 공기 흡입 → 압축기 -->
+        <text class="lbl" x="14" y="150">ATM</text>
+        <path class="pipe air" d="M40,155 L72,155" marker-end="url(#a)"/>
+        <rect class="eq" x="72" y="140" width="26" height="30"/><text class="lbl" x="76" y="182">필터</text>
+        <path class="pipe air" d="M98,155 L118,155"/>
+        <circle class="eq" cx="132" cy="155" r="15"/><circle class="eq" cx="160" cy="155" r="15"/>
+        <text class="lbl" x="122" y="188">공기압축기</text>
+        <path class="pipe air" d="M175,155 L206,155"/>
+        <rect class="box" x="98" y="98" width="72" height="26"/>
+        <text class="tn" x="102" y="108">FIC-3110 흡입유량</text><text class="tv" x="102" y="120">96,400 Nm³/h</text>
+
+        <!-- 애프터쿨러 -->
+        <rect class="eq" x="206" y="136" width="34" height="38"/>
+        <path d="M206,146 L240,146 M206,155 L240,155 M206,164 L240,164" stroke="#7a7a7a" stroke-width=".8"/>
+        <text class="lbl" x="202" y="186">냉각기</text>
+        <path class="pipe cw" d="M223,200 L223,174"/><text class="lbl" x="200" y="212">냉각수</text>
+        <rect class="box" x="176" y="226" width="76" height="26"/>
+        <text class="tn" x="180" y="236">TI-5003 냉각수입구</text><text class="tv" x="180" y="248">31.4 ℃</text>
+        <rect class="box" x="196" y="60" width="76" height="26"/>
+        <text class="tn" x="200" y="70">TI-2104 토출온도</text><text class="tv" x="200" y="82">78.4 ℃</text>
+        <path class="pipe air" d="M240,155 L268,155"/>
+
+        <!-- 정제부 (Molsieve) -->
+        <rect class="eq" x="268" y="112" width="24" height="86"/><rect class="eq" x="298" y="112" width="24" height="86"/>
+        <path d="M272,124 h16 M272,136 h16 M272,148 h16 M302,124 h16 M302,136 h16 M302,148 h16" stroke="#9a9a95" stroke-width=".7"/>
+        <text class="lbl" x="266" y="212">흡착탑 A/B</text>
+        <rect class="box" x="262" y="60" width="70" height="26"/>
+        <text class="tn" x="266" y="70">PDI-1205 차압</text><text class="tv" x="266" y="82">58.1 mbar</text>
+        <path class="pipe air" d="M322,155 L352,155"/>
+
+        <!-- 주열교환기 -->
+        <rect class="eq" x="352" y="108" width="46" height="96"/>
+        <path d="M352,108 L398,204 M352,204 L398,108" stroke="#8a8a85" stroke-width=".8"/>
+        <text class="lbl" x="348" y="218">주열교환기</text>
+        <rect class="box" x="336" y="60" width="78" height="26"/>
+        <text class="tn" x="340" y="70">TI-4020 저온단</text><text class="tv" x="340" y="82">-172.6 ℃</text>
+
+        <!-- 고압탑 -->
+        <path class="pipe air" d="M398,150 L432,150"/>
+        <rect class="eq" x="432" y="96" width="42" height="150" rx="4"/>
+        <path d="M436,118 h34 M436,136 h34 M436,154 h34 M436,172 h34 M436,190 h34" stroke="#a5a5a0" stroke-width=".7"/>
+        <rect x="433" y="222" width="40" height="23" fill="#a9cbe8" stroke="none"/>
+        <text class="lbl" x="428" y="262">고압탑 T-101</text>
+        <rect class="box" x="414" y="60" width="74" height="26"/>
+        <text class="tn" x="418" y="70">LIC-5010 액위</text><text class="tv" x="418" y="82">59.4 %</text>
+
+        <!-- 저압탑 -->
+        <path class="pipe liq" d="M474,232 L508,232 L508,262"/>
+        <rect class="eq" x="530" y="70" width="48" height="200" rx="4"/>
+        <path d="M534,92 h40 M534,112 h40 M534,132 h40 M534,152 h40 M534,172 h40 M534,192 h40 M534,212 h40" stroke="#a5a5a0" stroke-width=".7"/>
+        <rect x="531" y="244" width="46" height="25" fill="#9ec8de" stroke="none"/>
+        <text class="lbl" x="524" y="286">저압탑 T-102</text>
+        <path class="pipe liq" d="M508,262 L530,262"/>
+        <rect class="box" x="586" y="236" width="76" height="26"/>
+        <text class="tn" x="590" y="246">LIC-5020 액위</text><text class="tv" x="590" y="258">44.9 %</text>
+
+        <!-- 제품: GAN 상부 -->
+        <path class="pipe n2" d="M554,70 L554,44 L706,44" marker-end="url(#a)"/>
+        <text class="lbl" x="712" y="47">GAN</text>
+        <rect class="box" x="586" y="14" width="74" height="26"/>
+        <text class="tn" x="590" y="24">FIC-3210 GAN유량</text><text class="tv" x="590" y="36">28,480 Nm³/h</text>
+
+        <!-- 제품: GOX -->
+        <path class="pipe o2" d="M578,178 L646,178" marker-end="url(#a)"/>
+        <text class="lbl" x="652" y="181">GOX</text>
+        <rect class="box" x="586" y="140" width="76" height="26"/>
+        <text class="tn" x="590" y="150">AI-1201 제품순도</text><text class="tv" x="590" y="162">99.2 %O₂</text>
+
+        <!-- 밸브 + LOX 라인 -->
+        <path class="pipe liq" d="M578,258 L640,258"/>
+        <path d="M646,250 L646,266 L660,258 z M660,250 L660,266 L646,258 z" fill="#3fa34d" stroke="#2a6e34" stroke-width=".8"/>
+        <text class="tn" x="638" y="282">HV-4207</text>
+        <path class="pipe liq" d="M660,258 L716,258"/>
+        <rect class="box" x="672" y="212" width="72" height="26"/>
+        <text class="tn" x="676" y="222">HV-4207 개도</text><text class="tv" x="676" y="234">62.0 %</text>
+
+        <!-- 저장탱크 -->
+        <rect class="eq" x="756" y="196" width="58" height="94" rx="26"/>
+        <rect x="758" y="248" width="54" height="40" rx="20" fill="#c9a7de" stroke="none"/>
+        <text class="lbl" x="762" y="306">LOX 탱크</text>
+        <path class="pipe liq" d="M716,258 L756,258"/>
+        <rect class="box" x="838" y="212" width="72" height="26"/>
+        <text class="tn" x="842" y="222">LIC-6010 액위</text><text class="tv" x="842" y="234">77.0 %</text>
+
+        <rect class="eq" x="756" y="76" width="58" height="94" rx="26"/>
+        <rect x="758" y="120" width="54" height="48" rx="20" fill="#a9c6e8" stroke="none"/>
+        <text class="lbl" x="764" y="186">LIN 탱크</text>
+        <path class="pipe n2" d="M706,44 L786,44 L786,76"/>
+        <rect class="box" x="838" y="92" width="72" height="26"/>
+        <text class="tn" x="842" y="102">LIC-6020 액위</text><text class="tv" x="842" y="114">40.4 %</text>
+
+        <!-- 하단 유량 -->
+        <rect class="box" x="352" y="316" width="86" height="26"/>
+        <text class="tn" x="356" y="326">FI-3305 처리유량</text><text class="tv" x="356" y="338">70,955 Nm³/h</text>
+        <rect class="box" x="452" y="316" width="86" height="26"/>
+        <text class="tn" x="456" y="326">PI-1001 흡입압력</text><text class="tv" x="456" y="338">1.02 bar(a)</text>
+        <rect class="box" x="552" y="316" width="86" height="26"/>
+        <text class="tn" x="556" y="326">TI-4110 탑정온도</text><text class="tv" x="556" y="338">-174.1 ℃</text>
+      </svg>
+      <div class="hmifoot"><div>◀ 이전</div><div>다음 ▶</div><div>트렌드</div><div>알람</div><div>태그검색</div><div>인쇄</div></div>
+    </div>
+    <p class="note" style="margin-top:12px"><b style="color:var(--ink)">이 화면에서 주목할 점 —</b> 지금 이 순간 화면 어디에도 경보 표시가 없습니다. 그러나 ENGRA가 같은 구간을 분석해 찾아낸 특이사항 5건은 <b style="color:var(--ink)">모두 이 화면 안의 태그</b>에서 발생한 것입니다. 제품 순도(AI-1201)는 14시경 29분간 진동했고, 압축기 토출온도(TI-2104)는 16시부터 상승 중이며, 밸브 개도(HV-4207)는 세 번 이상 변동했습니다. 모두 알람 임계에는 도달하지 않아 화면상 아무 흔적을 남기지 않았고, 근무자가 그 시각에 해당 태그를 보고 있지 않았다면 존재 자체를 알 수 없습니다. <b style="color:var(--ink)">ENGRA가 다루는 영역이 바로 이 공백입니다.</b></p>
+  </div>
+</div>
+
+<!-- ② RTDB -->
+<div class="panel">
+  <div class="card">
+    <h2>실시간 데이터베이스 — 원시 데이터
+      <span class="pill">기존 시스템</span>
+      <span style="margin-left:auto"><button class="mini2" onclick="tglTrend()" id="tbtn">📈 트렌드 보기</button></span>
+    </h2>
+    <p class="note">DCS가 감시하는 태그값이 2초 주기로 기록되는 원본 테이블입니다. 가로는 태그, 세로는 시각이며 값이 계속 쌓입니다. 근무자가 특정 값을 확인할 때 조회하는 화면이고, 구간이 닫히는 시각(06:00 / 18:00)에 ENGRA 수집기가 같은 테이블에서 해당 12시간 구간을 일괄로 내려받습니다.</p>
+
+    <div id="tpanel" class="tmini" style="display:none">
+      <div class="tmhd">
+        <select id="tsel" onchange="drawMini()"></select>
+        <span class="muted" id="tinfo"></span>
+        <button class="mini2" onclick="tglTrend()">닫기</button>
+      </div>
+      <svg id="mini" viewBox="0 0 620 130" width="100%" height="130" font-family="ui-monospace,Menlo,monospace"></svg>
+    </div>
+
+    <div class="xl">
+      <div class="xlbar">
+        <b>UNIT-A_RAW</b>
+        <span class="muted">주기 2초</span>
+        <span class="muted">태그 48 (12개 표시)</span>
+        <span class="muted">구간 2026-08-02 06:00 ~ 18:00</span>
+        <span class="muted">누적 <span class="mono" id="rc">1,036,800</span> 행</span>
+        <span style="flex:1"></span>
+        <span class="pill on" id="live">● 수신 중</span>
+      </div>
+      <div class="xlwrap">
+        <table class="xltab">
+          <thead><tr id="xlhead"></tr></thead>
+          <tbody id="xlbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="note" style="margin-top:12px"><b style="color:var(--ink)">이 표의 한계 —</b> 12시간이면 태그 하나당 21,600행, 48개 태그면 <b style="color:var(--ink)">100만 행이 넘습니다.</b> 사람이 이 표를 스크롤해서 이상을 찾아내는 것은 불가능하고, 트렌드로 바꿔 봐도 태그 하나당 1분씩만 잡아 48분이 걸립니다. 근무 종료 직전에 그 시간을 낼 수 있는 근무자는 없으므로 실제로는 몇 개만 골라 보게 됩니다. <b style="color:var(--ink)">ENGRA는 이 표 전체를 매 구간 검토합니다.</b></p>
+  </div>
+
+  <div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="flex:1;min-width:250px">
+      <h2 style="margin-bottom:4px">ENGRA 수집기 연동</h2>
+      <p class="note" style="margin:0">사람의 조작 없이 정해진 시각에 자동으로 호출되며, 위 화면과 동일한 조회 경로를 사용합니다.</p>
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12.5px">
+      <span class="muted">요청 구간<br><b style="color:var(--ink)" class="mono">06:00~18:00</b></span>
+      <span class="muted">태그<br><b style="color:var(--ink)">48</b></span>
+      <span class="muted">레코드<br><b style="color:var(--ink)" class="mono">1,036,800</b></span>
+      <span class="muted">수신<br><span class="pill on">완료 18:00:42</span></span>
+      <span class="muted">요약 산출<br><span class="pill on">48행 누적</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ③ ENGRA 초안 -->
+<div class="panel">
+  <div id="draft">
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+    <div>
+      <h2 style="margin:0">주간조 인수인계 초안 <span class="pill amber">검토 대기</span></h2>
+      <div class="muted" style="font-size:12px">분석 구간 2026-08-02 06:00~18:00 · 초안 생성 18:09 · 교대 19:00</div>
+    </div>
+    <div class="muted" style="font-size:12px;text-align:right">감지 <b style="color:var(--ink)">5</b>건<br>전체 표시 (걸러내지 않음)</div>
+  </div>
+
+  <div class="card" style="padding:11px 16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11.5px">
+      <span class="muted" style="font-weight:700;margin-right:2px">검출기별 후보</span>
+      <span class="pill">이탈도 2</span><span class="pill">헌팅 1</span><span class="pill">드리프트 1</span>
+      <span class="pill">레벨 시프트 1</span><span class="pill">임계 근접 1</span>
+      <span class="muted">→ 구간 병합 후</span><span class="pill red">이벤트 5건</span>
+      <span class="muted" style="margin-left:auto">48개 태그 전량 검토 · 소요 9분 12초</span>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">제품 순도 헌팅 <span class="pill red">중요도 상</span></div></div>
+    <div class="meta">AI-1201 · 14:02~14:31 (29분) · 이후 안정</div>
+    <div class="body">
+      <svg width="100%" height="46" viewBox="0 0 420 46" style="margin-bottom:8px;display:block"><polyline points="0,24 40,23 80,25 110,10 125,38 140,9 155,39 170,11 185,37 200,12 215,36 230,22 260,24 300,23 340,24 380,23 420,24" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="24" x2="420" y2="24" stroke="#d5d3ce" stroke-dasharray="3 3"/></svg>
+      <div class="why"><b>감지 근거</b> — 이동창 표준편차가 베이스라인 대비 <b>4.2배</b>. 진폭 3.1%로 관리 기준(5%)에는 미달하나, 이 태그의 평소 변동폭이 0.7%로 작아 이례적 변화로 판정.</div>
+      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 2건</span>2026-06-12 야간조: 동일 태그 헌팅 발생, 샘플링 의뢰 후 정상 확인 <button onclick="use(this,'과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정.')">코멘트로 사용</button></div>
+      <textarea placeholder="코멘트 (선택)"></textarea>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">압축기 토출온도 완만 상승 <span class="pill red">중요도 상</span></div></div>
+    <div class="meta">TI-2104 · 16:10부터 지속 · 관리 상한까지 여유 6.6℃</div>
+    <div class="body">
+      <svg width="100%" height="46" viewBox="0 0 440 46" style="margin-bottom:8px;display:block"><polyline points="0,36 60,35 120,33 180,30 240,26 300,22 360,18 420,14" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="6" x2="420" y2="6" stroke="#e0a0a8" stroke-dasharray="3 3"/><text x="424" y="9" font-size="8" fill="#b00020">상한</text></svg>
+      <div class="why"><b>감지 근거</b> — 이동창 회귀 기울기 <b>+0.9℃/h</b>가 110분 지속. 현 추세 유지 시 관리 상한 도달까지 약 <b>7시간</b> 예상.</div>
+      <textarea placeholder="코멘트 (선택)"></textarea>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 발생 3회</span></div></div>
+    <div class="meta">HV-4207 · 09:40, 13:05, 17:22 · 직전 구간에서도 발생</div>
+    <div class="body">
+      <div class="why"><b>감지 근거</b> — 단시간 개도 변동이 베이스라인 대비 3.0배. <b>직전 2개 구간 일지에도 동일 항목이 기록</b>되어 연속 발생으로 표시.</div>
+      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 1건</span>2026-07-28 주간조: 설비팀 점검 요청 접수, 미완료 <button onclick="use(this,'연속 3회째. 설비팀 점검 진행 상황 확인 필요.')">코멘트로 사용</button></div>
+      <textarea placeholder="코멘트 (선택)"></textarea>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">GAN 유량 미세 레벨 변화 <span class="pill">중요도 하</span></div></div>
+    <div class="meta">FIC-3210 · 11:15 전후 · CUSUM 누적 임계 초과</div>
+    <div class="body"><div class="why"><b>감지 근거</b> — 평균 수준이 1.2% 낮은 쪽으로 이동해 유지. 단일 시점으로는 판별되지 않아 누적합 기준으로 검출.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
+  </div>
+
+  <div class="item">
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">냉각수 입구온도 임계 근접 체류 <span class="pill">중요도 하</span></div></div>
+    <div class="meta">TI-5003 · 07:30~08:10 (40분) · 관리 상한의 95% 구간 체류</div>
+    <div class="body"><div class="why"><b>감지 근거</b> — 알람 발생 없음. 상한 근접 구간 체류 시간이 베이스라인 대비 길어 표시.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
+  </div>
+
+  <div id="manlist"></div>
+
+  <div class="card" style="border-style:dashed;text-align:center">
+    <h2 style="font-size:13px;justify-content:center">직접 추가 <span class="pill">AI가 감지하지 못한 사항</span></h2>
+    <p class="note" style="margin-bottom:10px">현장 순찰 발견 사항, 작업 진행 상황 등 데이터에 나타나지 않는 내용을 등록합니다. 필요한 만큼 추가할 수 있으며, 감지 항목과 동일하게 채택·제외와 코멘트가 기록됩니다.</p>
+    <button class="btn ghost" onclick="addMan()">＋ 항목 추가</button>
+  </div>
+
+  <div class="bar">
+    <div class="cnt">채택 <b id="n">5</b> / <span id="tot">5</span>건 <span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span></div>
+    <div><button class="btn ghost" onclick="alert('임시 저장되었습니다. (목업)')">임시 저장</button>
+    <button class="btn" onclick="ok()">승인하고 확정</button></div>
+  </div>
+  </div>
+
+  <div id="after" style="display:none">
+    <div class="done">
+      <div class="t">인수인계서가 확정되었습니다</div>
+      <div class="muted" style="font-size:13px">2026-08-02 주간조 · 승인 18:47 · 채택 <b id="n2">5</b>건 / 제외 <b id="n3">0</b>건</div>
+      <div class="muted" style="font-size:12.5px;margin-top:10px">채택·제외 결과가 함께 기록되어 감지 감도 조정에 반영되고,<br>확정 일지는 다음 근무조 화면과 조회 대상에 즉시 추가됩니다.</div>
+      <button class="btn ghost" style="margin-top:14px" onclick="reset()">다시 보기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ④ 일지 조회 -->
+<div class="panel">
+  <div id="loglist">
+    <div class="card">
+      <h2>확정 일지 <span class="pill">날짜를 선택하면 전문을 확인합니다</span></h2>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input class="mono" placeholder="태그 · 키워드 검색 (예: HV-4207)" style="flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--line);border-radius:6px;font:inherit">
+        <select style="font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:6px"><option>최근 30일</option><option>최근 90일</option><option>전체</option></select>
+        <button class="btn" style="padding:8px 18px">검색</button>
+      </div>
+
+      <div class="logrow" onclick="open1()">
+        <span class="d">2026-08-02</span><span class="s">주간</span>
+        <span class="x">제품 순도 헌팅 · 압축기 토출온도 상승 · 밸브 개도 이상 외 2건</span>
+        <span class="c"><span class="pill red">5건</span></span><span class="arw">›</span>
+      </div>
+      <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
+        <span class="d">2026-08-02</span><span class="s">야간</span>
+        <span class="x">저압탑 액위 변동 · 냉각수 입구온도 상승</span>
+        <span class="c"><span class="pill amber">2건</span></span><span class="arw">›</span>
+      </div>
+      <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
+        <span class="d">2026-08-01</span><span class="s">주간</span>
+        <span class="x">밸브 개도 이상 2회 — 조치 없이 관찰</span>
+        <span class="c"><span class="pill amber">3건</span></span><span class="arw">›</span>
+      </div>
+      <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
+        <span class="d">2026-08-01</span><span class="s">야간</span>
+        <span class="x">특이사항 없음 — 감지 항목 1건 전량 제외</span>
+        <span class="c"><span class="pill">0건</span></span><span class="arw">›</span>
+      </div>
+      <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
+        <span class="d">2026-07-28</span><span class="s">주간</span>
+        <span class="x">밸브 개도 이상 — 설비팀 점검 요청 접수, 미완료</span>
+        <span class="c"><span class="pill amber">2건</span></span><span class="arw">›</span>
+      </div>
+      <p class="note" style="margin:12px 0 0">검색 결과 5건 · <b style="color:var(--ink)">HV-4207</b> 관련 항목이 최근 30일 내 3개 일지에서 반복 확인됩니다.</p>
+    </div>
+
+    <div class="card" style="opacity:.62">
+      <h2>대화형 질의 <span class="pill ext">확장 기능 · 이번 구현 범위 아님</span></h2>
+      <div style="background:#f7f6f4;border-radius:7px;padding:12px 14px;font-size:12.5px">
+        <div style="margin-bottom:8px"><b>질문</b> — 이 밸브 건, 지난달에도 있었나요? 조치는 어디까지 됐죠?</div>
+        <div class="muted"><b style="color:var(--ink)">답변</b> — 최근 30일 내 3건 기록되어 있습니다. 7/28 주간조에서 설비팀 점검을 요청했으나 완료 기록이 없고, 이후 8/1·8/2에 재발했습니다. <span style="font-size:11.5px">(근거: 2026-07-28, 08-01, 08-02 확정 일지)</span></div>
+      </div>
+      <p class="note" style="margin:9px 0 0">답변의 근거가 될 일지가 충분히 쌓인 뒤에 의미를 갖는 기능이므로 확장 단계에서 도입합니다. 검색 엔진은 이미 구현되어 있어 추가 부담이 크지 않습니다.</p>
+    </div>
+  </div>
+
+  <div id="logdet" style="display:none">
+    <div class="card det">
+      <button class="back" onclick="close1()">‹ 목록으로</button>
+      <h3>2026-08-02 주간조 인수인계서</h3>
+      <div class="sub">분석 구간 06:00~18:00 · 작성 ENGRA 18:09 · 승인 근무자 A 18:47 · 감지 5건 중 <b>4건 채택 / 1건 제외</b></div>
+
+      <div class="ent">
+        <div class="t">제품 순도 헌팅 <span class="pill red">중요도 상</span></div>
+        <div class="m">AI-1201 · 14:02~14:31 (29분) · 평소 변동 대비 4.2배</div>
+        <div class="c">과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정. <span class="muted">— 근무자 A</span></div>
+      </div>
+      <div class="ent">
+        <div class="t">압축기 토출온도 완만 상승 <span class="pill red">중요도 상</span></div>
+        <div class="m">TI-2104 · 16:10부터 지속 · +0.9℃/h · 상한까지 여유 6.6℃</div>
+        <div class="c">야간조 지속 관찰 요망. 상한 도달 예상 시각 익일 01시경. <span class="muted">— 근무자 A</span></div>
+      </div>
+      <div class="ent">
+        <div class="t">밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 3회</span></div>
+        <div class="m">HV-4207 · 09:40, 13:05, 17:22 · 직전 2개 구간에서도 발생</div>
+        <div class="c">연속 3회째. 설비팀 점검 진행 상황 확인 필요. <span class="muted">— 근무자 A</span></div>
+      </div>
+      <div class="ent">
+        <div class="t">냉각수 입구온도 임계 근접 체류 <span class="pill">중요도 하</span></div>
+        <div class="m">TI-5003 · 07:30~08:10 (40분) · 상한 95% 구간 체류</div>
+        <div class="c muted">코멘트 없음</div>
+      </div>
+
+      <div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>
+      <p class="note" style="margin-bottom:8px"><b style="color:var(--ink)">제외된 항목</b> — 근무자가 전달 대상이 아니라고 판단한 항목도 기록으로 남습니다.</p>
+      <div class="ex">
+        <div class="t">GAN 유량 미세 레벨 변화 <span class="pill">중요도 하</span></div>
+        <div class="m">FIC-3210 · 11:15 전후 · CUSUM 누적 임계 초과 · <b>제외</b></div>
+      </div>
+      <p class="note" style="margin-top:14px">이 기록은 감지 감도 조정의 근거로 사용되며, 같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+function tab(i,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('on',j===i));
+  window.scrollTo(0,0);
+}
+function tg(cb){ cb.closest('.item').classList.toggle('off',!cb.checked); cnt(); }
+function cnt(){
+  const b=document.querySelectorAll('#draft .item input[type=checkbox]');
+  const c=[...b].filter(x=>x.checked).length;
+  document.getElementById('n').textContent=c;
+  document.getElementById('tot').textContent=b.length;
+  return c;
+}
+let mid=0;
+function addMan(){
+  mid++;
+  const d=document.createElement('div');
+  d.className='item man';
+  d.innerHTML=
+    '<div class="row1">'+
+      '<input type="checkbox" checked onchange="tg(this)">'+
+      '<input class="tin" placeholder="항목 제목 — 예) 순찰 중 배관 보온재 손상 확인">'+
+      '<span class="pill">직접 추가</span>'+
+      '<button class="del" onclick="delMan(this)">삭제</button>'+
+    '</div>'+
+    '<div class="body" style="margin-top:6px">'+
+      '<input class="min" placeholder="설비 · 위치 · 발생 시각 — 예) 3번 라인 배관 · 15:20">'+
+      '<textarea placeholder="상세 내용과 조치 사항"></textarea>'+
+    '</div>';
+  document.getElementById('manlist').appendChild(d);
+  d.querySelector('.tin').focus();
+  cnt();
+}
+function delMan(btn){ btn.closest('.item').remove(); cnt(); }
+function use(btn,txt){ const ta=btn.closest('.body').querySelector('textarea'); ta.value=txt; ta.focus(); }
+function ok(){
+  const t=document.querySelectorAll('#draft .item').length, c=cnt();
+  document.getElementById('n2').textContent=c;
+  document.getElementById('n3').textContent=t-c;
+  document.getElementById('draft').style.display='none';
+  document.getElementById('after').style.display='block';
+  window.scrollTo(0,0);
+}
+function reset(){ document.getElementById('after').style.display='none'; document.getElementById('draft').style.display='block'; }
+function open1(){ document.getElementById('loglist').style.display='none'; document.getElementById('logdet').style.display='block'; window.scrollTo(0,0); }
+function close1(){ document.getElementById('logdet').style.display='none'; document.getElementById('loglist').style.display='block'; window.scrollTo(0,0); }
+
+/* ===== RTDB 원시 데이터 스트리밍 (모의) ===== */
+const TAGS=[
+ {id:'PI-1001', nm:'흡입압력',    u:'bar(a)', v:1.02,   a:0.006, d:2},
+ {id:'TI-2104', nm:'토출온도',    u:'℃',      v:78.40,  a:0.09,  d:1, dr:0.004},
+ {id:'FIC-3110',nm:'흡입유량',    u:'Nm³/h',  v:96400,  a:95,    d:0},
+ {id:'PDI-1205',nm:'흡착탑차압',  u:'mbar',   v:58.10,  a:0.22,  d:1},
+ {id:'TI-4020', nm:'저온단온도',  u:'℃',      v:-172.6, a:0.12,  d:1},
+ {id:'LIC-5010',nm:'고압탑액위',  u:'%',      v:59.40,  a:0.16,  d:1},
+ {id:'AI-1201', nm:'제품순도',    u:'%O₂',    v:99.20,  a:0.035, d:2},
+ {id:'FIC-3210',nm:'GAN유량',     u:'Nm³/h',  v:28480,  a:52,    d:0},
+ {id:'HV-4207', nm:'밸브개도',    u:'%',      v:62.00,  a:0.14,  d:1},
+ {id:'TI-5003', nm:'냉각수입구',  u:'℃',      v:31.40,  a:0.11,  d:1},
+ {id:'LIC-6010',nm:'LOX액위',     u:'%',      v:77.00,  a:0.05,  d:1},
+ {id:'TI-4110', nm:'탑정온도',    u:'℃',      v:-174.1, a:0.09,  d:1}
+];
+const BUF={}, MAXROW=22, MAXBUF=80;
+let clk={h:18,mi:0,s:0}, rows=1036800, streamOn=false;
+
+function pad(n){ return n<10?'0'+n:''+n; }
+function stamp(){ return '2026-08-02 '+pad(clk.h)+':'+pad(clk.mi)+':'+pad(clk.s); }
+function fmt(v,d){ return v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+
+function initRaw(){
+  const h=document.getElementById('xlhead'); if(!h||h.children.length) return;
+  h.innerHTML='<th class="tc">Timestamp<u>YYYY-MM-DD hh:mm:ss</u></th>'+
+    TAGS.map(t=>'<th>'+t.id+'<u>'+t.nm+' · '+t.u+'</u></th>').join('');
+  const s=document.getElementById('tsel');
+  s.innerHTML=TAGS.map(t=>'<option value="'+t.id+'">'+t.id+' — '+t.nm+' ('+t.u+')</option>').join('');
+  TAGS.forEach(t=>BUF[t.id]=[]);
+  for(let i=0;i<MAXROW;i++) tick(true);
+  streamOn=true;
+  setInterval(()=>{ if(streamOn) tick(false); }, 950);
+}
+function tick(silent){
+  clk.s+=2; if(clk.s>=60){ clk.s-=60; clk.mi++; }
+  if(clk.mi>=60){ clk.mi-=60; clk.h=(clk.h+1)%24; }
+  rows++;
+  const tds=TAGS.map(t=>{
+    t.v += (Math.random()-0.5)*2*t.a + (t.dr||0);
+    BUF[t.id].push(t.v); if(BUF[t.id].length>MAXBUF) BUF[t.id].shift();
+    return '<td>'+fmt(t.v,t.d)+'</td>';
+  }).join('');
+  const b=document.getElementById('xlbody');
+  const tr=document.createElement('tr');
+  tr.className='nw';
+  tr.innerHTML='<td class="tc">'+stamp()+'</td>'+tds;
+  b.insertBefore(tr,b.firstChild);
+  while(b.children.length>MAXROW) b.removeChild(b.lastChild);
+  if(b.children[1]) b.children[1].className='';
+  const rc=document.getElementById('rc'); if(rc) rc.textContent=rows.toLocaleString('en-US');
+  if(!silent && document.getElementById('tpanel').style.display!=='none') drawMini();
+}
+function tglTrend(){
+  const p=document.getElementById('tpanel'), b=document.getElementById('tbtn');
+  const on=p.style.display==='none';
+  p.style.display=on?'block':'none';
+  b.textContent=on?'📈 트렌드 닫기':'📈 트렌드 보기';
+  if(on) drawMini();
+}
+function drawMini(){
+  const id=document.getElementById('tsel').value||TAGS[0].id;
+  const t=TAGS.find(x=>x.id===id), d=BUF[id]||[];
+  if(d.length<2) return;
+  const mn=Math.min(...d), mx=Math.max(...d), rg=(mx-mn)||1;
+  const pts=d.map((v,i)=>(30+i*(580/(d.length-1))).toFixed(1)+','+(110-((v-mn)/rg)*88).toFixed(1)).join(' ');
+  document.getElementById('mini').innerHTML=
+    '<rect x="30" y="14" width="580" height="98" fill="#fff" stroke="#dcdad6"/>'+
+    '<line x1="30" y1="38" x2="610" y2="38" stroke="#f0eeeb"/>'+
+    '<line x1="30" y1="63" x2="610" y2="63" stroke="#f0eeeb"/>'+
+    '<line x1="30" y1="88" x2="610" y2="88" stroke="#f0eeeb"/>'+
+    '<polyline fill="none" stroke="#EA002C" stroke-width="1.6" points="'+pts+'"/>'+
+    '<text x="4" y="20" font-size="9" fill="#8a8a85">'+fmt(mx,t.d)+'</text>'+
+    '<text x="4" y="114" font-size="9" fill="#8a8a85">'+fmt(mn,t.d)+'</text>'+
+    '<text x="30" y="126" font-size="9" fill="#8a8a85">최근 '+d.length+'포인트 ('+(d.length*2)+'초)</text>'+
+    '<text x="610" y="126" font-size="9" fill="#8a8a85" text-anchor="end">현재 '+fmt(d[d.length-1],t.d)+' '+t.u+'</text>';
+  document.getElementById('tinfo').textContent='범위 '+fmt(mn,t.d)+' ~ '+fmt(mx,t.d)+' '+t.u;
+}
+initRaw();
+</script>
+</body>
+</html>
