@@ -58,4 +58,4 @@ DCS 공정 화면과 RTDB 원시 데이터에서 시작해, ENGRA가 만든 초�
 
 ## 팀
 
-Team Engra · SK AI 해커톤 2026 출품작
+팀 앙그라쥬 (Team Angrage) · SK AI 해커톤 2026 출품작
