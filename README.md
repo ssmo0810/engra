@@ -3,7 +3,7 @@
 
 교대 근무 인수인계를 데이터가 먼저 쓰고, 사람이 마무리하는 AI 서비스.
 
-**데모 페이지 →** https://ssmo0810.github.io/engra
+**소개 페이지 →** https://ssmo0810.github.io/engra
 
 ---
 
