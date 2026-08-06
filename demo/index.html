@@ -34,7 +34,7 @@
   .hmibar{background:#1c3f8f;color:#fff;font-size:10.5px;padding:2px 8px;display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace}
   .hmifoot{display:flex;gap:3px;margin-top:5px}
   .hmifoot div{background:linear-gradient(#fdfdfd,#dedfda);border:1px solid #8f9089;border-radius:2px;font-size:10px;padding:2px 8px;font-family:ui-monospace,Menlo,monospace}
-  svg.mimic{display:block;background:#e8e9e4;min-width:940px}
+  svg.mimic{display:block;background:#e8e9e4;min-width:980px}
 
   /* RTDB 원시 데이터 표 */
   .mini2{font:inherit;font-size:11.5px;font-weight:700;padding:4px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--sub);cursor:pointer}
@@ -59,6 +59,12 @@
   .tmhd span{font-size:11.5px}
   .tmhd button{margin-left:auto}
 
+  /* 항목 차트 호버 */
+  .ch{position:relative}
+  .ch svg{cursor:crosshair}
+  .ch .tip{position:absolute;top:-3px;transform:translate(-50%,-100%);background:#14161a;color:#fff;font-size:11px;
+    padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none;font-family:ui-monospace,Menlo,monospace;z-index:5}
+  .ch .tip:after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#14161a}
   /* ENGRA 초안 */
   .item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;background:#fff;transition:.15s}
   .item.off{opacity:.5;background:#fafafa}
@@ -134,7 +140,7 @@
         <div class="sel">04-공정개요</div><div>05-제품계통</div><div>06-유틸리티</div><div>07-트렌드</div><div>08-알람이력</div>
       </div>
       <div class="hmibar"><span>UNIT-A / 공정 개요</span><span>2026-08-02 18:00:00</span></div>
-      <svg class="mimic" viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,monospace">
+      <svg class="mimic" viewBox="0 0 980 378" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Menlo,monospace">
         <defs>
           <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#5a5a5a"/></marker>
         </defs>
@@ -142,110 +148,83 @@
           .pipe{fill:none;stroke-width:2}
           .air{stroke:#5a5a5a}.n2{stroke:#2f6bd8}.o2{stroke:#1e8a4c}.liq{stroke:#8a3fb0}.cw{stroke:#3aa8c8}
           .eq{fill:#f4f4f1;stroke:#3a3a3a;stroke-width:1.3}
-          .lbl{font-size:9.5px;fill:#333}
-          .tv{font-size:10.5px;font-weight:700;fill:#0b3d91}
-          .tn{font-size:8.5px;fill:#6a6a6a}
+          .lbl{font-size:10px;fill:#333}
+          .pl{font-size:10px;fill:#333;font-weight:700}
+          .tv{font-size:11.5px;font-weight:700;fill:#0b3d91}
+          .tn{font-size:9px;fill:#6a6a6a}
           .box{fill:#fbfbf8;stroke:#a9a9a4;stroke-width:.8}
         </style>
 
-        <!-- 공기 흡입 → 압축기 -->
         <text class="lbl" x="14" y="150">ATM</text>
-        <path class="pipe air" d="M40,155 L72,155" marker-end="url(#a)"/>
-        <rect class="eq" x="72" y="140" width="26" height="30"/><text class="lbl" x="76" y="182">필터</text>
+        <path class="pipe air" d="M42,155 L70,155" marker-end="url(#a)"/>
+        <rect class="eq" x="72" y="140" width="26" height="30"/><text class="lbl" x="74" y="184">필터</text>
         <path class="pipe air" d="M98,155 L118,155"/>
         <circle class="eq" cx="132" cy="155" r="15"/><circle class="eq" cx="160" cy="155" r="15"/>
-        <text class="lbl" x="122" y="188">공기압축기</text>
+        <text class="lbl" x="118" y="190">공기압축기</text>
         <path class="pipe air" d="M175,155 L206,155"/>
-        <rect class="box" x="98" y="98" width="72" height="26"/>
-        <text class="tn" x="102" y="108">FIC-3110 흡입유량</text><text class="tv" x="102" y="120">96,400 Nm³/h</text>
 
-        <!-- 애프터쿨러 -->
         <rect class="eq" x="206" y="136" width="34" height="38"/>
         <path d="M206,146 L240,146 M206,155 L240,155 M206,164 L240,164" stroke="#7a7a7a" stroke-width=".8"/>
-        <text class="lbl" x="202" y="186">냉각기</text>
-        <path class="pipe cw" d="M223,200 L223,174"/><text class="lbl" x="200" y="212">냉각수</text>
-        <rect class="box" x="176" y="226" width="76" height="26"/>
-        <text class="tn" x="180" y="236">TI-5003 냉각수입구</text><text class="tv" x="180" y="248">31.4 ℃</text>
-        <rect class="box" x="196" y="60" width="76" height="26"/>
-        <text class="tn" x="200" y="70">TI-2104 토출온도</text><text class="tv" x="200" y="82">78.4 ℃</text>
+        <text class="lbl" x="204" y="188">냉각기</text>
+        <path class="pipe cw" d="M223,206 L223,174"/><text class="lbl" x="196" y="220">냉각수</text>
         <path class="pipe air" d="M240,155 L268,155"/>
 
-        <!-- 정제부 (Molsieve) -->
         <rect class="eq" x="268" y="112" width="24" height="86"/><rect class="eq" x="298" y="112" width="24" height="86"/>
         <path d="M272,124 h16 M272,136 h16 M272,148 h16 M302,124 h16 M302,136 h16 M302,148 h16" stroke="#9a9a95" stroke-width=".7"/>
-        <text class="lbl" x="266" y="212">흡착탑 A/B</text>
-        <rect class="box" x="262" y="60" width="70" height="26"/>
-        <text class="tn" x="266" y="70">PDI-1205 차압</text><text class="tv" x="266" y="82">58.1 mbar</text>
+        <text class="lbl" x="266" y="214">흡착탑 A/B</text>
         <path class="pipe air" d="M322,155 L352,155"/>
 
-        <!-- 주열교환기 -->
         <rect class="eq" x="352" y="108" width="46" height="96"/>
         <path d="M352,108 L398,204 M352,204 L398,108" stroke="#8a8a85" stroke-width=".8"/>
-        <text class="lbl" x="348" y="218">주열교환기</text>
-        <rect class="box" x="336" y="60" width="78" height="26"/>
-        <text class="tn" x="340" y="70">TI-4020 저온단</text><text class="tv" x="340" y="82">-172.6 ℃</text>
-
-        <!-- 고압탑 -->
+        <text class="lbl" x="344" y="220">주열교환기</text>
         <path class="pipe air" d="M398,150 L432,150"/>
+
         <rect class="eq" x="432" y="96" width="42" height="150" rx="4"/>
         <path d="M436,118 h34 M436,136 h34 M436,154 h34 M436,172 h34 M436,190 h34" stroke="#a5a5a0" stroke-width=".7"/>
-        <rect x="433" y="222" width="40" height="23" fill="#a9cbe8" stroke="none"/>
-        <text class="lbl" x="428" y="262">고압탑 T-101</text>
-        <rect class="box" x="414" y="60" width="74" height="26"/>
-        <text class="tn" x="418" y="70">LIC-5010 액위</text><text class="tv" x="418" y="82">59.4 %</text>
+        <rect x="433" y="222" width="40" height="23" fill="#a9cbe8"/>
+        <text class="lbl" x="424" y="264">고압탑 T-101</text>
 
-        <!-- 저압탑 -->
-        <path class="pipe liq" d="M474,232 L508,232 L508,262"/>
+        <path class="pipe liq" d="M474,232 L508,232 L508,262 L530,262"/>
+
         <rect class="eq" x="530" y="70" width="48" height="200" rx="4"/>
         <path d="M534,92 h40 M534,112 h40 M534,132 h40 M534,152 h40 M534,172 h40 M534,192 h40 M534,212 h40" stroke="#a5a5a0" stroke-width=".7"/>
-        <rect x="531" y="244" width="46" height="25" fill="#9ec8de" stroke="none"/>
-        <text class="lbl" x="524" y="286">저압탑 T-102</text>
-        <path class="pipe liq" d="M508,262 L530,262"/>
-        <rect class="box" x="586" y="236" width="76" height="26"/>
-        <text class="tn" x="590" y="246">LIC-5020 액위</text><text class="tv" x="590" y="258">44.9 %</text>
+        <rect x="531" y="244" width="46" height="25" fill="#9ec8de"/>
+        <text class="lbl" x="520" y="288">저압탑 T-102</text>
 
-        <!-- 제품: GAN 상부 -->
-        <path class="pipe n2" d="M554,70 L554,44 L706,44" marker-end="url(#a)"/>
-        <text class="lbl" x="712" y="47">GAN</text>
-        <rect class="box" x="586" y="14" width="74" height="26"/>
-        <text class="tn" x="590" y="24">FIC-3210 GAN유량</text><text class="tv" x="590" y="36">28,480 Nm³/h</text>
+        <path class="pipe n2" d="M554,70 L554,40 L786,40 L786,76"/>
+        <text class="pl" x="716" y="34">GAN</text>
 
-        <!-- 제품: GOX -->
-        <path class="pipe o2" d="M578,178 L646,178" marker-end="url(#a)"/>
-        <text class="lbl" x="652" y="181">GOX</text>
-        <rect class="box" x="586" y="140" width="76" height="26"/>
-        <text class="tn" x="590" y="150">AI-1201 제품순도</text><text class="tv" x="590" y="162">99.2 %O₂</text>
+        <path class="pipe o2" d="M578,178 L700,178" marker-end="url(#a)"/>
+        <text class="pl" x="706" y="182">GOX</text>
 
-        <!-- 밸브 + LOX 라인 -->
         <path class="pipe liq" d="M578,258 L640,258"/>
         <path d="M646,250 L646,266 L660,258 z M660,250 L660,266 L646,258 z" fill="#3fa34d" stroke="#2a6e34" stroke-width=".8"/>
-        <text class="tn" x="638" y="282">HV-4207</text>
-        <path class="pipe liq" d="M660,258 L716,258"/>
-        <rect class="box" x="672" y="212" width="72" height="26"/>
-        <text class="tn" x="676" y="222">HV-4207 개도</text><text class="tv" x="676" y="234">62.0 %</text>
-
-        <!-- 저장탱크 -->
-        <rect class="eq" x="756" y="196" width="58" height="94" rx="26"/>
-        <rect x="758" y="248" width="54" height="40" rx="20" fill="#c9a7de" stroke="none"/>
-        <text class="lbl" x="762" y="306">LOX 탱크</text>
-        <path class="pipe liq" d="M716,258 L756,258"/>
-        <rect class="box" x="838" y="212" width="72" height="26"/>
-        <text class="tn" x="842" y="222">LIC-6010 액위</text><text class="tv" x="842" y="234">77.0 %</text>
+        <text class="tn" x="634" y="280">HV-4207</text>
+        <path class="pipe liq" d="M660,258 L756,258"/>
 
         <rect class="eq" x="756" y="76" width="58" height="94" rx="26"/>
-        <rect x="758" y="120" width="54" height="48" rx="20" fill="#a9c6e8" stroke="none"/>
-        <text class="lbl" x="764" y="186">LIN 탱크</text>
-        <path class="pipe n2" d="M706,44 L786,44 L786,76"/>
-        <rect class="box" x="838" y="92" width="72" height="26"/>
-        <text class="tn" x="842" y="102">LIC-6020 액위</text><text class="tv" x="842" y="114">40.4 %</text>
+        <rect x="758" y="118" width="54" height="50" rx="20" fill="#a9c6e8"/>
+        <text class="lbl" x="760" y="188">LIN 탱크</text>
 
-        <!-- 하단 유량 -->
-        <rect class="box" x="352" y="316" width="86" height="26"/>
-        <text class="tn" x="356" y="326">FI-3305 처리유량</text><text class="tv" x="356" y="338">70,955 Nm³/h</text>
-        <rect class="box" x="452" y="316" width="86" height="26"/>
-        <text class="tn" x="456" y="326">PI-1001 흡입압력</text><text class="tv" x="456" y="338">1.02 bar(a)</text>
-        <rect class="box" x="552" y="316" width="86" height="26"/>
-        <text class="tn" x="556" y="326">TI-4110 탑정온도</text><text class="tv" x="556" y="338">-174.1 ℃</text>
+        <rect class="eq" x="756" y="196" width="58" height="94" rx="26"/>
+        <rect x="758" y="246" width="54" height="42" rx="20" fill="#c9a7de"/>
+        <text class="lbl" x="760" y="308">LOX 탱크</text>
+
+        <rect class="box" x="190" y="46" width="94" height="31"/><text class="tn" x="196" y="58">TI-2104 토출온도</text><text class="tv" x="196" y="71">78.4 ℃</text>
+        <rect class="box" x="303" y="46" width="81" height="31"/><text class="tn" x="309" y="58">PDI-1205 차압</text><text class="tv" x="309" y="71">58.1 mbar</text>
+        <rect class="box" x="404" y="46" width="85" height="31"/><text class="tn" x="410" y="58">TI-4020 저온단</text><text class="tv" x="410" y="71">-172.6 ℃</text>
+        <rect class="box" x="509" y="46" width="81" height="31"/><text class="tn" x="515" y="58">LIC-5010 액위</text><text class="tv" x="515" y="71">59.4 %</text>
+        <rect class="box" x="86" y="92" width="99" height="31"/><text class="tn" x="92" y="104">FIC-3110 흡입유량</text><text class="tv" x="92" y="117">96,400 Nm³/h</text>
+        <rect class="box" x="602" y="4" width="98" height="31"/><text class="tn" x="608" y="16">FIC-3210 GAN유량</text><text class="tv" x="608" y="29">28,480 Nm³/h</text>
+        <rect class="box" x="602" y="134" width="94" height="31"/><text class="tn" x="608" y="146">AI-1201 제품순도</text><text class="tv" x="608" y="159">99.2 %O₂</text>
+        <rect class="box" x="602" y="198" width="76" height="31"/><text class="tn" x="608" y="210">HV-4207 개도</text><text class="tv" x="608" y="223">62.0 %</text>
+        <rect class="box" x="602" y="296" width="108" height="31"/><text class="tn" x="608" y="308">LIC-5020 저압탑액위</text><text class="tv" x="608" y="321">44.9 %</text>
+        <rect class="box" x="848" y="94" width="98" height="31"/><text class="tn" x="854" y="106">LIC-6020 LIN액위</text><text class="tv" x="854" y="119">40.4 %</text>
+        <rect class="box" x="848" y="214" width="98" height="31"/><text class="tn" x="854" y="226">LIC-6010 LOX액위</text><text class="tv" x="854" y="239">77.0 %</text>
+        <rect class="box" x="166" y="226" width="103" height="31"/><text class="tn" x="172" y="238">TI-5003 냉각수입구</text><text class="tv" x="172" y="251">31.4 ℃</text>
+        <rect class="box" x="296" y="330" width="98" height="31"/><text class="tn" x="302" y="342">FI-3305 처리유량</text><text class="tv" x="302" y="355">70,955 Nm³/h</text>
+        <rect class="box" x="410" y="330" width="94" height="31"/><text class="tn" x="416" y="342">PI-1001 흡입압력</text><text class="tv" x="416" y="355">1.02 bar(a)</text>
+        <rect class="box" x="516" y="330" width="94" height="31"/><text class="tn" x="522" y="342">TI-4110 탑정온도</text><text class="tv" x="522" y="355">-174.1 ℃</text>
       </svg>
       <div class="hmifoot"><div>◀ 이전</div><div>다음 ▶</div><div>트렌드</div><div>알람</div><div>태그검색</div><div>인쇄</div></div>
     </div>
@@ -332,8 +311,11 @@
     <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">제품 순도 헌팅 <span class="pill red">중요도 상</span></div></div>
     <div class="meta">AI-1201 · 14:02~14:31 (29분) · 이후 안정</div>
     <div class="body">
-      <svg width="100%" height="46" viewBox="0 0 420 46" style="margin-bottom:8px;display:block"><polyline points="0,24 40,23 80,25 110,10 125,38 140,9 155,39 170,11 185,37 200,12 215,36 230,22 260,24 300,23 340,24 380,23 420,24" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="24" x2="420" y2="24" stroke="#d5d3ce" stroke-dasharray="3 3"/></svg>
-      <div class="why"><b>감지 근거</b> — 이동창 표준편차가 베이스라인 대비 <b>4.2배</b>. 진폭 3.1%로 관리 기준(5%)에는 미달하나, 이 태그의 평소 변동폭이 0.7%로 작아 이례적 변화로 판정.</div>
+      <div class="ch" data-ch="1" style="margin-bottom:8px">
+        <svg width="100%" height="46" viewBox="0 0 420 46" style="display:block"><polyline points="0,24 40,23 80,25 110,10 125,38 140,9 155,39 170,11 185,37 200,12 215,36 230,22 260,24 300,23 340,24 380,23 420,24" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="24" x2="420" y2="24" stroke="#d5d3ce" stroke-dasharray="3 3"/><line class="cur" x1="0" y1="0" x2="0" y2="46" stroke="#9a9a95" stroke-width=".8" stroke-dasharray="3 2" style="display:none"/><circle class="dot" r="3" fill="#EA002C" stroke="#fff" stroke-width="1" style="display:none"/></svg>
+        <div class="tip" style="display:none"></div>
+      </div>
+      <div class="why"><b>감지 근거</b> — 이동창 표준편차가 베이스라인 대비 <b>4.2배</b>. 진폭 1.4%로 관리 기준(5%)에는 미달하나, 이 태그의 평소 변동폭이 0.33%로 작아 이례적 변화로 판정.</div>
       <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 2건</span>2026-06-12 야간조: 동일 태그 헌팅 발생, 샘플링 의뢰 후 정상 확인 <button onclick="use(this,'과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정.')">코멘트로 사용</button></div>
       <textarea placeholder="코멘트 (선택)"></textarea>
     </div>
@@ -343,7 +325,10 @@
     <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">압축기 토출온도 완만 상승 <span class="pill red">중요도 상</span></div></div>
     <div class="meta">TI-2104 · 16:10부터 지속 · 관리 상한까지 여유 6.6℃</div>
     <div class="body">
-      <svg width="100%" height="46" viewBox="0 0 440 46" style="margin-bottom:8px;display:block"><polyline points="0,36 60,35 120,33 180,30 240,26 300,22 360,18 420,14" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="6" x2="420" y2="6" stroke="#e0a0a8" stroke-dasharray="3 3"/><text x="424" y="9" font-size="8" fill="#b00020">상한</text></svg>
+      <div class="ch" data-ch="2" style="margin-bottom:8px">
+        <svg width="100%" height="46" viewBox="0 0 440 46" style="display:block"><polyline points="0,36 60,35 120,33 180,30 240,26 300,22 360,18 420,14" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="6" x2="420" y2="6" stroke="#e0a0a8" stroke-dasharray="3 3"/><text x="424" y="9" font-size="8" fill="#b00020">상한</text><line class="cur" x1="0" y1="0" x2="0" y2="46" stroke="#9a9a95" stroke-width=".8" stroke-dasharray="3 2" style="display:none"/><circle class="dot" r="3" fill="#EA002C" stroke="#fff" stroke-width="1" style="display:none"/></svg>
+        <div class="tip" style="display:none"></div>
+      </div>
       <div class="why"><b>감지 근거</b> — 이동창 회귀 기울기 <b>+0.9℃/h</b>가 110분 지속. 현 추세 유지 시 관리 상한 도달까지 약 <b>7시간</b> 예상.</div>
       <textarea placeholder="코멘트 (선택)"></textarea>
     </div>
@@ -611,6 +596,55 @@ function drawMini(){
   document.getElementById('tinfo').textContent='범위 '+fmt(mn,t.d)+' ~ '+fmt(mx,t.d)+' '+t.u;
 }
 initRaw();
+
+/* ===== 항목 차트 호버 (기존 SVG 위에 얹음) ===== */
+const CHCFG={
+  '1':{t0:815, span:102, unit:'%O₂', dec:2, val:y=>99.20+(24-y)*0.0467},
+  '2':{t0:970, span:110, unit:'℃',  dec:1, val:y=>76.60+(36-y)*(1.8/22)}
+};
+function hm(min){const h=Math.floor(min/60)%24,m=Math.round(min%60);return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
+document.querySelectorAll('.ch').forEach(function(box){
+  const cfg=CHCFG[box.getAttribute('data-ch')];
+  const svg=box.querySelector('svg'), poly=box.querySelector('polyline');
+  const cur=box.querySelector('.cur'), dot=box.querySelector('.dot'), tip=box.querySelector('.tip');
+  const P=poly.getAttribute('points').trim().split(/\s+/).map(s=>s.split(',').map(Number));
+  const X0=P[0][0], X1=P[P.length-1][0];
+  function yAt(x){
+    for(let i=1;i<P.length;i++){
+      if(x<=P[i][0]){
+        const a=P[i-1],b=P[i],t=(x-a[0])/((b[0]-a[0])||1);
+        return a[1]+(b[1]-a[1])*t;
+      }
+    }
+    return P[P.length-1][1];
+  }
+  function move(ev){
+    const r=svg.getBoundingClientRect();
+    const vb=svg.viewBox.baseVal;
+    // preserveAspectRatio 기본값(xMidYMid meet): 내용은 균일 축소·확대 후 가운데 정렬된다.
+    const sc=Math.min(r.width/vb.width, r.height/vb.height);
+    if(!sc) return;
+    const ox=(r.width-vb.width*sc)/2;
+    const cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+    let x=(cx-ox)/sc;
+    x=Math.max(X0,Math.min(X1,x));
+    const y=yAt(x), v=cfg.val(y);
+    const g=(x-X0)/(X1-X0);
+    cur.setAttribute('x1',x); cur.setAttribute('x2',x); cur.style.display='';
+    dot.setAttribute('cx',x); dot.setAttribute('cy',y); dot.style.display='';
+    tip.textContent=hm(cfg.t0+g*cfg.span)+'  '+v.toFixed(cfg.dec)+' '+cfg.unit;
+    tip.style.display='';
+    const half=tip.offsetWidth/2+4, px=ox+x*sc;
+    tip.style.left=Math.max(half,Math.min(r.width-half,px))+'px';
+  }
+  function out(){cur.style.display='none';dot.style.display='none';tip.style.display='none';}
+  svg.addEventListener('mousemove',move);
+  svg.addEventListener('mouseleave',out);
+  svg.addEventListener('touchstart',move,{passive:true});
+  svg.addEventListener('touchmove',move,{passive:true});
+  svg.addEventListener('touchend',out);
+});
+
 </script>
 </body>
 </html>
