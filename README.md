@@ -59,3 +59,5 @@ DCS 공정 화면과 RTDB 원시 데이터에서 시작해, ENGRA가 만든 초�
 ## 팀
 
 팀 앙그라쥬 (Team Angrage) · SK AI 해커톤 2026 출품작
+
+팀원이 이 저장소를 함께 수정·관리하는 방법은 [TEAM_GUIDE.md](TEAM_GUIDE.md) 를 참고하세요.
