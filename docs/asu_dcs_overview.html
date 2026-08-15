@@ -1,10 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASU DCS Overview · ENGRA</title>
-<meta name="description" content="ASU 공정 모의 DCS Overview 화면과 태그 마스터·베이스라인 데이터 생성기 (가상 데이터)">
+<title>ASU DCS Overview</title>
 <style>
   /* ── demo/index.html 디자인 토큰 계승 ── */
   :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;--accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
@@ -114,8 +108,7 @@
   table.dt td.al input{background:#fdf6f4}
   #dOut{width:100%;height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;border:1px solid #a9a9a4;border-radius:3px;padding:6px;margin-top:8px;background:#fff;white-space:pre;display:none}
 </style>
-</head>
-<body>
+
 <div class="wrap">
 
   <div class="top">
@@ -612,7 +605,7 @@
 
     ['#600', 'COLD BOX INLET  FV-601'],
     ['ZI-601','FV-601 개도','%',       74.2,  60,    90,     '',    50,    95,    99,   1,1, 'FI-602:0.95, PI-604:-0.40:20'],
-    ['FI-602','공급 유량','Nm3/h',     39800, 37000, 42000,  33000, 35500, 43500, 45000,2,2, 'FI-710:0.70:60, LI-701:0.30:120'],
+    ['FI-602','공급 유량','Nm3/h',     39800, 37000, 42000,  33000, 35500, 43500, 45000,2,2, 'FI-710:0.70:60, LI-701:0.30:120, PDI-702:0.45:20, TI-704:0.30:30'],
     ['TI-603','공급 온도','℃',         -168.0,-173,  -163,   -180,  -176,  -159,  -154, 2,2, ''],
     ['PI-604','공급 압력','bar',       5.60,  5.35,  5.85,   5.00,  5.20,  6.00,  6.20, 2,2, ''],
 
@@ -955,5 +948,3 @@
   $('tabData').onclick = function(){ tab(true); };
 })();
 </script>
-</body>
-</html>
