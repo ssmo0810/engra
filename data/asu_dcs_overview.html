@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASU DCS Overview · ENGRA</title>
+<meta name="description" content="ASU 공정 모의 DCS Overview 화면과 태그 마스터·베이스라인 데이터 생성기 (가상 데이터)">
+<style>
+  /* ── demo/index.html 디자인 토큰 계승 ── */
+  :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;--accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6}
+  .wrap{max-width:1280px;margin:0 auto;padding:18px 20px 44px}
+
+  .top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+  .top h1{font-size:19px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
+  .top span{font-size:12px;color:var(--sub)}
+  .pill{font-size:10.5px;font-weight:700;padding:1.5px 8px;border-radius:9px;background:#eceae6;color:var(--sub)}
+  .pill.amber{background:#fdf0d8;color:var(--warn)}
+  .disc{font-size:11.5px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;padding:6px 11px;border-radius:6px;margin:9px 0 11px}
+  .disc b{color:var(--ink)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:13px 15px;margin-bottom:11px}
+  .card h2{font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  details.card>summary{font-size:14px;font-weight:700;cursor:pointer;list-style:none}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary::before{content:"▸ ";color:var(--sub)}
+  details.card[open]>summary::before{content:"▾ "}
+  details.card>div{margin-top:10px}
+
+  /* ── DCS 미믹 크롬 ── */
+  .hmi{background:#c8c9c4;border:1px solid #9a9b96;border-radius:5px;padding:5px}
+  .hminav{display:flex;gap:3px;margin-bottom:4px}
+  .hminav div{background:#7fd4f0;border:1px solid #3d7f96;border-radius:2px;font-size:10px;padding:2px 11px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:#0b2b33}
+  .hmibar{background:#1c3f8f;color:#fff;font-size:10px;padding:3px 9px;display:flex;justify-content:space-between;gap:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .hmibar .mid{opacity:.82;letter-spacing:.06em}
+  .hmifoot{display:flex;gap:3px;margin-top:4px;align-items:stretch;flex-wrap:wrap}
+  .hmifoot div{background:linear-gradient(#fdfdfd,#dedfda);border:1px solid #8f9089;border-radius:2px;font-size:9.5px;padding:2px 9px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#6a6b66}
+  .hmifoot .leg{margin-left:auto;display:flex;gap:12px;align-items:center;background:linear-gradient(#fdfdfd,#eceded);border-color:#a8a9a3}
+  .hmifoot .leg i{display:inline-flex;align-items:center;gap:5px;font-style:normal;color:#4a4b47}
+  .hmifoot .leg i s{width:14px;height:3px;border-radius:2px;text-decoration:none;display:inline-block}
+  svg.mimic{display:block;width:100%;height:auto;background:#e8e9e4;border:1px solid #b4b5b0}
+
+  /* ── SVG 내부 (demo 클래스 규약 계승) ── */
+  .pipe{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .air{stroke:#5a5a5a}.gn2{stroke:#d9a400}.lox{stroke:#2f6bd8}
+  .eq{fill:#f4f4f1;stroke:#3a3a3a;stroke-width:1.3}
+  .eqline{fill:none;stroke:#9a9a94;stroke-width:.9}
+  .tray{fill:none;stroke:#dcded6;stroke-width:1}
+  .pl{font-size:10px;fill:#2b2b2b;font-weight:700;letter-spacing:.02em}
+  .id{font-size:8px;fill:#8a8a84;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .cap{font-size:8px;fill:#7a7a74}
+  .lv{font-size:8px;fill:#1f4f9c;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+  .lvy{font-size:8px;fill:#8a6a00;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+  .sect{font-size:8.5px;fill:#9a9b93;letter-spacing:.08em}
+
+  /* ── 태그 박스 ── */
+  .tbox{fill:#fbfbf8;stroke:#a9a9a4;stroke-width:.8}
+  .zbox{fill:#fbfbf8;stroke:#7b7c76;stroke-width:1.1}
+  .tn{font-size:7.5px;fill:#6a6a6a;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .tv{font-size:11px;font-weight:700;fill:#0b3d91;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .tu{font-size:7px;fill:#8a8a84}
+  .tcap{font-size:7.5px;fill:#84857e;letter-spacing:.09em;font-weight:700}
+  .guide{fill:none;stroke:#c2c3bd;stroke-width:1;stroke-dasharray:2 3}
+  .bartrk{fill:#dedfd8}
+  .barfil{fill:#0b3d91}
+
+  /* ── Transmitter : 취출점 + 스템 + ISA 밸룬 ── */
+  .tx path{fill:none;stroke-width:1}
+  .tx .bal{fill:#fbfbf8;stroke-width:1.1}
+  .tx .blt{font-size:6.5px;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .txa .tap{fill:#5a5a5a}.txa path{stroke:#5a5a5a}.txa .bal{stroke:#5a5a5a}.txa .blt{fill:#4a4a4a}
+  .txg .tap{fill:#c79600}.txg path{stroke:#c79600}.txg .bal{stroke:#c79600}.txg .blt{fill:#8a6a00}
+
+  .note{font-size:11px;color:var(--sub);margin-top:2px}
+  .note code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eceae6;padding:1px 5px;border-radius:3px;color:var(--ink)}
+
+  /* ── 페이지 탭 ── */
+  .hminav div{cursor:pointer;user-select:none}
+  .hminav div.off{background:#cdd5d8;border-color:#8ea0a6;color:#5c6d72;font-weight:400}
+
+  /* ── DATA DETAIL 화면 ── */
+  #viewData{background:#eceded;border:1px solid #b4b5b0;padding:9px}
+  .dbar{display:flex;flex-wrap:wrap;gap:7px 14px;align-items:center;font-size:11.5px;margin-bottom:8px}
+  .dbar label{display:inline-flex;align-items:center;gap:5px;color:var(--sub)}
+  .dbar input,.dbar select{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;padding:2px 5px;border:1px solid #a9a9a4;border-radius:3px;background:#fff}
+  .dbar input[type=number]{width:88px}
+  .dbtn{font-size:11.5px;font-weight:700;padding:3px 11px;border:1px solid #8f9089;border-radius:3px;background:linear-gradient(#fdfdfd,#dedfda);color:#3a3a3a;cursor:pointer}
+  .dbtn:hover{background:linear-gradient(#fff,#eceded)}
+  .dbtn.pri{background:linear-gradient(#3a63c0,#1c3f8f);border-color:#16337a;color:#fff}
+  #dMsg{font-size:11.5px;color:var(--ok);min-height:18px}
+
+  .dsplit{display:grid;grid-template-columns:1fr 320px;gap:9px;align-items:start}
+  @media(max-width:1000px){.dsplit{grid-template-columns:1fr}}
+  .dside{background:#fff;border:1px solid #c8c9c4;border-radius:4px;padding:9px}
+  .dside h4{font-size:11.5px;margin-bottom:6px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .dside p{font-size:11px;color:var(--sub);line-height:1.5}
+  .dside svg{display:block;width:100%;height:auto;background:#fbfbf8;border:1px solid #e2e0dc;border-radius:3px}
+
+  .dtwrap{max-height:520px;overflow:auto;background:#fff;border:1px solid #c8c9c4;border-radius:4px}
+  table.dt{border-collapse:collapse;width:100%;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  table.dt th{position:sticky;top:0;z-index:2;background:#1c3f8f;color:#fff;font-weight:700;padding:5px 6px;text-align:left;white-space:nowrap;font-size:10.5px}
+  table.dt td{border-bottom:1px solid #eceae6;padding:2px 4px;white-space:nowrap}
+  table.dt tr.grp td{background:#e8ecf5;color:#1c3f8f;font-weight:700;font-size:10.5px;padding:4px 6px;letter-spacing:.05em}
+  table.dt tr.sel td{background:#fff6d8}
+  table.dt tr:hover td{background:#f4f6fb}
+  table.dt tr.sel:hover td{background:#fff2c4}
+  table.dt .tg{font-weight:700;color:#0b3d91;cursor:pointer}
+  table.dt .ds{color:var(--sub);white-space:nowrap}
+  table.dt input,table.dt select{font-family:inherit;font-size:11px;border:1px solid #d8d9d3;border-radius:2px;padding:1px 3px;background:#fff}
+  table.dt input{width:66px;text-align:right}
+  table.dt input.lnk{width:230px;text-align:left}
+  table.dt input:focus,table.dt select:focus{outline:2px solid #7fb0f0;border-color:#7fb0f0}
+  table.dt td.al input{background:#fdf6f4}
+  #dOut{width:100%;height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;border:1px solid #a9a9a4;border-radius:3px;padding:6px;margin-top:8px;background:#fff;white-space:pre;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>ASU <b>DCS Overview</b></h1>
+    <span>ENGRA 기준 도면 · v2.5</span>
+    <span class="pill amber">Tag Point 53점</span>
+    <span class="pill">DATA DETAIL 탭 추가</span>
+  </div>
+
+  <div class="disc"><b>모의 화면</b> — 사내 실제 태그 체계·시스템 화면과 무관하게 작성한 데모용 도면입니다. 표시된 값은 정상 운전 기준 목데이터입니다.</div>
+
+  <div class="card">
+    <h2>ASU-100 공정 개관도 <span class="pill">Air Separation Unit</span></h2>
+
+    <div class="hmi">
+      <div class="hminav">
+        <div id="tabOvw">OVERVIEW PAGE</div>
+        <div id="tabData" class="off">DATA DETAIL</div>
+      </div>
+      <div class="hmibar">
+        <span>ASU-100 &nbsp;AIR SEPARATION UNIT</span>
+        <span class="mid">MIMIC ASU-OVW-01</span>
+        <span>REV 2.5 &nbsp;|&nbsp; 2026-08-15</span>
+      </div>
+
+      <div id="viewOverview">
+      <svg class="mimic" viewBox="0 0 1600 870" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mAir" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5a5a5a"/></marker>
+          <marker id="mGn2" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9a400"/></marker>
+          <marker id="mLox" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f6bd8"/></marker>
+
+          <symbol id="cv" viewBox="-10 -19 20 26">
+            <path d="M-7.5,-5.5 L0,0 L-7.5,5.5 Z M7.5,-5.5 L0,0 L7.5,5.5 Z" fill="currentColor"/>
+            <line x1="0" y1="-1" x2="0" y2="-11" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M-6.5,-11 A6.5,4.8 0 0 1 6.5,-11 Z" fill="currentColor"/>
+          </symbol>
+
+          <clipPath id="clipHP"><rect x="650" y="490" width="80" height="165" rx="3"/></clipPath>
+          <clipPath id="clipLP"><rect x="945" y="358" width="80" height="297" rx="3"/></clipPath>
+        </defs>
+
+        <!-- ══════════ 구역 프레임 ══════════ -->
+        <rect x="30" y="320" width="425" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="39" y="333">COMPRESSION &amp; PURIFICATION</text>
+        <rect x="465" y="320" width="570" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="474" y="333">COLD BOX</text>
+        <rect x="1075" y="320" width="485" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="1084" y="333">PRODUCT STORAGE</text>
+
+        <!-- ══════════ ① AIR FILTER ══════════ -->
+        <text class="pl" x="65" y="428" text-anchor="middle">AIR FILTER</text>
+        <text class="id" x="65" y="439" text-anchor="middle">F-101</text>
+        <rect class="eq" x="50" y="460" width="30" height="90" rx="2"/>
+        <path class="eqline" d="M54,471 L76,493 M54,495 L76,517 M54,519 L76,541"/>
+        <path class="pipe air" d="M80,505 H140" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ② AIR COMPRESSOR + MOTOR + 토출밸브 FV-202 ══════════ -->
+        <text class="pl" x="180" y="428" text-anchor="middle">AIR COMPRESSOR</text>
+        <text class="id" x="180" y="439" text-anchor="middle">K-201</text>
+        <polygon class="eq" points="140,462 240,476 240,534 140,548"/>
+        <path class="eqline" d="M165,466 V544 M190,470 V540 M215,473 V537"/>
+        <line x1="190" y1="548" x2="190" y2="582" stroke="#3a3a3a" stroke-width="1.8"/>
+        <circle class="eq" cx="190" cy="600" r="18"/>
+        <text class="pl" x="190" y="605" text-anchor="middle" style="font-size:12px">M</text>
+        <text class="pl" x="190" y="637" text-anchor="middle">MOTOR</text>
+        <text class="id" x="190" y="648" text-anchor="middle">M-202</text>
+        <path class="pipe air" d="M240,505 H330" marker-end="url(#mAir)"/>
+        <use href="#cv" x="248" y="486" width="20" height="26" style="color:#5a5a5a"/>
+        <text class="id" x="258" y="479" text-anchor="middle">FV-202</text>
+
+        <!-- ══════════ ③ ADSORBER A / B ══════════ -->
+        <text class="pl" x="387" y="428" text-anchor="middle">ADSORBER A / B</text>
+        <text class="id" x="387" y="439" text-anchor="middle">A-301 / A-302</text>
+        <path class="eq" d="M330,482 A25,25 0 0 1 380,482 V528 A25,25 0 0 1 330,528 Z"/>
+        <path d="M332,507 H378 M332,517 H378 M332,527 H378" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
+        <text class="pl" x="355" y="495" text-anchor="middle">A</text>
+        <path class="eq" d="M395,482 A25,25 0 0 1 445,482 V528 A25,25 0 0 1 395,528 Z"/>
+        <path d="M397,507 H443 M397,517 H443 M397,527 H443" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
+        <text class="pl" x="420" y="495" text-anchor="middle">B</text>
+        <path class="pipe air" d="M380,505 H395"/>
+        <path class="pipe air" d="M445,505 H490" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ④ MAIN HEAT EXCHANGER + FV-601 ══════════ -->
+        <text class="pl" x="530" y="428" text-anchor="middle">MAIN HEAT EXCHANGER</text>
+        <text class="id" x="530" y="439" text-anchor="middle">E-401</text>
+        <rect class="eq" x="490" y="465" width="80" height="80" rx="2"/>
+        <path class="eqline" d="M490,479 H570 M490,493 H570 M490,507 H570 M490,521 H570 M490,535 H570"/>
+        <path class="pipe air" d="M570,505 H650" marker-end="url(#mAir)"/>
+        <use href="#cv" x="578" y="486" width="20" height="26" style="color:#5a5a5a"/>
+        <text class="id" x="566" y="524" text-anchor="end">FV-601</text>
+        <path class="pipe air" d="M560,545 V584" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ⑤ TURBINE + GENERATOR ══════════ -->
+        <circle class="eq" cx="495" cy="613" r="18"/>
+        <text class="pl" x="495" y="618" text-anchor="middle" style="font-size:12px">G</text>
+        <line x1="513" y1="613" x2="530" y2="613" stroke="#3a3a3a" stroke-width="1.8"/>
+        <polygon class="eq" points="610,578 530,592 530,634 610,648"/>
+        <path class="eqline" d="M555,588 V638 M580,584 V643"/>
+        <text class="pl" x="495" y="668" text-anchor="middle">GENERATOR</text>
+        <text class="id" x="495" y="679" text-anchor="middle">G-502</text>
+        <text class="pl" x="580" y="668" text-anchor="middle">TURBINE</text>
+        <text class="id" x="580" y="679" text-anchor="middle">X-501</text>
+
+        <!-- ══════════ ⑥ HP COLUMN ══════════ -->
+        <rect x="650" y="490" width="80" height="165" rx="3" fill="#fafbf8"/>
+        <g clip-path="url(#clipHP)">
+          <path class="tray" d="M650,510 H730 M650,530 H730 M650,550 H730 M650,570 H730 M650,590 H730"/>
+          <rect x="650" y="614" width="80" height="41" fill="#6d9ce8"/>
+          <line x1="650" y1="614" x2="730" y2="614" stroke="#2f6bd8" stroke-width="1.8"/>
+        </g>
+        <rect x="650" y="490" width="80" height="165" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
+        <text class="lv" x="690" y="639" text-anchor="middle" style="fill:#fff">LIQ 25%</text>
+        <text class="pl" x="690" y="428" text-anchor="middle">HP COLUMN</text>
+        <text class="id" x="690" y="439" text-anchor="middle">C-701</text>
+
+        <!-- ══════════ ⑦ HP 상부 → LP 좌측 상부 이송 (FV-709) ══════════ -->
+        <path class="pipe air" d="M690,490 V360 H920 V385 H945" marker-end="url(#mAir)"/>
+        <use href="#cv" x="825" y="341" width="20" height="26" style="color:#5a5a5a"/>
+
+        <!-- ══════════ ⑧ LP COLUMN ══════════ -->
+        <rect x="945" y="358" width="80" height="297" rx="3" fill="#fafbf8"/>
+        <g clip-path="url(#clipLP)">
+          <path class="tray" d="M945,378 H1025 M945,403 H1025 M945,428 H1025 M945,453 H1025 M945,478 H1025 M945,503 H1025 M945,528 H1025 M945,553 H1025 M945,578 H1025"/>
+          <rect x="945" y="590" width="80" height="65" fill="#6d9ce8"/>
+          <line x1="945" y1="590" x2="1025" y2="590" stroke="#2f6bd8" stroke-width="1.8"/>
+        </g>
+        <rect x="945" y="358" width="80" height="297" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
+        <text class="lv" x="985" y="617" text-anchor="middle" style="fill:#fff">LOX 22%</text>
+        <text class="pl" x="985" y="338" text-anchor="middle">LP COLUMN</text>
+        <text class="id" x="985" y="349" text-anchor="middle">C-702</text>
+
+        <!-- ══════════ ⑨ GN2 헤더 + VENT + FINAL SUPPLY ══════════ -->
+        <path class="pipe gn2" d="M1025,380 H1060 V100 H1540" marker-end="url(#mGn2)"/>
+        <text class="pl" x="1552" y="104" style="fill:#b98c00">GN2</text>
+
+        <circle cx="1135" cy="100" r="3.4" fill="#d9a400"/>
+        <path class="pipe gn2" d="M1135,100 V48" marker-end="url(#mGn2)"/>
+        <g transform="rotate(90 1135 74)"><use href="#cv" x="1125" y="55" width="20" height="26" style="color:#d9a400"/></g>
+        <text class="id" x="1112" y="77" text-anchor="end">PV-903</text>
+        <text class="cap" x="1135" y="34" text-anchor="middle" style="fill:#b98c00">VENT TO ATM</text>
+
+        <use href="#cv" x="1470" y="81" width="20" height="26" style="color:#d9a400"/>
+        <text class="id" x="1480" y="74" text-anchor="middle">PV-902</text>
+
+        <!-- ══════════ ⑩ LOX → TK-801 ══════════ -->
+        <path class="pipe lox" d="M985,655 V690 H1135 V628" marker-end="url(#mLox)"/>
+        <use href="#cv" x="1050" y="671" width="20" height="26" style="color:#2f6bd8"/>
+        <text class="id" x="1060" y="756" text-anchor="middle">LV-801</text>
+
+        <text class="pl" x="1135" y="396" text-anchor="middle">LOX TANK</text>
+        <text class="id" x="1135" y="407" text-anchor="middle">TK-801</text>
+        <path class="eq" d="M1107,440 A28,28 0 0 1 1163,440 V600 A28,28 0 0 1 1107,600 Z"/>
+        <rect x="1113" y="426" width="44" height="174" fill="#ffffff"/>
+        <rect x="1113" y="496" width="44" height="104" fill="#6d9ce8"/>
+        <line x1="1113" y1="496" x2="1157" y2="496" stroke="#2f6bd8" stroke-width="2"/>
+        <rect x="1113" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
+        <text class="lv" x="1135" y="526" text-anchor="middle" style="fill:#fff;font-size:10px">60%</text>
+
+        <!-- ══════════ ⑪ LIN → TK-802 ══════════ -->
+        <circle cx="1300" cy="100" r="3.4" fill="#d9a400"/>
+        <path class="pipe gn2" d="M1300,100 V690 H1435 V628" marker-end="url(#mGn2)"/>
+        <use href="#cv" x="1357" y="671" width="20" height="26" style="color:#d9a400"/>
+        <text class="id" x="1367" y="756" text-anchor="middle">LV-802</text>
+
+        <text class="pl" x="1435" y="396" text-anchor="middle">LIN TANK</text>
+        <text class="id" x="1435" y="407" text-anchor="middle">TK-802</text>
+        <path class="eq" d="M1407,440 A28,28 0 0 1 1463,440 V600 A28,28 0 0 1 1407,600 Z"/>
+        <rect x="1413" y="426" width="44" height="174" fill="#ffffff"/>
+        <rect x="1413" y="461" width="44" height="139" fill="#f0cf4e"/>
+        <line x1="1413" y1="461" x2="1457" y2="461" stroke="#d9a400" stroke-width="2"/>
+        <rect x="1413" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
+        <text class="lvy" x="1435" y="491" text-anchor="middle" style="fill:#6b5200;font-size:10px">80%</text>
+
+        <!-- ══════════ TRANSMITTER : 취출점 → 스템 → ISA 밸룬 → 태그버스 ══════════ -->
+
+        <!-- K-201 토출 : PT-203 / FT-204 / TT-205 -->
+        <g class="tx txa">
+          <circle class="tap" cx="280" cy="505" r="2.4"/><circle class="tap" cx="297" cy="505" r="2.4"/><circle class="tap" cx="314" cy="505" r="2.4"/>
+          <path d="M280,505 V528 M297,505 V528 M314,505 V528"/>
+          <circle class="bal" cx="280" cy="535" r="7.5"/><circle class="bal" cx="297" cy="535" r="7.5"/><circle class="bal" cx="314" cy="535" r="7.5"/>
+          <text class="blt" x="280" y="537.5" text-anchor="middle">PT</text>
+          <text class="blt" x="297" y="537.5" text-anchor="middle">FT</text>
+          <text class="blt" x="314" y="537.5" text-anchor="middle">TT</text>
+          <path d="M280,543 V555 M297,543 V555 M314,543 V555 M280,555 H314 M297,555 V684"/>
+        </g>
+
+        <!-- A-301 / A-302 후단 수분 : MT-302 / MT-305 -->
+        <g class="tx txa">
+          <circle class="tap" cx="387" cy="505" r="2.4"/><path d="M387,505 V483"/>
+          <circle class="bal" cx="387" cy="475" r="7.5"/><text class="blt" x="387" y="477.5" text-anchor="middle">MT</text>
+          <circle class="tap" cx="467" cy="505" r="2.4"/><path d="M467,505 V483"/>
+          <circle class="bal" cx="467" cy="475" r="7.5"/><text class="blt" x="467" y="477.5" text-anchor="middle">MT</text>
+        </g>
+
+        <!-- COLD BOX INLET : FT-602 / TT-603 / PT-604 -->
+        <g class="tx txa">
+          <circle class="tap" cx="606" cy="505" r="2.4"/><circle class="tap" cx="623" cy="505" r="2.4"/><circle class="tap" cx="640" cy="505" r="2.4"/>
+          <path d="M606,505 V483 M623,505 V483 M640,505 V483"/>
+          <circle class="bal" cx="606" cy="475" r="7.5"/><circle class="bal" cx="623" cy="475" r="7.5"/><circle class="bal" cx="640" cy="475" r="7.5"/>
+          <text class="blt" x="606" y="477.5" text-anchor="middle">FT</text>
+          <text class="blt" x="623" y="477.5" text-anchor="middle">TT</text>
+          <text class="blt" x="640" y="477.5" text-anchor="middle">PT</text>
+          <path d="M606,467 V455 M623,467 V455 M640,467 V455 M606,455 H640 M623,455 V243"/>
+        </g>
+
+        <!-- X-501 인렛 : TT-501 / PT-502 -->
+        <g class="tx txa">
+          <circle class="tap" cx="560" cy="556" r="2.4"/><circle class="tap" cx="560" cy="574" r="2.4"/>
+          <path d="M560,556 H536 M560,574 H536"/>
+          <circle class="bal" cx="528" cy="556" r="7.5"/><circle class="bal" cx="528" cy="574" r="7.5"/>
+          <text class="blt" x="528" y="558.5" text-anchor="middle">TT</text>
+          <text class="blt" x="528" y="576.5" text-anchor="middle">PT</text>
+        </g>
+
+        <!-- FV-709 이송유량 : FT-710 -->
+        <g class="tx txa">
+          <circle class="tap" cx="900" cy="360" r="2.4"/><path d="M900,360 V342"/>
+          <circle class="bal" cx="900" cy="334" r="7.5"/><text class="blt" x="900" y="336.5" text-anchor="middle">FT</text>
+          <path d="M900,326 V318 M835,318 H900 M835,318 V282"/>
+        </g>
+        <text class="id" x="912" y="337" text-anchor="start">FV-709</text>
+
+        <!-- GN2 FINAL SUPPLY : PT-901 / FT-902 / MT-903 -->
+        <g class="tx txg">
+          <circle class="tap" cx="1400" cy="100" r="2.4"/><circle class="tap" cx="1417" cy="100" r="2.4"/><circle class="tap" cx="1434" cy="100" r="2.4"/>
+          <path d="M1400,100 V118 M1417,100 V118 M1434,100 V118"/>
+          <circle class="bal" cx="1400" cy="126" r="7.5"/><circle class="bal" cx="1417" cy="126" r="7.5"/><circle class="bal" cx="1434" cy="126" r="7.5"/>
+          <text class="blt" x="1400" y="128.5" text-anchor="middle">PT</text>
+          <text class="blt" x="1417" y="128.5" text-anchor="middle">FT</text>
+          <text class="blt" x="1434" y="128.5" text-anchor="middle">MT</text>
+          <path d="M1400,134 V144 M1417,134 V144 M1434,134 V144 M1400,144 H1434 M1417,144 V172"/>
+        </g>
+
+        <!-- VENT 유량 : FT-906 -->
+        <g class="tx txg">
+          <circle class="tap" cx="1135" cy="92" r="2.4"/><path d="M1135,92 H1110"/>
+          <circle class="bal" cx="1100" cy="92" r="7.5"/><text class="blt" x="1100" y="94.5" text-anchor="middle">FT</text>
+          <path d="M1135,108 V172"/>
+        </g>
+
+        <!-- ══════════ 태그 레이어 (스크립트 생성) ══════════ -->
+        <g id="tagLayer"></g>
+      </svg>
+
+      <div class="hmifoot">
+        <div>ZOOM</div><div>PRINT</div>
+        <div class="leg">
+          <i><s style="background:#5a5a5a"></s>AIR</i>
+          <i><s style="background:#d9a400"></s>GN2 · LIN</i>
+          <i><s style="background:#2f6bd8"></s>LOX</i>
+        </div>
+      </div>
+      </div><!-- /viewOverview -->
+
+      <div id="viewData" hidden>
+        <div class="dbar">
+          <label>Seed <input id="dSeed" type="number" value="20260821"></label>
+          <label>샘플 주기
+            <select id="dStep"><option value="1">1초</option><option value="5" selected>5초</option><option value="10">10초</option><option value="60">60초</option></select>
+          </label>
+          <label>생성 길이
+            <select id="dDur"><option value="30">30분</option><option value="60" selected>60분</option><option value="240">4시간</option><option value="1440">24시간</option></select>
+          </label>
+          <button class="dbtn pri" id="dSave">저장</button>
+          <button class="dbtn" id="dGen">베이스라인 생성</button>
+          <button class="dbtn" id="dSpec">태그 마스터 CSV</button>
+          <button class="dbtn" id="dJson">JSON</button>
+          <button class="dbtn" id="dReset">기본값 복원</button>
+        </div>
+        <div id="dMsg"></div>
+
+        <div class="dsplit">
+          <div class="dtwrap">
+            <table class="dt">
+              <thead><tr>
+                <th>태그</th><th>설명</th><th>단위</th>
+                <th>정상값</th><th>정상↓</th><th>정상↑</th>
+                <th>LL</th><th>L</th><th>H</th><th>HH</th>
+                <th>드리프트</th><th>노이즈</th><th>연동 태그 (대상:이득:지연초)</th>
+              </tr></thead>
+              <tbody id="dBody"></tbody>
+            </table>
+          </div>
+
+          <div class="dside">
+            <h4 id="pvTag">태그를 선택하세요</h4>
+            <svg id="pvChart" viewBox="0 0 300 130"></svg>
+            <p id="pvNote" style="margin-top:6px">왼쪽 표에서 태그명을 누르면 그 태그의 60분 베이스라인 파형을 여기서 미리 봅니다. 드리프트·노이즈 단계를 바꾸면 즉시 다시 그립니다.</p>
+            <hr style="border:0;border-top:1px solid var(--line);margin:9px 0">
+            <p><b style="color:var(--ink)">드리프트</b> 1 완만 · 2 보통 · 3 큼 — 정상범위 폭의 2 / 6 / 12%<br>
+               <b style="color:var(--ink)">노이즈</b> 1 정밀 · 2 보통 · 3 거침 — 정상범위 폭의 0.5 / 1.5 / 3.5%<br><br>
+               <b style="color:var(--ink)">연동 태그</b> 예: <code>FI-602:0.95, PI-604:-0.4:20</code><br>
+               이 태그가 정상값에서 벗어난 만큼 대상 태그를 이득배로 따라 움직입니다. 세 번째 숫자는 반응 지연(초).</p>
+          </div>
+        </div>
+
+        <textarea id="dOut" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary>태그 명명 규칙 · 라인 구성</summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px 24px;font-size:12.5px;color:var(--sub)">
+      <div><b style="color:var(--ink)">접두 알파벳</b> — T 온도 · P 압력 · PD 차압 · F 유량 · L 레벨 · A 분석(순도·O₂) · M 수분 · Z 밸브개도 · S 회전수 · J 전력</div>
+      <div><b style="color:var(--ink)">번호 블록</b> — 100 Air Filter / 200 Compressor / 300 Adsorber / 400 Main HX / 500 Turbine / 600 Cold Box Inlet / 700 Column / 800 Tank / 900 GN2·Vent</div>
+      <div><b style="color:var(--ink)">단위</b> — 압력 bar · 온도 ℃ · 개도 % · 유량 Nm3/h · 전력 kW · 분석 ppm · 회전수 rpm</div>
+      <div><b style="color:var(--ink)">Transmitter</b> — 배관 취출점(점) → 스템 → ISA 밸룬(PT·FT·TT·MT) → 태그버스 → 태그 박스 순으로 연결합니다.</div>
+      <div><b style="color:var(--ink)">밸브 개도</b> — ZI 태그는 해당 밸브 바로 위/아래에 붙이고, 박스 안 막대로 개도를 함께 표시합니다. IGV(ZI-201·ZI-505)와 심볼이 없는 터빈 토출밸브(ZI-506)는 유닛 스택에 둡니다.</div>
+      <div><b style="color:#5a5a5a">AIR</b> Filter → Compressor(FV-202) → Adsorber A/B → Main HX(FV-601) → HP Column → FV-709 → LP Column<br>
+           <b style="color:#b98c00">GN2</b> LP 상부 → 헤더 → PV-902 &nbsp;·&nbsp; <b style="color:#b98c00">VENT</b> PV-903 대기방출<br>
+           <b style="color:#2f6bd8">LOX</b> LP 하부 → LV-801 → TK-801 &nbsp;·&nbsp; <b style="color:#b98c00">LIN</b> GN2 분기 → LV-802 → TK-802</div>
+    </div>
+  </details>
+
+  <p class="note">임도영 스케치 기준 · <code>demo/index.html</code>의 HMI 미믹 스타일 계승 · 태그 53점 (스택 46 + 밸브 개도 7)</p>
+
+</div>
+
+<script>
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var BW = 54, BH = 34, GX = 5, RP = 39;
+
+  // ── 유닛별 태그 스택 ──
+  // cx 중심 / y 첫행상단 / cap 캡션 / g 세로가이드[y1,y2] (null = TX 태그버스가 대신 연결)
+  // col:1 = 1열 세로 / flat:1 = 1행 가로 / side:'L'|'R' + tick = 유닛 옆 세로배치
+  var STACKS = [
+    {cx:65,   y:170, cap:'AIR FILTER',      g:[248,420], t:[
+      ['TI-101','24.3','℃'],['MI-102','61.2','%'],['PDI-103','0.012','bar']]},
+
+    {cx:387,  y:170, cap:'ADSORBER A / B',  g:[287,420], t:[
+      ['TI-301','32.1','℃'],['MI-302','0.8','ppm'],['PDI-303','0.08','bar'],
+      ['TI-304','168.4','℃'],['MI-305','1.1','ppm'],['PDI-306','0.09','bar']]},
+
+    {cx:500,  y:170, cap:'MAIN HEAT EXCH',  g:[287,420], col:1, t:[
+      ['TI-401','12.4','℃'],['AI-402','1.8','%'],['TI-403','-172.5','℃']]},
+
+    {cx:623,  y:170, cap:'COLD BOX INLET',  g:null, t:[
+      ['FI-602','39800','Nm3/h'],['TI-603','-168.0','℃'],['PI-604','5.60','bar']]},
+
+    {cx:835,  y:248, cap:'FV-709 TRANSFER', g:null, t:[
+      ['FI-710','21400','Nm3/h']]},
+
+    {cx:1135, y:180, cap:'VENT',            g:null, t:[
+      ['FI-906','1250','Nm3/h']]},
+
+    {cx:1417, y:180, cap:'GN2 SUPPLY',      g:null, flat:1, t:[
+      ['PI-901','4.85','bar'],['FI-902','18600','Nm3/h'],['MI-903','0.4','ppm']]},
+
+    {cx:297,  y:698, cap:'AIR COMPRESSOR',  g:null, t:[
+      ['ZI-201','68.4','%'],['PI-203','5.85','bar'],['FI-204','42500','Nm3/h'],
+      ['TI-205','108.6','℃'],['JI-206','3240','kW']]},
+
+    {cx:580,  y:698, cap:'TURBINE',         g:null, t:[
+      ['TI-501','-142.0','℃'],['PI-502','5.42','bar'],['TI-503','-178.3','℃'],
+      ['PI-504','1.28','bar'],['ZI-505','55.0','%'],['ZI-506','47.5','%'],['SI-507','18450','rpm']]},
+
+    // 컬럼 : HP는 우측, LP는 좌측 세로배치
+    {cx:767,  y:490, cap:'HP COLUMN', col:1, side:'L', tick:730, t:[
+      ['LI-701','25.4','%'],['PDI-702','0.31','bar'],['AI-703','38.2','%'],['TI-704','-178.0','℃']]},
+
+    {cx:903,  y:490, cap:'LP COLUMN', col:1, side:'R', tick:945, t:[
+      ['LI-705','22.1','%'],['PDI-706','0.24','bar'],['AI-707','99.6','%'],['TI-708','-183.5','℃']]},
+
+    // 탱크 : 각 탱크 우측 세로배치
+    {cx:1205, y:440, cap:'LOX TANK', col:1, side:'L', tick:1163, t:[
+      ['LI-802','60.0','%'],['AI-803','99.7','%'],['MI-804','0.5','ppm']]},
+
+    {cx:1505, y:440, cap:'LIN TANK', col:1, side:'L', tick:1463, t:[
+      ['LI-806','80.0','%'],['AI-807','99.9','%'],['MI-808','0.3','ppm']]}
+  ];
+
+  // ── 밸브 개도(ZI) : 해당 밸브 바로 위/아래 + 개도 막대 / gp = 밸브까지 연결선 ──
+  var VALVES = [
+    {cx:258,  y:428, n:'ZI-202', v:82.0, gp:'M258,462 V486'},
+    {cx:615,  y:525, n:'ZI-601', v:74.2, gp:'M588,511 V518 H615 V525'},
+    {cx:835,  y:374, n:'ZI-709', v:61.0, gp:'M835,366 V374'},
+    {cx:1060, y:706, n:'ZI-801', v:45.0, gp:'M1060,696 V706'},
+    {cx:1367, y:706, n:'ZI-805', v:38.5, gp:'M1367,696 V706'},
+    {cx:1480, y:118, n:'ZI-904', v:72.0, gp:'M1480,107 V118'},
+    {cx:1195, y:57,  n:'ZI-905', v:8.5,  gp:'M1148,74 H1168'}
+  ];
+
+  function el(name, attrs){
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function txt(cls, x, y, s){
+    var n = el('text', {'class':cls, x:x, y:y, 'text-anchor':'middle'});
+    n.textContent = s;
+    return n;
+  }
+
+  var layer = document.getElementById('tagLayer');
+  if (!layer) return;
+
+  STACKS.forEach(function(S){
+    var g = el('g', {});
+    if (S.g) g.appendChild(el('line', {'class':'guide', x1:S.cx, y1:S.g[0], x2:S.cx, y2:S.g[1]}));
+    g.appendChild(txt('tcap', S.cx, S.y - 8, S.cap));
+
+    var n = S.t.length;
+    S.t.forEach(function(tag, i){
+      var x, y;
+      if (S.flat){
+        x = S.cx - (n * BW + (n - 1) * GX) / 2 + i * (BW + GX);
+        y = S.y;
+      } else if (S.col){
+        x = S.cx - BW / 2;
+        y = S.y + i * RP;
+      } else {
+        var row = Math.floor(i / 2), col = i % 2;
+        var solo = (i === n - 1) && (n % 2 === 1);
+        x = solo ? (S.cx - BW / 2) : (col === 0 ? S.cx - BW - GX / 2 : S.cx + GX / 2);
+        y = S.y + row * RP;
+      }
+      if (S.side){
+        var ex = (S.side === 'L') ? x : x + BW;
+        g.appendChild(el('line', {'class':'guide', x1:ex, y1:y + BH / 2, x2:S.tick, y2:y + BH / 2}));
+      }
+      g.appendChild(el('rect', {'class':'tbox', x:x, y:y, width:BW, height:BH, rx:2}));
+      g.appendChild(txt('tn', x + BW / 2, y + 11, tag[0]));
+      g.appendChild(txt('tv', x + BW / 2, y + 22.5, tag[1]));
+      g.appendChild(txt('tu', x + BW / 2, y + 31, tag[2]));
+    });
+    layer.appendChild(g);
+  });
+
+  VALVES.forEach(function(V){
+    var g = el('g', {});
+    var x = V.cx - BW / 2, y = V.y;
+    g.appendChild(el('path', {'class':'guide', d:V.gp}));
+    g.appendChild(el('rect', {'class':'zbox', x:x, y:y, width:BW, height:BH, rx:2}));
+    g.appendChild(txt('tn', x + BW / 2, y + 10, V.n));
+    g.appendChild(txt('tv', x + BW / 2, y + 21, V.v.toFixed(1) + ' %'));
+    g.appendChild(el('rect', {'class':'bartrk', x:x + 5, y:y + 25, width:44, height:4.5, rx:1}));
+    g.appendChild(el('rect', {'class':'barfil', x:x + 5, y:y + 25, width:44 * V.v / 100, height:4.5, rx:1}));
+    layer.appendChild(g);
+  });
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   DATA DETAIL — 태그 마스터 · 베이스라인 생성기
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var LSKEY = 'engra_asu_tagmaster_v1';
+
+  // 드리프트/노이즈 단계 → 정상범위 폭 대비 비율
+  var DRIFT = [0.02, 0.06, 0.12];
+  var NOISE = [0.005, 0.015, 0.035];
+
+  // id, 설명, 단위, 정상값, 정상↓, 정상↑, LL, L, H, HH, 드리프트, 노이즈, 연동
+  var DEFAULTS = [
+    ['#100', 'AIR FILTER  F-101'],
+    ['TI-101','대기 온도','℃',        24.3,  10,    35,     -5,    0,     35,    40,   2,2, ''],
+    ['MI-102','대기 습도','%',         61.2,  30,    85,     '',    20,    85,    95,   2,2, ''],
+    ['PDI-103','필터 차압','bar',      0.012, 0.005, 0.025,  '',    '',    0.030, 0.040,1,2, ''],
+
+    ['#200', 'AIR COMPRESSOR  K-201 / MOTOR M-202'],
+    ['ZI-201','IGV 개도','%',          68.4,  55,    85,     '',    45,    92,    97,   1,1, 'FI-204:0.90, PI-203:0.50'],
+    ['ZI-202','토출밸브 개도','%',     82.0,  70,    95,     '',    60,    97,    99,   1,1, 'PI-203:-0.40, FI-204:0.60'],
+    ['PI-203','토출 압력','bar',       5.85,  5.60,  6.10,   5.20,  5.40,  6.20,  6.40, 2,2, 'JI-206:0.80, TI-205:0.50'],
+    ['FI-204','토출 유량','Nm3/h',     42500, 40000, 45000,  36000, 38500, 46500, 48000,2,2, 'JI-206:0.60'],
+    ['TI-205','토출 온도','℃',         108.6, 95,    120,    '',    '',    125,   135,  2,2, ''],
+    ['JI-206','소비 전력','kW',        3240,  3000,  3500,   '',    2800,  3600,  3800, 2,2, ''],
+
+    ['#300', 'ADSORBER  A-301 / A-302'],
+    ['TI-301','A탑 내부온도','℃',      32.1,  25,    45,     '',    '',    50,    60,   2,2, ''],
+    ['MI-302','A탑 후단 수분','ppm',   0.8,   0.1,   2.0,    '',    '',    3.0,   5.0,  1,2, 'AI-703:-0.20:600'],
+    ['PDI-303','A탑 차압','bar',       0.08,  0.05,  0.12,   '',    '',    0.15,  0.20, 1,2, 'MI-302:0.40:300'],
+    ['TI-304','B탑 내부온도 (재생)','℃',168.4, 150,   185,    '',    140,   190,   200,  2,2, ''],
+    ['MI-305','B탑 후단 수분','ppm',   1.1,   0.1,   2.0,    '',    '',    3.0,   5.0,  1,2, ''],
+    ['PDI-306','B탑 차압','bar',       0.09,  0.05,  0.12,   '',    '',    0.15,  0.20, 1,2, 'MI-305:0.40:300'],
+
+    ['#400', 'MAIN HEAT EXCHANGER  E-401'],
+    ['TI-401','인입 Air 온도','℃',     12.4,  5,     20,     '',    '',    25,    30,   2,2, ''],
+    ['AI-402','Waste gas O2','%',      1.8,   1.0,   3.0,    '',    '',    4.0,   5.0,  2,2, ''],
+    ['TI-403','Cold end 온도','℃',     -172.5,-178,  -168,   -185,  -181,  -165,  -160, 2,1, ''],
+
+    ['#500', 'TURBINE  X-501 / GENERATOR G-502'],
+    ['TI-501','Inlet 온도','℃',        -142.0,-148,  -136,   -155,  -150,  -132,  -126, 2,2, 'TI-503:0.60:30'],
+    ['PI-502','Inlet 압력','bar',      5.42,  5.20,  5.70,   4.90,  5.10,  5.85,  6.05, 2,2, ''],
+    ['TI-503','Outlet 온도','℃',       -178.3,-183,  -174,   -188,  -185,  -171,  -167, 2,2, ''],
+    ['PI-504','Outlet 압력','bar',     1.28,  1.15,  1.40,   1.00,  1.10,  1.50,  1.62, 2,2, ''],
+    ['ZI-505','IGV 개도','%',          55.0,  45,    70,     '',    35,    80,    90,   1,1, 'SI-507:0.70, TI-503:-0.40'],
+    ['ZI-506','토출밸브 개도','%',     47.5,  35,    60,     '',    25,    72,    85,   1,1, ''],
+    ['SI-507','터빈 회전수','rpm',     18450, 17500, 19500,  16000, 17000, 20200, 21000,2,2, ''],
+
+    ['#600', 'COLD BOX INLET  FV-601'],
+    ['ZI-601','FV-601 개도','%',       74.2,  60,    90,     '',    50,    95,    99,   1,1, 'FI-602:0.95, PI-604:-0.40:20'],
+    ['FI-602','공급 유량','Nm3/h',     39800, 37000, 42000,  33000, 35500, 43500, 45000,2,2, 'FI-710:0.70:60, LI-701:0.30:120'],
+    ['TI-603','공급 온도','℃',         -168.0,-173,  -163,   -180,  -176,  -159,  -154, 2,2, ''],
+    ['PI-604','공급 압력','bar',       5.60,  5.35,  5.85,   5.00,  5.20,  6.00,  6.20, 2,2, ''],
+
+    ['#700', 'COLUMNS  C-701 HP / C-702 LP / FV-709'],
+    ['LI-701','HP 레벨','%',           25.4,  18,    35,     10,    15,    40,    50,   2,1, ''],
+    ['PDI-702','HP 차압','bar',        0.31,  0.25,  0.40,   '',    0.20,  0.45,  0.55, 2,2, ''],
+    ['AI-703','HP O2 농도','%',        38.2,  34,    42,     30,    32,    45,    48,   2,2, ''],
+    ['TI-704','HP 온도','℃',           -178.0,-181,  -175,   -185,  -183,  -172,  -169, 1,1, ''],
+    ['LI-705','LP 레벨','%',           22.1,  15,    32,     8,     12,    38,    48,   2,1, ''],
+    ['PDI-706','LP 차압','bar',        0.24,  0.18,  0.32,   '',    0.14,  0.38,  0.46, 2,2, ''],
+    ['AI-707','LP O2 순도','%',        99.6,  99.0,  99.9,   98.5,  99.2,  '',    '',   1,1, 'AI-803:0.80:180'],
+    ['TI-708','LP 온도','℃',           -183.5,-186,  -181,   -190,  -188,  -178,  -175, 1,1, ''],
+    ['ZI-709','FV-709 개도','%',       61.0,  50,    75,     '',    40,    85,    93,   1,1, 'FI-710:0.90, LI-701:-0.50:60, LI-705:0.40:90'],
+    ['FI-710','HP→LP 이송 유량','Nm3/h',21400,19500, 23000,  17000, 18500, 24500, 26000,2,2, ''],
+
+    ['#800', 'PRODUCT TANKS  TK-801 LOX / TK-802 LIN'],
+    ['ZI-801','LV-801 개도','%',       45.0,  30,    65,     '',    20,    80,    92,   1,1, 'LI-802:-0.60:60'],
+    ['LI-802','LOX 레벨','%',          60.0,  30,    85,     15,    25,    88,    95,   3,1, ''],
+    ['AI-803','LOX 순도 O2','%',       99.7,  99.4,  99.9,   99.0,  99.3,  '',    '',   1,1, ''],
+    ['MI-804','LOX 수분','ppm',        0.5,   0.1,   1.5,    '',    '',    2.0,   3.0,  1,2, ''],
+    ['ZI-805','LV-802 개도','%',       38.5,  25,    60,     '',    15,    78,    90,   1,1, 'LI-806:-0.60:60'],
+    ['LI-806','LIN 레벨','%',          80.0,  40,    90,     15,    25,    88,    95,   3,1, ''],
+    ['AI-807','LIN 순도 N2','%',       99.9,  99.70, 99.99,  99.30, 99.60, '',    '',   1,1, ''],
+    ['MI-808','LIN 수분','ppm',        0.3,   0.1,   1.0,    '',    '',    1.5,   2.5,  1,2, ''],
+
+    ['#900', 'GN2 SUPPLY / VENT  PV-902 / PV-903'],
+    ['PI-901','GN2 공급 압력','bar',   4.85,  4.60,  5.10,   4.20,  4.50,  5.20,  5.50, 2,2, ''],
+    ['FI-902','GN2 공급 유량','Nm3/h', 18600, 16000, 21000,  13000, 15000, 22500, 24000,2,2, ''],
+    ['MI-903','GN2 수분','ppm',        0.4,   0.1,   1.2,    '',    '',    1.8,   3.0,  1,2, ''],
+    ['ZI-904','PV-902 개도','%',       72.0,  55,    90,     '',    45,    95,    99,   1,1, 'PI-901:-0.50:30, FI-902:0.85'],
+    ['ZI-905','PV-903 Vent 개도','%',  8.5,   0,     25,     '',    '',    35,    50,   1,1, 'PI-901:-0.70:20, FI-906:0.95'],
+    ['FI-906','Vent 유량','Nm3/h',     1250,  0,     3500,   '',    '',    4500,  6000, 2,2, '']
+  ];
+
+  var COLS = ['nom','lo','hi','LL','L','H','HH'];
+
+  function baseState(){
+    var s = {};
+    DEFAULTS.forEach(function(r){
+      if (r[0].charAt(0) === '#') return;
+      s[r[0]] = {desc:r[1], unit:r[2], nom:r[3], lo:r[4], hi:r[5],
+                 LL:r[6], L:r[7], H:r[8], HH:r[9], drift:r[10], noise:r[11], links:r[12]};
+    });
+    return s;
+  }
+
+  var state = baseState();
+  try {
+    var saved = localStorage.getItem(LSKEY);
+    if (saved){
+      var o = JSON.parse(saved);
+      Object.keys(state).forEach(function(k){ if (o[k]) Object.assign(state[k], o[k]); });
+    }
+  } catch(e){}
+
+  var sel = null;
+  var $ = function(id){ return document.getElementById(id); };
+  function msg(t, ok){ var m = $('dMsg'); m.textContent = t; m.style.color = ok === false ? '#b45309' : '#1a7f37'; }
+
+  /* ── 표 그리기 ── */
+  function buildTable(){
+    var tb = $('dBody');
+    tb.innerHTML = '';
+    DEFAULTS.forEach(function(r){
+      var tr = document.createElement('tr');
+      if (r[0].charAt(0) === '#'){
+        tr.className = 'grp';
+        tr.innerHTML = '<td colspan="13">' + r[1] + '</td>';
+        tb.appendChild(tr);
+        return;
+      }
+      var id = r[0], d = state[id];
+      tr.dataset.id = id;
+
+      var h = '<td><span class="tg">' + id + '</span></td>'
+            + '<td class="ds">' + d.desc + '</td>'
+            + '<td class="ds">' + d.unit + '</td>';
+      COLS.forEach(function(c){
+        h += '<td' + (['LL','L','H','HH'].indexOf(c) >= 0 ? ' class="al"' : '') + '>'
+           + '<input data-f="' + c + '" value="' + (d[c] === '' ? '' : d[c]) + '"></td>';
+      });
+      h += '<td><select data-f="drift">' + opt(d.drift) + '</select></td>'
+         + '<td><select data-f="noise">' + opt(d.noise) + '</select></td>'
+         + '<td><input class="lnk" data-f="links" value="' + d.links + '"></td>';
+      tr.innerHTML = h;
+      tb.appendChild(tr);
+    });
+  }
+  function opt(v){
+    return [1,2,3].map(function(n){
+      return '<option value="' + n + '"' + (n === +v ? ' selected' : '') + '>' + n + '</option>';
+    }).join('');
+  }
+
+  function onEdit(e){
+    var t = e.target, f = t.dataset.f;
+    if (!f) return;
+    var id = t.closest('tr').dataset.id;
+    var v = t.value.trim();
+    if (f === 'links') state[id][f] = v;
+    else if (f === 'drift' || f === 'noise') state[id][f] = +v;
+    else state[id][f] = (v === '' ? '' : (isNaN(+v) ? v : +v));
+    if (id === sel) drawPreview();
+  }
+
+  function select(id){
+    sel = id;
+    Array.prototype.forEach.call($('dBody').rows, function(r){
+      r.classList.toggle('sel', r.dataset.id === id);
+    });
+    drawPreview();
+  }
+
+  /* ── 시드 난수 (재현성) ── */
+  function rng(seed){
+    var a = seed >>> 0;
+    return function(){
+      a += 0x6D2B79F5;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(rnd){
+    var u = 1 - rnd(), v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function hash(s){ var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+
+  /* ── 태그 1개 베이스라인 (드리프트 + 노이즈) ── */
+  function series(id, seed, stepSec, n){
+    var d = state[id];
+    var nom = +d.nom, lo = +d.lo, hi = +d.hi;
+    var range = Math.abs(hi - lo) || Math.abs(nom) * 0.1 || 1;
+    var amp = range * DRIFT[Math.min(2, Math.max(0, d.drift - 1))];
+    var sig = range * NOISE[Math.min(2, Math.max(0, d.noise - 1))];
+
+    var rnd = rng(seed ^ hash(id));
+    var p1 = 1200 + rnd() * 2400, p2 = 300 + rnd() * 600;
+    var f1 = rnd() * 6.283, f2 = rnd() * 6.283;
+
+    var out = new Array(n);
+    for (var i = 0; i < n; i++){
+      var t = i * stepSec;
+      out[i] = nom
+             + amp * Math.sin(2 * Math.PI * t / p1 + f1)
+             + amp * 0.4 * Math.sin(2 * Math.PI * t / p2 + f2)
+             + sig * gauss(rnd);
+    }
+    return out;
+  }
+
+  /* ── 연동 태그 반영 ── */
+  function applyLinks(data, stepSec, n){
+    var add = {};
+    Object.keys(data).forEach(function(k){ add[k] = new Float64Array(n); });
+
+    Object.keys(state).forEach(function(src){
+      var raw = state[src].links;
+      if (!raw) return;
+      var sN = +state[src].nom;
+      var sR = Math.abs(+state[src].hi - +state[src].lo) || 1;
+
+      raw.split(',').forEach(function(part){
+        var p = part.trim().split(':');
+        var tgt = (p[0] || '').trim();
+        if (!tgt || !data[tgt]) return;
+        var gain = parseFloat(p[1]) || 0;
+        var lag = Math.round((parseFloat(p[2]) || 0) / stepSec);
+        var tR = Math.abs(+state[tgt].hi - +state[tgt].lo) || 1;
+
+        for (var i = 0; i < n; i++){
+          var j = Math.max(0, i - lag);
+          add[tgt][i] += gain * (data[src][j] - sN) * (tR / sR);
+        }
+      });
+    });
+
+    Object.keys(data).forEach(function(k){
+      for (var i = 0; i < n; i++) data[k][i] += add[k][i];
+    });
+  }
+
+  function decimals(id){
+    var d = state[id], s = String(d.nom);
+    var i = s.indexOf('.');
+    var n = i < 0 ? 0 : s.length - i - 1;
+    return Math.min(4, Math.max(n, Math.abs(+d.hi - +d.lo) < 5 ? 2 : 1));
+  }
+
+  /* ── 미리보기 차트 ── */
+  function drawPreview(){
+    var svg = $('pvChart');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (!sel){ return; }
+
+    var d = state[sel];
+    $('pvTag').textContent = sel + '  ·  ' + d.desc + '  (' + d.unit + ')';
+
+    var step = 10, n = 360;                       // 60분 / 10초
+    var y = series(sel, +$('dSeed').value || 1, step, n);
+    var mn = Math.min.apply(null, y), mx = Math.max.apply(null, y);
+    var lo = +d.lo, hi = +d.hi;
+    if (!isNaN(lo)) mn = Math.min(mn, lo);
+    if (!isNaN(hi)) mx = Math.max(mx, hi);
+    var pad = (mx - mn) * 0.12 || 1;
+    mn -= pad; mx += pad;
+
+    var W = 300, H = 130, L = 40, R = 6, T = 8, B = 16;
+    var px = function(i){ return L + (W - L - R) * i / (n - 1); };
+    var py = function(v){ return T + (H - T - B) * (1 - (v - mn) / (mx - mn)); };
+
+    function add(tag, at){ var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); svg.appendChild(e); return e; }
+    function label(x, yy, s, col, anc){
+      var e = document.createElementNS(NS, 'text');
+      e.setAttribute('x', x); e.setAttribute('y', yy);
+      e.setAttribute('font-size', '7'); e.setAttribute('fill', col);
+      e.setAttribute('font-family', 'ui-monospace,Menlo,Consolas,monospace');
+      if (anc) e.setAttribute('text-anchor', anc);
+      e.textContent = s; svg.appendChild(e);
+    }
+
+    // 정상 범위 밴드
+    if (!isNaN(lo) && !isNaN(hi)){
+      add('rect', {x:L, y:py(hi), width:W - L - R, height:Math.abs(py(lo) - py(hi)), fill:'#e8f0e6'});
+      add('line', {x1:L, y1:py(hi), x2:W - R, y2:py(hi), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      add('line', {x1:L, y1:py(lo), x2:W - R, y2:py(lo), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      label(L - 3, py(hi) + 2.5, fmt(hi, sel), '#5f7f5f', 'end');
+      label(L - 3, py(lo) + 2.5, fmt(lo, sel), '#5f7f5f', 'end');
+    }
+    // 알람선
+    [['H', '#b45309'], ['HH', '#EA002C'], ['L', '#b45309'], ['LL', '#EA002C']].forEach(function(a){
+      var v = parseFloat(d[a[0]]);
+      if (isNaN(v) || v < mn || v > mx) return;
+      add('line', {x1:L, y1:py(v), x2:W - R, y2:py(v), stroke:a[1], 'stroke-width':.7, 'stroke-dasharray':'1 2'});
+      label(W - R, py(v) - 2, a[0], a[1], 'end');
+    });
+    // 정상값
+    add('line', {x1:L, y1:py(+d.nom), x2:W - R, y2:py(+d.nom), stroke:'#a9a9a4', 'stroke-width':.7});
+    // 트렌드
+    var pth = '';
+    for (var i = 0; i < n; i++) pth += (i ? 'L' : 'M') + px(i).toFixed(1) + ',' + py(y[i]).toFixed(1);
+    add('path', {d:pth, fill:'none', stroke:'#0b3d91', 'stroke-width':1.1});
+    // 축
+    add('line', {x1:L, y1:H - B, x2:W - R, y2:H - B, stroke:'#c8c9c4', 'stroke-width':.8});
+    label(L, H - 5, '0분', '#8a8a84');
+    label(W - R, H - 5, '60분', '#8a8a84', 'end');
+
+    var mn2 = Math.min.apply(null, y), mx2 = Math.max.apply(null, y);
+    $('pvNote').innerHTML = '생성값 범위 <b>' + fmt(mn2, sel) + ' ~ ' + fmt(mx2, sel) + '</b> ' + d.unit
+      + ' · 드리프트 ' + d.drift + ' / 노이즈 ' + d.noise
+      + '<br>초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
+  }
+  function fmt(v, id){ return (+v).toFixed(decimals(id)); }
+
+  /* ── 베이스라인 CSV 생성 ── */
+  function generate(){
+    var seed = +$('dSeed').value || 1;
+    var step = +$('dStep').value;
+    var mins = +$('dDur').value;
+    var n = Math.floor(mins * 60 / step) + 1;
+    var ids = Object.keys(state);
+
+    if (n * ids.length > 3000000){ msg('데이터가 너무 큽니다. 샘플 주기를 늘리거나 길이를 줄이세요.', false); return; }
+
+    var data = {};
+    ids.forEach(function(id){ data[id] = series(id, seed, step, n); });
+    applyLinks(data, step, n);
+
+    var dec = {};
+    ids.forEach(function(id){ dec[id] = decimals(id); });
+
+    var t0 = new Date('2026-08-21T08:00:00');
+    var rows = ['timestamp,' + ids.join(',')];
+    for (var i = 0; i < n; i++){
+      var ts = new Date(t0.getTime() + i * step * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      var line = new Array(ids.length);
+      for (var k = 0; k < ids.length; k++) line[k] = data[ids[k]][i].toFixed(dec[ids[k]]);
+      rows.push(ts + ',' + line.join(','));
+    }
+    show(rows.join('\n'));
+    msg('베이스라인 생성 완료 — ' + n.toLocaleString() + '행 × ' + ids.length + '태그 (seed ' + seed + ', ' + step + '초 간격). 아래 상자를 전체 선택해 복사하세요.');
+  }
+
+  function specCsv(){
+    var h = 'tag,description,unit,nominal,normal_lo,normal_hi,LL,L,H,HH,drift_level,noise_level,links';
+    var rows = [h];
+    Object.keys(state).forEach(function(id){
+      var d = state[id];
+      rows.push([id, d.desc, d.unit, d.nom, d.lo, d.hi, d.LL, d.L, d.H, d.HH, d.drift, d.noise, '"' + d.links + '"'].join(','));
+    });
+    show(rows.join('\n'));
+    msg('태그 마스터 CSV — ' + Object.keys(state).length + '행. 아래 상자를 복사해 엑셀에 붙여넣으세요.');
+  }
+
+  function show(text){
+    var o = $('dOut');
+    o.style.display = 'block';
+    o.value = text;
+    o.focus(); o.select();
+  }
+
+  /* ── 이벤트 ── */
+  buildTable();
+
+  $('dBody').addEventListener('input', onEdit);
+  $('dBody').addEventListener('change', onEdit);
+  $('dBody').addEventListener('click', function(e){
+    if (e.target.classList.contains('tg')) select(e.target.closest('tr').dataset.id);
+  });
+
+  $('dSave').onclick = function(){
+    try { localStorage.setItem(LSKEY, JSON.stringify(state)); msg('저장했습니다. 다음에 이 페이지를 열면 그대로 복원됩니다.'); }
+    catch(e){ msg('브라우저 저장이 막혀 있습니다. JSON 버튼으로 내용을 복사해 두세요.', false); }
+  };
+  $('dReset').onclick = function(){
+    if (!confirm('입력한 값을 모두 버리고 기본값으로 되돌립니다.')) return;
+    state = baseState();
+    try { localStorage.removeItem(LSKEY); } catch(e){}
+    buildTable(); sel = null;
+    $('pvTag').textContent = '태그를 선택하세요';
+    while ($('pvChart').firstChild) $('pvChart').removeChild($('pvChart').firstChild);
+    msg('기본값으로 되돌렸습니다.');
+  };
+  $('dGen').onclick = generate;
+  $('dSpec').onclick = specCsv;
+  $('dJson').onclick = function(){ show(JSON.stringify(state, null, 2)); msg('태그 마스터 JSON — 팀 저장소에 그대로 넣으면 됩니다.'); };
+  $('dSeed').onchange = function(){ if (sel) drawPreview(); };
+
+  /* ── 페이지 탭 ── */
+  function tab(dataOn){
+    $('viewOverview').hidden = dataOn;
+    $('viewData').hidden = !dataOn;
+    $('tabOvw').classList.toggle('off', dataOn);
+    $('tabData').classList.toggle('off', !dataOn);
+    if (dataOn && !sel) select('TI-101');
+  }
+  $('tabOvw').onclick = function(){ tab(false); };
+  $('tabData').onclick = function(){ tab(true); };
+})();
+</script>
+</body>
+</html>
