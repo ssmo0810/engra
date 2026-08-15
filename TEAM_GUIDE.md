@@ -17,6 +17,7 @@
 | `.github/workflows/pages.yml` | 자동 배포 설정 | — |
 | `.nojekyll` | 배포 설정 (빈 파일, 지우지 말 것) | — |
 | `docs/scenarios.md` | 특이 시나리오 정의 (임도영 담당) | — |
+| `engine/README.md` | 검출 알고리즘 설계 (정기영 담당) | — |
 | `CLAUDE.md` | Claude Code 작업 규칙 | — |
 
 ---
