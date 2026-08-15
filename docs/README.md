@@ -1,6 +1,6 @@
-# data — 모의 플랜트 데이터 (임도영)
+# docs — 시나리오 · 모의 데이터 (임도영)
 
-ENGRA 데모용 **가상 ASU(공기분리장치) 플랜트**의 DCS 화면과 태그 데이터입니다.
+ENGRA 데모용 **가상 ASU(공기분리장치) 플랜트**의 특이 시나리오 정의, 모의 DCS 화면, 태그 마스터입니다.
 
 > **모든 값은 가상입니다.** 사내 실제 태그 체계, 운전값, 시스템 화면과 무관하게 작성했습니다.
 
@@ -8,8 +8,11 @@ ENGRA 데모용 **가상 ASU(공기분리장치) 플랜트**의 DCS 화면과 �
 
 | 파일 | 내용 |
 |---|---|
-| `asu_dcs_overview.html` | 모의 DCS Overview 화면 + 태그 마스터 편집·데이터 생성기 (단일 파일, 외부 의존 없음) |
-| `tag_master.csv` | 계측 태그 53점 명세 (정상값·정상범위·알람한계·드리프트/노이즈 단계·연동관계) |
+| [`scenarios.md`](scenarios.md) | 특이 시나리오 15종 정의 · 전파 경로 · 기대 탐지 결과 |
+| [`asu_dcs_overview.html`](asu_dcs_overview.html) | 모의 DCS Overview 화면 + 태그 마스터 편집·데이터 생성기 (단일 파일, 외부 의존 없음) |
+| [`tag_master.csv`](tag_master.csv) | 계측 태그 53점 명세 (정상값·정상범위·알람한계·드리프트/노이즈 단계·연동관계) |
+
+공개 주소: <https://ssmo0810.github.io/engra/docs/asu_dcs_overview.html>
 
 ## asu_dcs_overview.html 사용법
 
@@ -77,4 +80,4 @@ ENGRA 데모용 **가상 ASU(공기분리장치) 플랜트**의 DCS 화면과 �
 
 ## 다음 단계
 
-`tests/` 에 이상 시나리오를 정의할 예정입니다. 각 시나리오는 트리거 태그, 파형(step / ramp / drift / stuck), 크기, 시작시각, 지속시간, 전파 태그, **기대 탐지 결과**를 포함합니다. 기대 탐지 결과는 통합테스트 판정 기준으로 그대로 사용합니다.
+[`scenarios.md`](scenarios.md) 하단의 "다음 작업" 참고.
