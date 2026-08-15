@@ -1019,6 +1019,11 @@
   }
   function plateau(D,tag,s,e,target){ for(var i=s;i<e;i++) D[tag][i] = target + (D[tag][i]-target)*0.25; }
   function freeze(D,tag,s,e){ var v=D[tag][s]; for(var i=s;i<e;i++) D[tag][i]=v; }
+  // 구간 앞부분에서 delta 만큼 이동한 뒤 그대로 유지 (한계 초과형)
+  function stepTo(D,tag,s,e,delta,frac){
+    var m = s + Math.max(1, Math.round((e-s)*(frac||0.5)));
+    for(var i=s;i<e;i++){ var f = i<m ? (i-s)/(m-s) : 1; D[tag][i] += delta*f; }
+  }
 
   // dur: 필요한 구간 길이(초) / tags: 점유 태그 / pre: 연동 전 주입 / post: 연동 후 덮어쓰기
   var SCEN = [
@@ -1030,7 +1035,7 @@
     desc:'시간당 +0.68℃ 완만 상승 — 2교대 유지 시 H(125℃) 도달',
     pre:function(D,s,e){ ramp(D,'TI-205',s,e,0.68); }},
 
-   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601'], dur:14460,
+   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601','FI-602','PI-604','LI-701'], dur:14460,
     desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
     pre:function(D,s,e){ var a=[6,9,13];
       for(var k=0;k<3;k++){ var b=s+Math.round(k*7200/STEP), n=Math.round(60/STEP);
@@ -1040,7 +1045,7 @@
     desc:'상한(20℃)의 95%인 19℃ 부근에서 40분 체류',
     pre:function(D,s,e){ plateau(D,'TI-401',s,e,19); }},
 
-   {id:5, nm:'공급유량 헌팅', tag:'FI-602', tags:['FI-602'], dur:7200,
+   {id:5, nm:'공급유량 헌팅', tag:'FI-602', tags:['FI-602','PDI-702','TI-704','FI-710','LI-701'], dur:7200,
     desc:'−5% 급강하 후 10초 내 원복 × 5회 — PDI-702·TI-704 동반 흔들림',
     pre:function(D,s,e){ var n=Math.round(10/STEP);
       for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
@@ -1057,7 +1062,7 @@
     desc:'개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승',
     pre:function(D,s,e){ freeze(D,'ZI-801',s,e); ramp(D,'LI-802',s,e,6); }},
 
-   {id:8, nm:'압축기 서지 전조', tag:'PI-203', tags:['PI-203','FI-204'], dur:1500,
+   {id:8, nm:'압축기 서지 전조', tag:'PI-203', tags:['PI-203','FI-204','JI-206','TI-205'], dur:1500,
     desc:'토출압 +3% 상승과 유량 −6% 감소가 동시 진행',
     pre:function(D,s,e){ var h=(e-s)*STEP/3600;
       ramp(D,'PI-203',s,e, 5.85*0.03/h); ramp(D,'FI-204',s,e, -42500*0.06/h); }},
@@ -1070,7 +1075,7 @@
     desc:'H(88%) 직전인 87.5%에서 2시간 체류',
     pre:function(D,s,e){ plateau(D,'LI-806',s,e,87.5); }},
 
-   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601'], dur:3600,
+   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601','PI-604','LI-701','FI-710'], dur:3600,
     desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
     pre:function(D,s,e){ osc(D,'ZI-601',s,e,4,900,false); },
     post:function(D,s,e){ freeze(D,'FI-602',s,e); }},
@@ -1081,7 +1086,7 @@
       for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
         for(var i=b;i<b+n && i<e;i++) D['MI-804'][i]=999; } }},
 
-   {id:13, nm:'GN2 공급압 반복 헌팅', tag:'ZI-904', tags:['ZI-904'], dur:7200,
+   {id:13, nm:'GN2 공급압 반복 헌팅', tag:'ZI-904', tags:['ZI-904','PI-901','FI-902'], dur:7200,
     desc:'±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적',
     pre:function(D,s,e){ var n=Math.round(180/STEP);
       for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
@@ -1093,7 +1098,28 @@
 
    {id:15, nm:'순도 동반 저하', tag:'AI-707', tags:['AI-707','AI-803'], dur:7200,
     desc:'LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락',
-    pre:function(D,s,e){ var h=(e-s)*STEP/3600; ramp(D,'AI-707',s,e,-0.3/h); }}
+    pre:function(D,s,e){ var h=(e-s)*STEP/3600; ramp(D,'AI-707',s,e,-0.3/h); }},
+
+   /* ── 16~20 : 한계를 명확히 넘어 알람이 발생하는 단순 유형 (Issue #1) ── */
+   {id:16, nm:'흡착탑 과온', tag:'TI-301', tags:['TI-301'], dur:2400, alarm:'H 50℃',
+    desc:'32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과',
+    pre:function(D,s,e){ stepTo(D,'TI-301',s,e,22.9,0.5); }},
+
+   {id:17, nm:'GN2 공급압 저하', tag:'PI-901', tags:['PI-901'], dur:3600, alarm:'L 4.50 bar',
+    desc:'4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질',
+    pre:function(D,s,e){ stepTo(D,'PI-901',s,e,-0.50,0.4); }},
+
+   {id:18, nm:'HP Column 고레벨', tag:'LI-701', tags:['LI-701'], dur:5400, alarm:'H 40%',
+    desc:'25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버',
+    pre:function(D,s,e){ stepTo(D,'LI-701',s,e,18.6,0.6); }},
+
+   {id:19, nm:'흡입 필터 차압 상승', tag:'PDI-103', tags:['PDI-103'], dur:10800, alarm:'H 0.030 bar',
+    desc:'0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘',
+    pre:function(D,s,e){ stepTo(D,'PDI-103',s,e,0.021,1.0); }},
+
+   {id:20, nm:'압축기 전력 과부하', tag:'JI-206', tags:['JI-206'], dur:1800, alarm:'H 3,600 kW',
+    desc:'3,240 → 3,680 kW 급증 후 유지 — H(3,600 kW) 초과, 부하 이상',
+    pre:function(D,s,e){ stepTo(D,'JI-206',s,e,440,0.3); }}
   ];
 
   var lastRun = null;
@@ -1242,7 +1268,8 @@
                 trigger_tag:w.S.tag, affected_tags:w.S.tags,
                 start:fmtTs(R.baseMs,w.s), end:fmtTs(R.baseMs,w.e),
                 duration_min:Math.round((w.e-w.s)*STEP/60),
-                shift:(w.s<HALF?'주간':'야간')};
+                shift:(w.s<HALF?'주간':'야간'),
+                dcs_alarm:(w.S.alarm ? '발생 · '+w.S.alarm : (w.S.id===6||w.S.id===10 ? '발생 · 연동 기여로 한계 초과' : '미발생'))};
       })
     };
   }
