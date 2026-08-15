@@ -17,6 +17,7 @@
 | `demo/index.html` (화면 데모) | 박경모 |
 | `README.md`, `TEAM_GUIDE.md` | 박경모 |
 | `.github/`, `.nojekyll`, `CLAUDE.md` | 박경모 |
+| `docs/` (시나리오·검증 기준) | 임도영 |
 
 프로토타입 개발이 시작되면 아래 구조로 나눈다.
 
