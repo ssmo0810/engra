@@ -48,7 +48,26 @@
 ```
 index.html        서비스 소개 페이지 (단일 파일, 외부 의존 없음)
 demo/index.html   화면 데모 — DCS · RTDB · 초안 검토 · 일지 조회
+app/              프로토타입 본체 — 수집 · 저장소 · 승인 · 화면
+engine/           검출 알고리즘
+docs/             시나리오 정의 · 모의 데이터 생성기
 ```
+
+### 프로토타입 실행
+
+의존성 없이 파이썬 3.10 이상이면 바로 돕니다.
+
+```bash
+python3 app/cli.py init
+python3 app/cli.py sample
+python3 app/cli.py ingest app/sample_shift.csv
+python3 app/cli.py run 2026-08-23-day
+python3 app/cli.py serve            # http://127.0.0.1:8000
+```
+
+적재 → 검출 → 초안 → 승인 → 확정 일지까지 실제로 이어지며, **확정한 일지는 다음 근무
+초안에 과거 조치로 다시 나타납니다.** 진행 상황은 [status.md](status.md), 구조와 연결
+규약은 [app/README.md](app/README.md) 에 있습니다.
 
 **화면 데모 →** https://ssmo0810.github.io/engra/demo/
 

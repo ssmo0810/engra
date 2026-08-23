@@ -32,6 +32,25 @@
 폴더 사이에 주고받는 데이터 형식은 [`app/README.md`](app/README.md) 의 **연결 규약**을 따른다.
 규약을 바꿔야 하면 **바꾸기 전에 팀에 알린다.**
 
+## 프로토타입 실행
+
+설치할 것이 없다. 파이썬 3.10 이상이면 된다.
+
+```bash
+python3 app/cli.py init                       # 저장소 생성
+python3 app/cli.py sample                     # 배선 확인용 CSV
+python3 app/cli.py ingest app/sample_shift.csv
+python3 app/cli.py run 2026-08-23-day         # 요약 → 기준선 → 검출 → 초안
+python3 app/cli.py serve                      # 웹 화면
+```
+
+**검출 엔진은 `engine/api.py` 가 있으면 자동으로 그것을 쓴다.** 없으면 임시 엔진이 돈다.
+실행 첫 줄과 화면 오른쪽 위에 `engine` / `stub` 으로 표시되니 어느 쪽이 도는지 바로 보인다.
+규약과 시작하는 법은 [`app/README.md`](app/README.md) 의 "엔진 자리" 절에 있다.
+
+`app/engra.db` 와 `app/sample_*.csv` 는 커밋하지 않는다(`app/.gitignore`).
+저장소에 실제 운전 값이 섞여 들어가는 것을 구조적으로 막기 위한 것이다.
+
 담당 밖 파일을 고쳐야 하면 **먼저 담당자에게 알리고** 작업한다.
 
 ## 서로에게 요청하고 알리기
