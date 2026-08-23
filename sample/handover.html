@@ -3,58 +3,133 @@
 <title>2026-08-22-day · ENGRA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>
-*{box-sizing:border-box}
-body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
-     background:#f5f6f8;color:#1a1a1a}
-header{background:#EA002C;color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:12px}
-header b{font-size:18px;letter-spacing:.5px}
-header span{opacity:.85;font-size:13px}
-main{max-width:920px;margin:24px auto;padding:0 20px}
-.card{background:#fff;border:1px solid #e3e5e9;border-radius:10px;padding:18px 20px;margin-bottom:14px}
-.card h3{margin:0 0 6px;font-size:16px}
-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
-th,td{padding:11px 14px;text-align:left;border-bottom:1px solid #eceef1;font-size:14px}
-th{background:#fafbfc;font-weight:600;color:#5b616e}
-tr:last-child td{border-bottom:none}
-a{color:#0a58ca;text-decoration:none}
-a:hover{text-decoration:underline}
-.sev{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:600}
-.s-상{background:#fdeaec;color:#c0113a}.s-중{background:#fff5e0;color:#9a6800}
-.s-하{background:#eef1f5;color:#5b616e}
-.ev{color:#5b616e;font-size:13px;margin-top:5px}
-.pre{background:#f2f7ff;border-left:3px solid #7aa7e8;padding:8px 11px;margin-top:8px;
-     font-size:13px;color:#33465e;border-radius:0 5px 5px 0}
-input[type=text]{width:100%;padding:8px 10px;border:1px solid #d6d9de;border-radius:6px;font:inherit}
-label.chk{display:flex;gap:9px;align-items:flex-start;cursor:pointer}
-button{background:#EA002C;color:#fff;border:0;padding:10px 22px;border-radius:7px;
-       font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
-button.ghost{background:#fff;color:#5b616e;border:1px solid #d6d9de;font-weight:400;padding:7px 14px}
-.bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #e3e5e9;padding:14px 20px;
-     display:flex;justify-content:space-between;align-items:center;margin:0 -20px -18px;
-     border-radius:0 0 10px 10px}
-.tag{font-family:ui-monospace,Menlo,monospace;font-size:13px}
-.empty{color:#8a909c;text-align:center;padding:28px}
-pre.log{white-space:pre-wrap;font:13px/1.7 ui-monospace,Menlo,monospace;
-        background:#fafbfc;border:1px solid #eceef1;border-radius:7px;padding:14px;margin:0}
-.warn{background:#fff8e5;border:1px solid #f0dda8;color:#7a5c00;padding:9px 13px;
-      border-radius:7px;font-size:13px;margin-bottom:14px}
-</style>
-<header><b>ENGRA</b><span>교대 인수인계 초안</span>
-<span style="margin-left:auto">엔진: stub</span></header>
-<main><div style="background:#eef3fb;border:1px solid #c9d9ef;color:#25405f;
-padding:13px 17px;border-radius:9px;margin-bottom:18px;font-size:14px;line-height:1.7">
+:root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;
+      --accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);
+     color:var(--ink);font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
+.top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+.top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
+.top span{font-size:12.5px;color:var(--sub)}
+.top .eng{margin-left:auto;font-size:11.5px}
+.disc{font-size:12px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;
+      padding:7px 11px;border-radius:6px;margin:12px 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:9px;
+      padding:16px 18px;margin-bottom:14px}
+.card h2{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;
+      background:#eceae6;color:var(--sub)}
+.pill.on{background:#dcefe2;color:var(--ok)}
+.pill.red{background:#ffe0e6;color:#b00020}.pill.amber{background:#fdf0d8;color:var(--warn)}
+.muted{color:var(--sub)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.note{font-size:12.5px;color:var(--sub);margin-bottom:11px}
+
+/* 초안 항목 */
+.item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;
+      background:#fff;transition:.15s}
+.item.off{opacity:.5;background:#fafafa}
+.item .row1{display:flex;align-items:flex-start;gap:10px}
+.item input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+.item .ttl{font-weight:700;font-size:13.5px;flex:1}
+.item .meta{font-size:11.5px;color:var(--sub);margin:3px 0 8px 27px}
+.item .body{margin-left:27px}
+.why{font-size:12px;background:#f7f6f4;border-left:3px solid #cfcdc8;padding:6px 10px;
+     border-radius:0 5px 5px 0;margin-bottom:8px}
+.why b{color:var(--ink)}
+.sug{font-size:12px;background:#f2f7f3;border-left:3px solid #a8ceb5;padding:6px 10px;
+     border-radius:0 5px 5px 0;margin-bottom:8px}
+.sug .lb{font-size:10.5px;font-weight:700;color:var(--ok);display:block;margin-bottom:2px}
+.sug button{font:inherit;font-size:11px;border:1px solid #a8ceb5;background:#fff;color:var(--ok);
+            border-radius:4px;padding:1px 7px;cursor:pointer;margin-left:6px}
+textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:inherit;
+         font-size:12.5px;resize:vertical;min-height:34px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;
+     background:#fff;border:1px solid var(--line);border-radius:9px;position:sticky;bottom:12px;
+     flex-wrap:wrap}
+.bar .cnt{font-size:13px}.bar .cnt b{color:var(--accent);font-size:16px}
+.btn{font:inherit;font-weight:700;font-size:13.5px;padding:9px 22px;border-radius:7px;border:none;
+     cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
+.btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+
+/* 수동 추가 */
+.item.man{border-style:dashed}
+.item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;
+           border-bottom:1px solid var(--line);padding:1px 2px;background:none}
+.item .tin:focus{outline:none;border-bottom-color:var(--accent)}
+.item .min{width:100%;font:inherit;font-size:11.5px;color:var(--sub);border:none;
+           border-bottom:1px dashed var(--line);padding:1px 2px;margin-bottom:8px;background:none}
+.item .min:focus{outline:none;border-bottom-color:var(--accent)}
+.del{font:inherit;font-size:11.5px;background:none;border:1px solid var(--line);color:var(--sub);
+     border-radius:5px;padding:2px 9px;cursor:pointer}
+.del:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 일지 조회 */
+.logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);
+        border-radius:8px;background:#fff;margin-bottom:8px;transition:.12s;
+        text-decoration:none;color:inherit}
+.logrow:hover{border-color:var(--accent);background:#fffafb}
+.logrow .d{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;width:104px}
+.logrow .s{font-size:12.5px;width:52px;color:var(--sub)}
+.logrow .x{flex:1;font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;
+           white-space:nowrap}
+.logrow .c{font-size:11.5px}
+.logrow .arw{color:#c9c7c2;font-size:15px}
+.det h3{font-size:15px;margin-bottom:2px}
+.det .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
+.ent{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:14px}
+.ent .t{font-weight:700;font-size:13px}
+.ent .m{font-size:11.5px;color:var(--sub);margin-bottom:4px}
+.ent .c{font-size:12.5px;background:#f7f6f4;padding:6px 10px;border-radius:5px}
+.ex{border-left:3px solid #d8d6d1;padding:2px 0 2px 12px;margin-bottom:9px;opacity:.72}
+.ex .t{font-size:12.5px}
+.back{font:inherit;font-size:12.5px;color:var(--accent);text-decoration:none;
+      display:inline-block;margin-bottom:12px;font-weight:700}
+.empty{color:var(--sub);text-align:center;padding:28px;font-size:13px}
+.bar{position:static !important;bottom:auto !important}</style>
+<div class="wrap">
+<div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
+<span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
+<span class="eng pill">엔진 stub</span></div><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
+font-size:12.5px;line-height:1.75;padding:13px 17px">
 <b>실제로 돌아가는 프로토타입 화면입니다.</b> 스크린샷이 아니라 서버가 만든 화면을 그대로 떠 온 것이라
 값과 문구가 전부 진짜입니다. 다만 이 페이지는 정적이라 <b>버튼은 눌러도 반응하지 않습니다.</b>
-직접 돌려 보시려면 저장소를 받아 <code>python3 app/cli.py serve</code> 를 실행하세요 (설치할 것 없음).
+직접 돌려 보시려면 저장소를 받아 <code class="mono">python3 app/cli.py serve</code> 를 실행하세요
+(설치할 것 없음).
 <div style="margin-top:9px;padding-top:9px;border-top:1px solid #d6e2f2"><b>승인이 끝나면 이렇게 확정됩니다.</b> 여기 적힌 코멘트가 곧 다음 근무 초안의 '과거 조치' 로 나타납니다. 앞 화면에서 보신 것이 이 일지에서 나온 것입니다.</div>
-</div><p><a href='index.html'>← 일지 목록</a></p><div class='card'><h3>2026-08-22-day 확정 일지</h3><div class='ev'>박경모 · 2026-08-23 17:35:20 · 채택 2 / 제외 0</div><pre class='log' style='margin-top:12px'>[2026-08-22-day] 인수인계 일지
-
-1. [중] AI-707 LP O2 순도 — L 미달
-   07:19~07:34 구간에서 L 미달이 확인되었습니다.
-   근거: AI-707(LP O2 순도) L 한계 99.0% 미달 — 최저 98.735%
-   코멘트: 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인
-
-2. [중] MI-302 A탑 후단 수분 — H 초과
-   09:34~09:59 구간에서 H 초과가 확인되었습니다.
-   근거: MI-302(A탑 후단 수분) H 한계 3.0ppm 초과 — 최고 4.756ppm
-   코멘트: 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인</pre></div></main></html>
+</div>
+<a class="back" href="index.html">‹ 목록으로</a>
+<div class="card det">
+<h3>2026-08-22 주간조 인수인계서</h3>
+<div class="sub">분석 구간 08-22 06:00 · 작성 ENGRA
+2026-08-23 18:00:01 · 승인 박경모
+2026-08-23 18:00:01 · 감지 2건 중
+<b>2건 채택 / 0건 제외</b></div>
+<div class="ent"><div class="t">AI-707 LP O2 순도 — L 미달 <span class="pill amber">중요도 중</span></div><div class="m">AI-707(LP O2 순도) L 한계 99.0% 미달 — 최저 98.735%</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">MI-302 A탑 후단 수분 — H 초과 <span class="pill amber">중요도 중</span></div><div class="m">MI-302(A탑 후단 수분) H 한계 3.0ppm 초과 — 최고 4.756ppm</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div>
+</div>
+</div><script>
+function tg(cb){cb.closest('.item').classList.toggle('off',!cb.checked);cnt()}
+function cnt(){
+  var b=document.querySelectorAll('.item:not(.man) input[type=checkbox]');
+  var n=0;b.forEach(function(c){if(c.checked)n++});
+  var el=document.getElementById('n');if(el)el.textContent=n;
+}
+function use(btn,txt){
+  var ta=btn.closest('.body').querySelector('textarea');
+  ta.value=txt;ta.focus();
+}
+var mi=0;
+function addMan(){
+  mi++;
+  var d=document.createElement('div');
+  d.className='item man';
+  d.innerHTML='<div class="row1"><input type="checkbox" checked disabled>'+
+    '<input class="tin" name="manual_title" placeholder="제목 — 예: 3번 압축기 소음 증가" required>'+
+    '<button type="button" class="del" onclick="this.closest(\'.item\').remove()">삭제</button></div>'+
+    '<div class="body" style="margin-top:6px"><textarea name="manual_body" '+
+    'placeholder="내용 — 언제부터, 무엇을, 다음 근무가 무엇을 봐야 하는지"></textarea></div>';
+  document.getElementById('mans').appendChild(d);
+  d.querySelector('.tin').focus();
+}
+document.addEventListener('DOMContentLoaded',cnt);
+</script></html>
