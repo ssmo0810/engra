@@ -19,6 +19,66 @@
 
 ---
 
+## 실행
+
+**설치할 것이 없습니다.** 파이썬 3.10 이상이면 바로 돕니다. 외부 라이브러리를 쓰지 않은 것은
+세 사람이 각자 다른 환경에서 설치 없이 돌릴 수 있어야 하기 때문입니다.
+
+```bash
+python3 app/cli.py init                  # 저장소 생성
+python3 app/cli.py sample                # 배선 확인용 소형 CSV
+python3 app/cli.py ingest app/sample_shift.csv
+python3 app/cli.py shifts                # 근무 구간 목록
+python3 app/cli.py run 2026-08-23-day    # 요약 → 기준선 → 검출 → 초안
+python3 app/cli.py draft 2026-08-23-day  # 초안 보기
+python3 app/cli.py serve                 # 웹 화면 http://127.0.0.1:8000
+```
+
+임도영님 생성기가 만든 시나리오 CSV 도 `ingest` 에 그대로 넣으면 됩니다.
+`sample` 은 배선 확인용이라 태그가 5개뿐입니다 — 성능 측정에 쓰지 마세요.
+
+---
+
+## 코드 구조
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `config.py` | 경로와 근무 구간 규칙 |
+| `db.py` | 저장소 6종 (원본·요약·기준선·이벤트·초안·확정일지 + 색인) |
+| `collect.py` | 데이터 소스와 적재. 실배포 시 `CsvSource` → `RtdbSource` 만 교체 |
+| **`ports.py`** | **엔진 자리.** 아래 참고 |
+| `stub_engine.py` | 임시 엔진. 엔진이 오면 자동으로 물러난다 |
+| `pipeline.py` | 한 근무를 처음부터 끝까지 |
+| `approve.py` | 승인 → 확정 일지 → 색인 |
+| `server.py` | 웹 화면 (표준 라이브러리) |
+| `cli.py` | 명령줄 |
+
+### 엔진 자리 (`ports.py`)
+
+검출과 초안 작성은 `app/` 이 직접 하지 않고 **포트를 거칩니다.**
+`engine/api.py` 에 아래 네 함수가 생기면 `ports.py` 가 자동으로 그쪽을 쓰고,
+**`app/` 코드는 한 줄도 고치지 않습니다.**
+
+```python
+summarize(series)                       -> {태그: 요약}
+build_baseline(summaries)               -> {태그: 기준선}
+detect(series, baselines)               -> [이벤트, ...]
+compose(shift, events, find_precedents) -> [초안항목, ...]
+```
+
+지금 무엇이 돌고 있는지는 화면 오른쪽 위와 `cli.py init` 출력에 `stub` / `engine` 으로 표시됩니다.
+**형식이 규약과 다르면 조용히 넘어가지 않고 그 자리에서 멈춥니다** — 통합이 깨지는 가장 흔한
+원인이 "형식이 조금 달랐는데 아무도 몰랐다" 이기 때문입니다.
+
+구현 예시는 `stub_engine.py` 를 보면 됩니다. 그대로 복사해 `engine/api.py` 로 옮기고
+내용만 채우면 붙습니다.
+
+> 임시 엔진은 **알람 한계선(LL/L/H/HH)을 넘었는지만** 봅니다. 헌팅·드리프트·상관 붕괴처럼
+> 알람에 안 걸리는 신호는 전혀 못 잡습니다. 시나리오 20종 중 알람이 울리는 건 2종뿐이라
+> 임시 엔진의 성적은 2/20 근처에서 멈추고, 나머지 18종이 `engine/` 이 존재하는 이유입니다.
+
+---
+
 ## 연결 규약 — 통합을 위해 먼저 합의할 것
 
 세 사람이 각자 만든 것을 나중에 붙이면 서로 맞지 않아 다시 짜게 됩니다.

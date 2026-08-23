@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""ENGRA 명령줄.
+
+    python3 app/cli.py init                      저장소 생성
+    python3 app/cli.py sample                    스모크 테스트용 CSV 생성
+    python3 app/cli.py ingest <csv>              데이터 적재
+    python3 app/cli.py shifts                    근무 구간 목록
+    python3 app/cli.py run <근무id>              요약·검출·초안 생성
+    python3 app/cli.py draft <근무id>            초안 보기
+    python3 app/cli.py approve <근무id> [--items 1,3] [--all]
+    python3 app/cli.py handover <근무id>         확정 일지 보기
+    python3 app/cli.py serve                     웹 화면
+"""
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import approve as approve_mod  # noqa: E402
+import collect  # noqa: E402
+import db  # noqa: E402
+import pipeline  # noqa: E402
+import ports  # noqa: E402
+from config import APP_DIR, DB_PATH, HOST, PORT  # noqa: E402
+
+
+def cmd_init(_):
+    path = db.init()
+    print(f"저장소 준비 완료: {path}")
+    print(f"검출 엔진: {ports.engine_source()}")
+
+
+def cmd_sample(args):
+    import sample_data  # noqa: PLC0415
+    out = Path(args.out) if args.out else APP_DIR / "sample_shift.csv"
+    path, rows = sample_data.generate(out, kind=args.kind, minutes=args.minutes)
+    print(f"스모크 테스트용 CSV 생성: {path} ({rows:,}행)")
+    print("실제 검증은 임도영님 생성기의 시나리오 CSV + 정답지로 합니다.")
+
+
+def cmd_ingest(args):
+    db.init()
+    source = collect.CsvSource(Path(args.csv))
+    counts = collect.ingest(source)
+    if not counts:
+        print("적재된 데이터가 없습니다.")
+        return
+    with db.connect() as conn:
+        for sid, n in sorted(counts.items()):
+            cov = collect.coverage(conn, sid)
+            print(f"{sid}: {n:,}점 적재 · 태그 {cov['tags']}개 · 구간 충족률 {cov['ratio']:.1%}")
+
+
+def cmd_shifts(_):
+    with db.connect() as conn:
+        rows = db.list_shifts(conn)
+    if not rows:
+        print("등록된 근무 구간이 없습니다. ingest 를 먼저 실행하세요.")
+        return
+    print(f"{'근무 ID':<22}{'구간':<38}{'이벤트':>6}{'상태':>12}")
+    for r in rows:
+        span = f"{r['window_start'][5:16]} ~ {r['window_end'][5:16]}"
+        status = r["draft_status"] or "-"
+        if status == "confirmed":
+            status = f"확정({r['adopted_count']})"
+        print(f"{r['id']:<22}{span:<38}{r['event_count']:>6}{status:>12}")
+
+
+def cmd_run(args):
+    print(f"[{args.shift_id}] 실행 — 엔진: {ports.engine_source()}")
+    r = pipeline.run(args.shift_id, redo=args.redo)
+    if r["baseline_provisional"]:
+        print("  ⚠ 기준선이 잠정입니다. 근무가 쌓이면 정확해집니다.")
+    print(f"완료: 이벤트 {r['events']}건 · 초안 {r['items']}개 항목")
+
+
+def cmd_draft(args):
+    with db.connect() as conn:
+        d = db.load_draft(conn, args.shift_id)
+    if d is None:
+        print(f"{args.shift_id} 의 초안이 없습니다. run 을 먼저 실행하세요.")
+        return
+    print(f"[{args.shift_id}] 초안 — {d['status']} · 생성 {d['generator']} · {d['generated_at']}")
+    if not d["items"]:
+        print("  감지된 항목이 없습니다.")
+    for it in d["items"]:
+        mark = {1: "채택", 0: "제외"}.get(it["adopted"], "미결정")
+        print(f"\n  #{it['id']} [{it['severity'] or '-'}] {it['title']}   ({mark})")
+        print(f"      {it['body']}")
+        if it["evidence"]:
+            print(f"      근거: {it['evidence']}")
+        if it["suggested_action"]:
+            print(f"      과거 조치: {it['suggested_action']}")
+
+
+def cmd_approve(args):
+    with db.connect() as conn:
+        d = db.load_draft(conn, args.shift_id)
+    if d is None:
+        print(f"{args.shift_id} 의 초안이 없습니다.")
+        return
+
+    if args.all:
+        chosen = {it["id"] for it in d["items"]}
+    elif args.items:
+        chosen = {int(x) for x in args.items.split(",") if x.strip()}
+    else:
+        print("--all 또는 --items 1,3 으로 채택할 항목을 지정하세요.")
+        return
+
+    decisions = {
+        it["id"]: {"adopted": it["id"] in chosen, "comment": args.comment}
+        for it in d["items"]
+    }
+    r = approve_mod.decide(args.shift_id, decisions, confirmed_by=args.by)
+    print(f"확정: 채택 {r['adopted']}건 · 제외 {r['excluded']}건\n")
+    print(r["body"])
+
+
+def cmd_handover(args):
+    with db.connect() as conn:
+        h = db.load_handover(conn, args.shift_id)
+    if h is None:
+        print(f"{args.shift_id} 의 확정 일지가 없습니다.")
+        return
+    print(f"확정자 {h['confirmed_by']} · {h['confirmed_at']} · "
+          f"채택 {h['adopted_count']} / 제외 {h['excluded_count']}\n")
+    print(h["body"])
+
+
+def cmd_serve(args):
+    import server  # noqa: PLC0415
+    server.serve(args.host, args.port)
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="engra", description="ENGRA 인수인계 초안 시스템")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("init", help="저장소 생성").set_defaults(fn=cmd_init)
+
+    s = sub.add_parser("sample", help="스모크 테스트용 CSV 생성")
+    s.add_argument("--out")
+    s.add_argument("--kind", choices=["day", "night"], default="day")
+    s.add_argument("--minutes", type=int, default=60)
+    s.set_defaults(fn=cmd_sample)
+
+    s = sub.add_parser("ingest", help="CSV 적재")
+    s.add_argument("csv")
+    s.set_defaults(fn=cmd_ingest)
+
+    sub.add_parser("shifts", help="근무 구간 목록").set_defaults(fn=cmd_shifts)
+
+    s = sub.add_parser("run", help="요약·검출·초안 생성")
+    s.add_argument("shift_id")
+    s.add_argument("--redo", action="store_true", help="확정된 일지를 지우고 다시 만든다")
+    s.set_defaults(fn=cmd_run)
+
+    s = sub.add_parser("draft", help="초안 보기")
+    s.add_argument("shift_id")
+    s.set_defaults(fn=cmd_draft)
+
+    s = sub.add_parser("approve", help="승인 처리")
+    s.add_argument("shift_id")
+    s.add_argument("--items", help="채택할 항목 번호, 쉼표 구분")
+    s.add_argument("--all", action="store_true", help="전부 채택")
+    s.add_argument("--comment")
+    s.add_argument("--by", default="근무자")
+    s.set_defaults(fn=cmd_approve)
+
+    s = sub.add_parser("handover", help="확정 일지 보기")
+    s.add_argument("shift_id")
+    s.set_defaults(fn=cmd_handover)
+
+    s = sub.add_parser("serve", help="웹 화면")
+    s.add_argument("--host", default=HOST)
+    s.add_argument("--port", type=int, default=PORT)
+    s.set_defaults(fn=cmd_serve)
+
+    return p
+
+
+def main():
+    args = build_parser().parse_args()
+    if args.cmd != "init" and not DB_PATH.exists():
+        print("저장소가 없습니다. 먼저 실행하세요:  python3 app/cli.py init")
+        sys.exit(1)
+    try:
+        args.fn(args)
+    except (ValueError, KeyError) as exc:
+        # 사용법 문제는 한 줄로 알린다. 그 외 오류는 추적을 그대로 보여준다.
+        print(f"오류: {exc}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
