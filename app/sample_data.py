@@ -18,7 +18,7 @@ TAGS = [
     # (태그, 기저값, 진폭, 주입할 이상)
     ("TI-101", 24.3, 0.4, None),
     ("MI-102", 61.2, 1.5, None),
-    ("AI-707", 99.35, 0.05, None),
+    ("AI-707", 99.35, 0.05, "dip"),    # L(99.0%) 미달 — 스텁이 잡는다
     ("TI-205", 118.0, 0.6, "drift"),   # 완만히 상승 — 스텁은 못 잡는다
     ("MI-302", 0.8, 0.05, "breakthrough"),  # H(3ppm) 초과 — 스텁이 잡는다
 ]
@@ -41,6 +41,9 @@ def generate(path, kind="day", date=None, minutes=60, seed=42, step=SAMPLE_INTER
                 value = base + amp * math.sin(i / 90) + rnd.gauss(0, amp * 0.25)
                 if inject == "drift":
                     value += 3.0 * frac
+                elif inject == "dip" and 0.30 < frac < 0.42:
+                    # 근무 중반에 순도가 잠깐 내려앉는다
+                    value -= 0.55 * math.sin((frac - 0.30) / 0.12 * math.pi)
                 elif inject == "breakthrough" and frac > 0.6:
                     # 후반에 급상승해 H(3ppm)을 넘긴다
                     value += 4.0 * ((frac - 0.6) / 0.4) ** 2

@@ -106,6 +106,16 @@ def build_baseline(summaries):
 
 # --- 검출 (알람 한계선만 본다) ----------------------------------------
 
+def _josa(word, with_jong, without_jong):
+    """받침 유무에 따라 조사를 고른다 ("미달이" / "초과가")."""
+    if not word:
+        return without_jong
+    code = ord(word[-1])
+    if 0xAC00 <= code <= 0xD7A3:
+        return with_jong if (code - 0xAC00) % 28 else without_jong
+    return without_jong
+
+
 def _crossings(points, limit, above):
     """한계선을 넘은 첫 시각과 마지막 시각, 그리고 최대 이탈값."""
     hit = [(ts, v) for ts, v in points if (v > limit if above else v < limit)]
@@ -134,6 +144,7 @@ def detect(series, baselines):
                 continue
             start_ts, end_ts, peak = found
             direction = "초과" if above else "미달"
+            extreme = "최고" if above else "최저"
             events.append({
                 "tag": tag,
                 "kind": f"{key} {direction}",
@@ -144,7 +155,7 @@ def detect(series, baselines):
                 "metrics": {"limit": limit, "peak": round(peak, 3), "unit": unit},
                 "evidence": (
                     f"{tag}({spec['description']}) {key} 한계 {limit}{unit} {direction} — "
-                    f"최대 {round(peak, 3)}{unit}"
+                    f"{extreme} {round(peak, 3)}{unit}"
                 ),
             })
             break  # 같은 방향에서 더 심한 것 하나만 남긴다
@@ -176,7 +187,7 @@ def compose(shift, events, find_precedents):
             "title": f"{e['tag']} {desc} — {e['kind']}",
             "body": (
                 f"{_hhmm(e.get('start_ts'))}~{_hhmm(e.get('end_ts'))} 구간에서 "
-                f"{e['kind']}가 확인되었습니다."
+                f"{e['kind']}{_josa(e['kind'], '이', '가')} 확인되었습니다."
             ),
             "evidence": e.get("evidence"),
             "suggested_action": precedents[0]["text"][:120] if precedents else None,

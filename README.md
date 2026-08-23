@@ -6,6 +6,9 @@
 
 **화면 데모 페이지 →** https://ssmo0810.github.io/engra/demo/
 
+**돌아가는 프로토타입 화면 →** https://ssmo0810.github.io/engra/sample/
+(설치 없이 볼 수 있는 정적 스냅샷. 서버가 실제로 만든 화면을 그대로 떠 온 것입니다.)
+
 ---
 
 ## 한 문장 정의

@@ -1,0 +1,60 @@
+<!doctype html><html lang="ko"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2026-08-22-day · ENGRA</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
+     background:#f5f6f8;color:#1a1a1a}
+header{background:#EA002C;color:#fff;padding:14px 24px;display:flex;align-items:baseline;gap:12px}
+header b{font-size:18px;letter-spacing:.5px}
+header span{opacity:.85;font-size:13px}
+main{max-width:920px;margin:24px auto;padding:0 20px}
+.card{background:#fff;border:1px solid #e3e5e9;border-radius:10px;padding:18px 20px;margin-bottom:14px}
+.card h3{margin:0 0 6px;font-size:16px}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid #eceef1;font-size:14px}
+th{background:#fafbfc;font-weight:600;color:#5b616e}
+tr:last-child td{border-bottom:none}
+a{color:#0a58ca;text-decoration:none}
+a:hover{text-decoration:underline}
+.sev{display:inline-block;padding:1px 8px;border-radius:20px;font-size:12px;font-weight:600}
+.s-상{background:#fdeaec;color:#c0113a}.s-중{background:#fff5e0;color:#9a6800}
+.s-하{background:#eef1f5;color:#5b616e}
+.ev{color:#5b616e;font-size:13px;margin-top:5px}
+.pre{background:#f2f7ff;border-left:3px solid #7aa7e8;padding:8px 11px;margin-top:8px;
+     font-size:13px;color:#33465e;border-radius:0 5px 5px 0}
+input[type=text]{width:100%;padding:8px 10px;border:1px solid #d6d9de;border-radius:6px;font:inherit}
+label.chk{display:flex;gap:9px;align-items:flex-start;cursor:pointer}
+button{background:#EA002C;color:#fff;border:0;padding:10px 22px;border-radius:7px;
+       font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+button.ghost{background:#fff;color:#5b616e;border:1px solid #d6d9de;font-weight:400;padding:7px 14px}
+.bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #e3e5e9;padding:14px 20px;
+     display:flex;justify-content:space-between;align-items:center;margin:0 -20px -18px;
+     border-radius:0 0 10px 10px}
+.tag{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+.empty{color:#8a909c;text-align:center;padding:28px}
+pre.log{white-space:pre-wrap;font:13px/1.7 ui-monospace,Menlo,monospace;
+        background:#fafbfc;border:1px solid #eceef1;border-radius:7px;padding:14px;margin:0}
+.warn{background:#fff8e5;border:1px solid #f0dda8;color:#7a5c00;padding:9px 13px;
+      border-radius:7px;font-size:13px;margin-bottom:14px}
+</style>
+<header><b>ENGRA</b><span>교대 인수인계 초안</span>
+<span style="margin-left:auto">엔진: stub</span></header>
+<main><div style="background:#eef3fb;border:1px solid #c9d9ef;color:#25405f;
+padding:13px 17px;border-radius:9px;margin-bottom:18px;font-size:14px;line-height:1.7">
+<b>실제로 돌아가는 프로토타입 화면입니다.</b> 스크린샷이 아니라 서버가 만든 화면을 그대로 떠 온 것이라
+값과 문구가 전부 진짜입니다. 다만 이 페이지는 정적이라 <b>버튼은 눌러도 반응하지 않습니다.</b>
+직접 돌려 보시려면 저장소를 받아 <code>python3 app/cli.py serve</code> 를 실행하세요 (설치할 것 없음).
+<div style="margin-top:9px;padding-top:9px;border-top:1px solid #d6e2f2"><b>승인이 끝나면 이렇게 확정됩니다.</b> 여기 적힌 코멘트가 곧 다음 근무 초안의 '과거 조치' 로 나타납니다. 앞 화면에서 보신 것이 이 일지에서 나온 것입니다.</div>
+</div><p><a href='index.html'>← 일지 목록</a></p><div class='card'><h3>2026-08-22-day 확정 일지</h3><div class='ev'>박경모 · 2026-08-23 17:35:20 · 채택 2 / 제외 0</div><pre class='log' style='margin-top:12px'>[2026-08-22-day] 인수인계 일지
+
+1. [중] AI-707 LP O2 순도 — L 미달
+   07:19~07:34 구간에서 L 미달이 확인되었습니다.
+   근거: AI-707(LP O2 순도) L 한계 99.0% 미달 — 최저 98.735%
+   코멘트: 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인
+
+2. [중] MI-302 A탑 후단 수분 — H 초과
+   09:34~09:59 구간에서 H 초과가 확인되었습니다.
+   근거: MI-302(A탑 후단 수분) H 한계 3.0ppm 초과 — 최고 4.756ppm
+   코멘트: 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인</pre></div></main></html>
