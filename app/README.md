@@ -3,7 +3,7 @@
 수집부 · 저장소 · 승인 처리 · 화면. 세 사람의 산출물이 실제로 돌아가게 연결되는 곳입니다.
 
 - 담당: 박경모
-- 본선 기간(8/21~9/4)에 이 폴더에서 프로토타입을 만듭니다.
+- 본선 기간에 이 폴더에서 프로토타입을 만듭니다. **제출 마감 2026-09-03(목) 23:59.**
 
 ---
 
@@ -25,14 +25,18 @@
 세 사람이 각자 다른 환경에서 설치 없이 돌릴 수 있어야 하기 때문입니다.
 
 ```bash
-python3 app/cli.py init                  # 저장소 생성
-python3 app/cli.py sample                # 배선 확인용 소형 CSV
+bash tools/smoke.sh                      # 배선 전 구간 한 번에 확인 (권장)
+
+python3 app/cli.py init                              # 저장소 생성
+python3 app/cli.py sample --date 2026-08-22          # 배선 확인용 소형 CSV
 python3 app/cli.py ingest app/sample_shift.csv
-python3 app/cli.py shifts                # 근무 구간 목록
-python3 app/cli.py run 2026-08-23-day    # 요약 → 기준선 → 검출 → 초안
-python3 app/cli.py draft 2026-08-23-day  # 초안 보기
-python3 app/cli.py serve                 # 웹 화면 http://127.0.0.1:8000
+python3 app/cli.py run 2026-08-22-day                # 요약 → 기준선 → 검출 → 초안
+python3 app/cli.py draft 2026-08-22-day              # 초안 보기
+python3 app/cli.py serve                             # 웹 화면 http://127.0.0.1:8000
 ```
+
+**근무 ID 는 날짜에서 나옵니다**(`YYYY-MM-DD-day`). `--date` 를 안 주면 오늘 날짜로 만들어지므로,
+`sample` 과 `ingest` 가 다음에 칠 명령을 출력해 줍니다.
 
 임도영님 생성기가 만든 시나리오 CSV 도 `ingest` 에 그대로 넣으면 됩니다.
 `sample` 은 배선 확인용이라 태그가 5개뿐입니다 — 성능 측정에 쓰지 마세요.

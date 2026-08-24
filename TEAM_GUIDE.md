@@ -52,11 +52,11 @@
 터미널에서 저장소 폴더로 간 뒤 차례로 칩니다.
 
 ```bash
-python3 app/cli.py init                       # 저장소 만들기 (처음 한 번)
-python3 app/cli.py sample                     # 확인용 데이터 만들기
+python3 app/cli.py init                              # 저장소 만들기 (처음 한 번)
+python3 app/cli.py sample --date 2026-08-22          # 확인용 데이터 만들기
 python3 app/cli.py ingest app/sample_shift.csv
-python3 app/cli.py run 2026-08-23-day         # 감지하고 초안 만들기
-python3 app/cli.py serve                      # 웹 화면 열기
+python3 app/cli.py run 2026-08-22-day                # 감지하고 초안 만들기
+python3 app/cli.py serve                             # 웹 화면 열기
 ```
 
 마지막 줄까지 치면 화면에 주소가 뜹니다. 브라우저에서 열면 초안을 고르고 코멘트를 달아

@@ -62,9 +62,9 @@ docs/             시나리오 정의 · 모의 데이터 생성기
 
 ```bash
 python3 app/cli.py init
-python3 app/cli.py sample
+python3 app/cli.py sample --date 2026-08-22
 python3 app/cli.py ingest app/sample_shift.csv
-python3 app/cli.py run 2026-08-23-day
+python3 app/cli.py run 2026-08-22-day
 python3 app/cli.py serve            # http://127.0.0.1:8000
 ```
 

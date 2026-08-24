@@ -33,9 +33,15 @@ def cmd_init(_):
 
 def cmd_sample(args):
     import sample_data  # noqa: PLC0415
+    from datetime import date as _date  # noqa: PLC0415
     out = Path(args.out) if args.out else APP_DIR / "sample_shift.csv"
-    path, rows = sample_data.generate(out, kind=args.kind, minutes=args.minutes)
+    d = _date.fromisoformat(args.date) if args.date else _date.today()
+    path, rows = sample_data.generate(out, kind=args.kind, date=d, minutes=args.minutes)
+    rel = path.relative_to(APP_DIR.parent) if APP_DIR.parent in path.parents else path
     print(f"스모크 테스트용 CSV 생성: {path} ({rows:,}행)")
+    # 근무 ID 는 날짜에서 나온다. 안 알려주면 다음 명령을 몰라 헤맨다.
+    print(f"다음: python3 app/cli.py ingest {rel}")
+    print(f"그다음: python3 app/cli.py run {d}-{args.kind}")
     print("실제 검증은 임도영님 생성기의 시나리오 CSV + 정답지로 합니다.")
 
 
@@ -50,6 +56,7 @@ def cmd_ingest(args):
         for sid, n in sorted(counts.items()):
             cov = collect.coverage(conn, sid)
             print(f"{sid}: {n:,}점 적재 · 태그 {cov['tags']}개 · 구간 충족률 {cov['ratio']:.1%}")
+    print(f"다음: python3 app/cli.py run {sorted(counts)[0]}")
 
 
 def cmd_shifts(_):
@@ -144,6 +151,7 @@ def build_parser():
     s.add_argument("--out")
     s.add_argument("--kind", choices=["day", "night"], default="day")
     s.add_argument("--minutes", type=int, default=60)
+    s.add_argument("--date", help="근무 날짜 YYYY-MM-DD (기본: 오늘)")
     s.set_defaults(fn=cmd_sample)
 
     s = sub.add_parser("ingest", help="CSV 적재")
