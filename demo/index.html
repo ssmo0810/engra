@@ -477,60 +477,60 @@
   <div class="card" style="padding:11px 16px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11.5px">
       <span class="muted" style="font-weight:700;margin-right:2px">검출기별 후보</span>
-      <span class="pill">이탈도 2</span><span class="pill">헌팅 1</span><span class="pill">드리프트 1</span>
-      <span class="pill">레벨 시프트 1</span><span class="pill">임계 근접 1</span>
+      <span class="pill">헌팅 2</span><span class="pill">드리프트 1</span>
+      <span class="pill">연속 발생 1</span><span class="pill">임계 근접 1</span>
       <span class="muted">→ 구간 병합 후</span><span class="pill red">이벤트 5건</span>
-      <span class="muted" style="margin-left:auto">48개 태그 전량 검토 · 소요 9분 12초</span>
+      <span class="muted" style="margin-left:auto">53개 태그 전량 검토 · 소요 9분 12초</span>
     </div>
   </div>
 
   <div class="item">
-    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">제품 순도 헌팅 <span class="pill red">중요도 상</span></div></div>
-    <div class="meta">AI-1201 · 14:02~14:31 (29분) · 이후 안정</div>
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">LP 컬럼 O2 순도 헌팅 <span class="pill red">중요도 상</span></div></div>
+    <div class="meta">AI-707 · 14:02~14:31 (29분) · 진동 후 자연 안정</div>
     <div class="body">
       <div class="ch" data-ch="1" style="margin-bottom:8px">
         <svg width="100%" height="46" viewBox="0 0 420 46" style="display:block"><polyline points="0,24 40,23 80,25 110,10 125,38 140,9 155,39 170,11 185,37 200,12 215,36 230,22 260,24 300,23 340,24 380,23 420,24" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="24" x2="420" y2="24" stroke="#d5d3ce" stroke-dasharray="3 3"/><line class="cur" x1="0" y1="0" x2="0" y2="46" stroke="#9a9a95" stroke-width=".8" stroke-dasharray="3 2" style="display:none"/><circle class="dot" r="3" fill="#EA002C" stroke="#fff" stroke-width="1" style="display:none"/></svg>
         <div class="tip" style="display:none"></div>
       </div>
-      <div class="why"><b>감지 근거</b> — 이동창 표준편차가 베이스라인 대비 <b>4.2배</b>. 진폭 1.4%로 관리 기준(5%)에는 미달하나, 이 태그의 평소 변동폭이 0.33%로 작아 이례적 변화로 판정.</div>
-      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 2건</span>2026-06-12 야간조: 동일 태그 헌팅 발생, 샘플링 의뢰 후 정상 확인 <button onclick="use(this,'과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정.')">코멘트로 사용</button></div>
+      <div class="why"><b>감지 근거</b> — 이동창 표준편차가 베이스라인 대비 <b>6배</b>. 진폭 ±0.42%p로 최저 <b>99.18%</b>까지 내려갔으나 L 알람(99.0%)에는 0.18%p 여유가 있어 경보가 발생하지 않았습니다. 이 태그의 평소 변동폭이 작아 이례적 변화로 판정.</div>
+      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 2건</span>2026-06-12 야간조: AI-707 동일 양상 헌팅, 샘플링 의뢰 후 정상 확인 <button onclick="use(this,'과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정.')">코멘트로 사용</button></div>
       <textarea placeholder="코멘트 (선택)"></textarea>
     </div>
   </div>
 
   <div class="item">
     <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">압축기 토출온도 완만 상승 <span class="pill red">중요도 상</span></div></div>
-    <div class="meta">TI-2104 · 16:10부터 지속 · 관리 상한까지 여유 6.6℃</div>
+    <div class="meta">TI-205 · 근무 내내 지속 · H 알람(125℃)까지 여유 16.4℃</div>
     <div class="body">
       <div class="ch" data-ch="2" style="margin-bottom:8px">
-        <svg width="100%" height="46" viewBox="0 0 440 46" style="display:block"><polyline points="0,36 60,35 120,33 180,30 240,26 300,22 360,18 420,14" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="6" x2="420" y2="6" stroke="#e0a0a8" stroke-dasharray="3 3"/><text x="424" y="9" font-size="8" fill="#b00020">상한</text><line class="cur" x1="0" y1="0" x2="0" y2="46" stroke="#9a9a95" stroke-width=".8" stroke-dasharray="3 2" style="display:none"/><circle class="dot" r="3" fill="#EA002C" stroke="#fff" stroke-width="1" style="display:none"/></svg>
+        <svg width="100%" height="46" viewBox="0 0 440 46" style="display:block"><polyline points="0,36 60,35 120,33 180,30 240,26 300,22 360,18 420,14" fill="none" stroke="#EA002C" stroke-width="1.7"/><line x1="0" y1="6" x2="420" y2="6" stroke="#e0a0a8" stroke-dasharray="3 3"/><text x="424" y="9" font-size="8" fill="#b00020">120℃</text><line class="cur" x1="0" y1="0" x2="0" y2="46" stroke="#9a9a95" stroke-width=".8" stroke-dasharray="3 2" style="display:none"/><circle class="dot" r="3" fill="#EA002C" stroke="#fff" stroke-width="1" style="display:none"/></svg>
         <div class="tip" style="display:none"></div>
       </div>
-      <div class="why"><b>감지 근거</b> — 이동창 회귀 기울기 <b>+0.9℃/h</b>가 110분 지속. 현 추세 유지 시 관리 상한 도달까지 약 <b>7시간</b> 예상.</div>
+      <div class="why"><b>감지 근거</b> — 이동창 회귀 기울기 <b>+0.68℃/h</b>가 근무 내내 지속. 현 추세 유지 시 H 알람(125℃) 도달까지 약 <b>24시간</b> — <b>한 근무만 보면 알아채기 어렵고, 다음 근무에서 넘습니다.</b></div>
       <textarea placeholder="코멘트 (선택)"></textarea>
     </div>
   </div>
 
   <div class="item">
-    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 발생 3회</span></div></div>
-    <div class="meta">HV-4207 · 09:40, 13:05, 17:22 · 직전 구간에서도 발생</div>
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">Cold Box 공급밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 발생 3회</span></div></div>
+    <div class="meta">ZI-601 · 09:40, 13:05, 17:22 · 회차마다 진폭 증가</div>
     <div class="body">
-      <div class="why"><b>감지 근거</b> — 단시간 개도 변동이 베이스라인 대비 3.0배. <b>직전 2개 구간 일지에도 동일 항목이 기록</b>되어 연속 발생으로 표시.</div>
-      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 1건</span>2026-07-28 주간조: 설비팀 점검 요청 접수, 미완료 <button onclick="use(this,'연속 3회째. 설비팀 점검 진행 상황 확인 필요.')">코멘트로 사용</button></div>
+      <div class="why"><b>감지 근거</b> — 단시간 개도 변동이 3회 반복되며 진폭이 <b>±6% → ±9% → ±13%</b> 로 커졌습니다. 반복 자체보다 <b>진폭이 커지는 추세</b>를 악화 신호로 판정. 직전 2개 구간 일지에도 동일 항목이 기록되어 연속 발생으로 표시.</div>
+      <div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 1건</span>2026-07-28 주간조: ZI-601 설비팀 점검 요청 접수, 미완료 <button onclick="use(this,'연속 3회째. 설비팀 점검 진행 상황 확인 필요.')">코멘트로 사용</button></div>
       <textarea placeholder="코멘트 (선택)"></textarea>
     </div>
   </div>
 
   <div class="item">
-    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">GAN 유량 미세 레벨 변화 <span class="pill">중요도 하</span></div></div>
-    <div class="meta">FIC-3210 · 11:15 전후 · CUSUM 누적 임계 초과</div>
-    <div class="body"><div class="why"><b>감지 근거</b> — 평균 수준이 1.2% 낮은 쪽으로 이동해 유지. 단일 시점으로는 판별되지 않아 누적합 기준으로 검출.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">Cold Box 공급유량 순간 급강하 <span class="pill amber">중요도 중</span></div></div>
+    <div class="meta">FI-602 · 근무 후반 반복 · 10초 단위 급강하</div>
+    <div class="body"><div class="why"><b>감지 근거</b> — <b>−5%(약 2,000 Nm³/h)</b> 급강하 후 10초 내 원복이 반복. <code>PDI-702</code>·<code>TI-704</code>까지 동반 흔들림. <b>순간값이라 평균만 보면 드러나지 않아</b> 이동창 기준으로 검출.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
   </div>
 
   <div class="item">
-    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">냉각수 입구온도 임계 근접 체류 <span class="pill">중요도 하</span></div></div>
-    <div class="meta">TI-5003 · 07:30~08:10 (40분) · 관리 상한의 95% 구간 체류</div>
-    <div class="body"><div class="why"><b>감지 근거</b> — 알람 발생 없음. 상한 근접 구간 체류 시간이 베이스라인 대비 길어 표시.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
+    <div class="row1"><input type="checkbox" checked onchange="tg(this)"><div class="ttl">Main HX 인입 Air 온도 임계 근접 체류 <span class="pill">중요도 하</span></div></div>
+    <div class="meta">TI-401 · 07:30~08:10 (40분) · 정상 상한(20℃)의 95% 구간 체류</div>
+    <div class="body"><div class="why"><b>감지 근거</b> — 알람 발생 없음. 정상 상한 20℃ 의 95%(<b>19℃</b>) 구간 체류가 40분 지속돼 베이스라인 대비 길어 표시.</div><textarea placeholder="코멘트 (선택)"></textarea></div>
   </div>
 
   <div id="manlist"></div>
@@ -564,24 +564,24 @@
     <div class="card">
       <h2>확정 일지 <span class="pill">날짜를 선택하면 전문을 확인합니다</span></h2>
       <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <input class="mono" placeholder="태그 · 키워드 검색 (예: HV-4207)" style="flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--line);border-radius:6px;font:inherit">
+        <input class="mono" placeholder="태그 · 키워드 검색 (예: ZI-601)" style="flex:1;min-width:200px;padding:8px 11px;border:1px solid var(--line);border-radius:6px;font:inherit">
         <select style="font:inherit;padding:8px 11px;border:1px solid var(--line);border-radius:6px"><option>최근 30일</option><option>최근 90일</option><option>전체</option></select>
         <button class="btn" style="padding:8px 18px">검색</button>
       </div>
 
       <div class="logrow" onclick="open1()">
         <span class="d">2026-08-02</span><span class="s">주간</span>
-        <span class="x">제품 순도 헌팅 · 압축기 토출온도 상승 · 밸브 개도 이상 외 2건</span>
+        <span class="x">LP O2 순도 헌팅 · 압축기 토출온도 상승 · 공급밸브 개도 이상 외 2건</span>
         <span class="c"><span class="pill red">5건</span></span><span class="arw">›</span>
       </div>
       <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
         <span class="d">2026-08-02</span><span class="s">야간</span>
-        <span class="x">저압탑 액위 변동 · 냉각수 입구온도 상승</span>
+        <span class="x">LP 컬럼 레벨 변동 · 인입 Air 온도 상승</span>
         <span class="c"><span class="pill amber">2건</span></span><span class="arw">›</span>
       </div>
       <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
         <span class="d">2026-08-01</span><span class="s">주간</span>
-        <span class="x">밸브 개도 이상 2회 — 조치 없이 관찰</span>
+        <span class="x">공급밸브 개도 이상 2회 — 조치 없이 관찰</span>
         <span class="c"><span class="pill amber">3건</span></span><span class="arw">›</span>
       </div>
       <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
@@ -591,10 +591,10 @@
       </div>
       <div class="logrow" onclick="alert('해당 일지 상세로 이동합니다. (목업)')">
         <span class="d">2026-07-28</span><span class="s">주간</span>
-        <span class="x">밸브 개도 이상 — 설비팀 점검 요청 접수, 미완료</span>
+        <span class="x">공급밸브 개도 이상 — 설비팀 점검 요청 접수, 미완료</span>
         <span class="c"><span class="pill amber">2건</span></span><span class="arw">›</span>
       </div>
-      <p class="note" style="margin:12px 0 0">검색 결과 5건 · <b style="color:var(--ink)">HV-4207</b> 관련 항목이 최근 30일 내 3개 일지에서 반복 확인됩니다.</p>
+      <p class="note" style="margin:12px 0 0">검색 결과 5건 · <b style="color:var(--ink)">ZI-601</b> 관련 항목이 최근 30일 내 3개 일지에서 반복 확인됩니다.</p>
     </div>
 
     <div class="card" style="opacity:.62">
@@ -614,31 +614,31 @@
       <div class="sub">분석 구간 06:00~18:00 · 작성 ENGRA 18:09 · 승인 근무자 A 18:47 · 감지 5건 중 <b>4건 채택 / 1건 제외</b></div>
 
       <div class="ent">
-        <div class="t">제품 순도 헌팅 <span class="pill red">중요도 상</span></div>
-        <div class="m">AI-1201 · 14:02~14:31 (29분) · 평소 변동 대비 4.2배</div>
+        <div class="t">LP 컬럼 O2 순도 헌팅 <span class="pill red">중요도 상</span></div>
+        <div class="m">AI-707 · 14:02~14:31 (29분) · 평소 변동 대비 6배 · 최저 99.18%</div>
         <div class="c">과거 사례와 동일 양상. 샘플링 의뢰함, 결과 익일 도착 예정. <span class="muted">— 근무자 A</span></div>
       </div>
       <div class="ent">
         <div class="t">압축기 토출온도 완만 상승 <span class="pill red">중요도 상</span></div>
-        <div class="m">TI-2104 · 16:10부터 지속 · +0.9℃/h · 상한까지 여유 6.6℃</div>
-        <div class="c">야간조 지속 관찰 요망. 상한 도달 예상 시각 익일 01시경. <span class="muted">— 근무자 A</span></div>
+        <div class="m">TI-205 · 근무 내내 지속 · +0.68℃/h · H(125℃)까지 여유 16.4℃</div>
+        <div class="c">야간조 지속 관찰 요망. 현 추세면 다음 근무 중 H 도달. <span class="muted">— 근무자 A</span></div>
       </div>
       <div class="ent">
-        <div class="t">밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 3회</span></div>
-        <div class="m">HV-4207 · 09:40, 13:05, 17:22 · 직전 2개 구간에서도 발생</div>
+        <div class="t">Cold Box 공급밸브 개도 이상 <span class="pill amber">중요도 중</span> <span class="pill red">연속 3회</span></div>
+        <div class="m">ZI-601 · 09:40, 13:05, 17:22 · 진폭 ±6% → ±9% → ±13%</div>
         <div class="c">연속 3회째. 설비팀 점검 진행 상황 확인 필요. <span class="muted">— 근무자 A</span></div>
       </div>
       <div class="ent">
-        <div class="t">냉각수 입구온도 임계 근접 체류 <span class="pill">중요도 하</span></div>
-        <div class="m">TI-5003 · 07:30~08:10 (40분) · 상한 95% 구간 체류</div>
-        <div class="c muted">코멘트 없음</div>
+        <div class="t">Cold Box 공급유량 순간 급강하 <span class="pill amber">중요도 중</span></div>
+        <div class="m">FI-602 · 근무 후반 반복 · −5%(약 2,000 Nm³/h) 후 10초 내 원복</div>
+        <div class="c">유량계 점검 의뢰. 동반 태그도 함께 확인 요망. <span class="muted">— 근무자 A</span></div>
       </div>
 
       <div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>
       <p class="note" style="margin-bottom:8px"><b style="color:var(--ink)">제외된 항목</b> — 근무자가 전달 대상이 아니라고 판단한 항목도 기록으로 남습니다.</p>
       <div class="ex">
-        <div class="t">GAN 유량 미세 레벨 변화 <span class="pill">중요도 하</span></div>
-        <div class="m">FIC-3210 · 11:15 전후 · CUSUM 누적 임계 초과 · <b>제외</b></div>
+        <div class="t">Main HX 인입 Air 온도 임계 근접 체류 <span class="pill">중요도 하</span></div>
+        <div class="m">TI-401 · 07:30~08:10 (40분) · 정상 상한(20℃)의 95% 구간 체류 · <b>제외</b></div>
       </div>
       <p class="note" style="margin-top:14px">이 기록은 감지 감도 조정의 근거로 사용되며, 같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>
     </div>
@@ -696,19 +696,20 @@ function open1(){ document.getElementById('loglist').style.display='none'; docum
 function close1(){ document.getElementById('logdet').style.display='none'; document.getElementById('loglist').style.display='block'; window.scrollTo(0,0); }
 
 /* ===== RTDB 원시 데이터 스트리밍 (모의) ===== */
+/* 태그·단위·기저값은 docs/tag_master.csv 그대로. DCS 개관도의 공정 순서를 따른다. */
 const TAGS=[
- {id:'PI-1001', nm:'흡입압력',    u:'bar(a)', v:1.02,   a:0.006, d:2},
- {id:'TI-2104', nm:'토출온도',    u:'℃',      v:78.40,  a:0.09,  d:1, dr:0.004},
- {id:'FIC-3110',nm:'흡입유량',    u:'Nm³/h',  v:96400,  a:95,    d:0},
- {id:'PDI-1205',nm:'흡착탑차압',  u:'mbar',   v:58.10,  a:0.22,  d:1},
- {id:'TI-4020', nm:'저온단온도',  u:'℃',      v:-172.6, a:0.12,  d:1},
- {id:'LIC-5010',nm:'고압탑액위',  u:'%',      v:59.40,  a:0.16,  d:1},
- {id:'AI-1201', nm:'제품순도',    u:'%O₂',    v:99.20,  a:0.035, d:2},
- {id:'FIC-3210',nm:'GAN유량',     u:'Nm³/h',  v:28480,  a:52,    d:0},
- {id:'HV-4207', nm:'밸브개도',    u:'%',      v:62.00,  a:0.14,  d:1},
- {id:'TI-5003', nm:'냉각수입구',  u:'℃',      v:31.40,  a:0.11,  d:1},
- {id:'LIC-6010',nm:'LOX액위',     u:'%',      v:77.00,  a:0.05,  d:1},
- {id:'TI-4110', nm:'탑정온도',    u:'℃',      v:-174.1, a:0.09,  d:1}
+ {id:'TI-401',  nm:'인입Air온도', u:'℃',      v:12.4,   a:0.10,  d:1},
+ {id:'PI-203',  nm:'토출압력',    u:'bar',    v:5.85,   a:0.012, d:2},
+ {id:'TI-205',  nm:'토출온도',    u:'℃',      v:108.6,  a:0.09,  d:1, dr:0.000378},
+ {id:'FI-204',  nm:'토출유량',    u:'Nm³/h',  v:42500,  a:95,    d:0},
+ {id:'PDI-303', nm:'A탑차압',     u:'bar',    v:0.08,   a:0.0015,d:3},
+ {id:'MI-302',  nm:'A탑후단수분', u:'ppm',    v:0.80,   a:0.02,  d:2},
+ {id:'ZI-601',  nm:'FV-601개도',  u:'%',      v:74.2,   a:0.14,  d:1},
+ {id:'FI-602',  nm:'공급유량',    u:'Nm³/h',  v:39800,  a:88,    d:0},
+ {id:'LI-701',  nm:'HP레벨',      u:'%',      v:25.4,   a:0.16,  d:1},
+ {id:'TI-704',  nm:'HP온도',      u:'℃',      v:-178.0, a:0.12,  d:1},
+ {id:'AI-707',  nm:'LP O2순도',   u:'%',      v:99.60,  a:0.035, d:2},
+ {id:'LI-802',  nm:'LOX레벨',     u:'%',      v:60.0,   a:0.05,  d:1}
 ];
 const BUF={}, MAXROW=22, MAXBUF=80;
 let clk={h:18,mi:0,s:0}, rows=1036800, streamOn=false;
@@ -776,8 +777,11 @@ initRaw();
 
 /* ===== 항목 차트 호버 (기존 SVG 위에 얹음) ===== */
 const CHCFG={
-  '1':{t0:815, span:102, unit:'%O₂', dec:2, val:y=>99.20+(24-y)*0.0467},
-  '2':{t0:970, span:110, unit:'℃',  dec:1, val:y=>76.60+(36-y)*(1.8/22)}
+  /* AI-707: 헌팅 중 평균이 처지고 최저 99.18% (시나리오 1). 기저 99.6 에 ±0.42 를
+     그대로 걸면 100.02% 가 나와 물리적으로 불가능하므로, 중심을 99.45 로 두고
+     하향 이탈이 99.18 에 닿게 한다. 최고 99.72 로 정상 상한(99.9) 안에 있다. */
+  '1':{t0:842, span:29,  unit:'%',   dec:2, val:y=>99.45+(24-y)*0.018},
+  '2':{t0:360, span:720, unit:'℃',  dec:1, val:y=>108.60+(36-y)*0.371}
 };
 function hm(min){const h=Math.floor(min/60)%24,m=Math.round(min%60);return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
 document.querySelectorAll('.ch').forEach(function(box){
