@@ -37,8 +37,8 @@
 설치할 것이 없다. 파이썬 3.10 이상이면 된다.
 
 ```bash
-bash tools/smoke.sh                            # 배선 전 구간 확인 (작업 시작·커밋 전)
-python3 app/cli.py serve                      # 웹 화면
+python3 app/cli.py serve     # 웹 화면 (누구나)
+bash tools/smoke.sh          # 배선 전 구간 확인 — app/ 을 고칠 때만 (박경모)
 ```
 
 **검출 엔진은 `engine/api.py` 가 있으면 자동으로 그것을 쓴다.** 없으면 임시 엔진이 돈다.
@@ -78,11 +78,10 @@ python3 app/cli.py serve                      # 웹 화면
 - 다른 도구를 썼으면 `Co-Authored-By:` 로 남긴다. FAQ Q5 가 제작 과정에 도구를 밝히라고 한다.
 - `main` 에 대한 force-push, 하드 리셋 금지.
 
-```bash
-python3 tools/journal.py     # docs/제작과정/ 에 4종 문서 생성 (아무 때나 실행)
-```
-
 회의를 했으면 **이슈로 남긴다.** 이슈가 곧 회의록이라 따로 정리할 것이 없다.
+
+**문서 생성과 검증 도구는 박경모 담당이다.** 정기영·임도영 세션은 `tools/` 를 돌릴 필요가
+없다 — 커밋 메시지에 왜·확인방법을 적고 이슈로 소통하면 그것으로 충분하다.
 
 ## 큰 HTML 파일을 고칠 때
 
