@@ -1,0 +1,12 @@
+# 진단용 임시 워크플로. Actions 자체가 도는지 확인한 뒤 삭제한다.
+# Pages 배포 실패가 (가) Actions 실행 불가인지 (나) Pages/환경 문제인지 가린다.
+name: probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  echo:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "actions runner ok"
