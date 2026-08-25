@@ -1,6 +1,6 @@
 <!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>2026-08-22-day · ENGRA</title>
+<title>2026-08-26-day · ENGRA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>
 :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;
@@ -10,6 +10,15 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
      color:var(--ink);font-size:14px;line-height:1.6}
 .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
 .top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+.nav{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
+.nav a{flex:1;min-width:150px;text-decoration:none;background:var(--card);
+ border:1px solid var(--line);border-radius:8px;padding:9px 13px;color:var(--sub);
+ font-size:13px;font-weight:600;transition:.12s}
+.nav a small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px}
+.nav a:hover{border-color:#c9c6c1}
+.nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.nav a.on small{color:#c9c6c1}
+.frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
 .top .eng{margin-left:auto;font-size:11.5px}
@@ -90,7 +99,8 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
 <div class="wrap">
 <div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
 <span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
-<span class="eng pill">엔진 stub</span></div><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
+<span class="eng pill on">엔진 engine</span></div>
+<div class="nav"><a class="" href="/dcs">① DCS<small>실시간 감시 · 기존 시스템</small></a><a class="" href="/rtdb">② RTDB<small>구간 데이터 추출</small></a><a class="" href="/draft">③ ENGRA 초안 검토<small>핵심 화면 · 직접 승인해 보세요</small></a><a class="on" href="index.html">④ 일지 조회<small>축적 · 검색</small></a></div><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
 font-size:12.5px;line-height:1.75;padding:13px 17px">
 <b>실제로 돌아가는 프로토타입 화면입니다.</b> 스크린샷이 아니라 서버가 만든 화면을 그대로 떠 온
 것이라 값과 문구가 전부 진짜입니다. 다만 이 페이지는 정적이라 <b>버튼은 눌러도 반응하지
@@ -100,12 +110,12 @@ font-size:12.5px;line-height:1.75;padding:13px 17px">
 </div>
 <a class="back" href="index.html">‹ 목록으로</a>
 <div class="card det">
-<h3>2026-08-22 주간조 인수인계서</h3>
-<div class="sub">분석 구간 08-22 06:00 · 작성 ENGRA
-2026-08-25 00:42:26 · 승인 박경모
-2026-08-25 00:42:26 · 감지 2건 중
-<b>2건 채택 / 0건 제외</b></div>
-<div class="ent"><div class="t">AI-707 LP O2 순도 — L 미달 <span class="pill amber">중요도 중</span></div><div class="m">AI-707(LP O2 순도) L 한계 99.0% 미달 — 최저 98.735%</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">MI-302 A탑 후단 수분 — H 초과 <span class="pill amber">중요도 중</span></div><div class="m">MI-302(A탑 후단 수분) H 한계 3.0ppm 초과 — 최고 4.756ppm</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div>
+<h3>2026-08-26 주간조 인수인계서</h3>
+<div class="sub">분석 구간 08-26 06:00 · 작성 ENGRA
+2026-08-26 04:54:51 · 승인 박경모
+2026-08-26 04:54:51 · 감지 3건 중
+<b>3건 채택 / 0건 제외</b></div>
+<div class="ent"><div class="t">TI-205 토출 온도 — 드리프트 <span class="pill red">중요도 상</span></div><div class="m">TI-205(토출 온도) 상승 추세 — 0.7412℃/시간, 구간 변화 2.96℃ (평소 산포의 4.7배) · 이 속도면 H 한계까지 약 6.3시간</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">AI-707 LP O2 순도 — 드리프트 <span class="pill amber">중요도 중</span></div><div class="m">AI-707(LP O2 순도) 하강 추세 — 0.5267%/시간, 구간 변화 -0.5223% (평소 산포의 9.4배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">MI-302 A탑 후단 수분 — 드리프트 <span class="pill amber">중요도 중</span></div><div class="m">MI-302(A탑 후단 수분) 상승 추세 — 1.92ppm/시간, 구간 변화 3.83ppm (평소 산포의 5.2배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div>
 </div>
 </div><script>
 function tg(cb){cb.closest('.item').classList.toggle('off',!cb.checked);cnt()}

@@ -9,6 +9,7 @@
 서버를 직접 띄우고, 세 화면을 받아 정적으로 고친 뒤 서버를 내린다.
 화면(`app/server.py`)을 고쳤으면 이걸 다시 돌려야 `sample/` 이 갱신된다.
 """
+import datetime as _dt
 import re
 import shutil
 import socket
@@ -22,7 +23,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "sample"
 
 # 스냅샷에 담을 근무. 주간조는 확정 일지, 야간조는 승인 대기 화면이 되도록 만든다.
-DAY = "2026-08-22"
+# 고정 날짜를 쓰면 원본 보관 기간(RAW_RETENTION_DAYS)을 지나 run 이 깨진다.
+# smoke.sh 에서 같은 병을 두 번 겪었다. 항상 보관 기간 안에 있는 오늘을 쓴다.
+DAY = _dt.date.today().isoformat()
 PAGES = {
     "index.html": "/",
     "draft.html": f"/shift/{DAY}-night",

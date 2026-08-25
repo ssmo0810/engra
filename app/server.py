@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 import approve as approve_mod
 import db
 import ports
+from config import DOCS_DIR
 
 # demo/index.html 에서 옮겨온 디자인 토큰과 컴포넌트
 STYLE = """
@@ -25,6 +26,15 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
      color:var(--ink);font-size:14px;line-height:1.6}
 .wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
 .top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+.nav{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
+.nav a{flex:1;min-width:150px;text-decoration:none;background:var(--card);
+ border:1px solid var(--line);border-radius:8px;padding:9px 13px;color:var(--sub);
+ font-size:13px;font-weight:600;transition:.12s}
+.nav a small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px}
+.nav a:hover{border-color:#c9c6c1}
+.nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.nav a.on small{color:#c9c6c1}
+.frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
 .top .eng{margin-left:auto;font-size:11.5px}
@@ -131,7 +141,24 @@ document.addEventListener('DOMContentLoaded',cnt);
 """
 
 
-def page(title, body):
+NAV = (
+    ("/dcs", "① DCS", "실시간 감시 · 기존 시스템"),
+    ("/rtdb", "② RTDB", "구간 데이터 추출"),
+    ("/draft", "③ ENGRA 초안 검토", "핵심 화면 · 직접 승인해 보세요"),
+    ("/", "④ 일지 조회", "축적 · 검색"),
+)
+
+
+def _nav(active):
+    """네 화면을 한 주소에서 이어 보게 한다. DCS·RTDB 는 임도영님 원본을 그대로 띄운다."""
+    out = []
+    for href, label, sub in NAV:
+        on = " on" if href == active else ""
+        out.append(f'<a class="{on.strip() or ""}" href="{href}">{label}<small>{sub}</small></a>')
+    return f'<div class="nav">{"".join(out)}</div>'
+
+
+def page(title, body, active=None):
     return f"""<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)} · ENGRA</title>
@@ -141,6 +168,7 @@ def page(title, body):
 <div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
 <span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
 <span class="eng pill{' on' if ports.engine_source() == 'engine' else ''}">엔진 {ports.engine_source()}</span></div>
+{_nav(active)}
 {body}
 </div><script>{SCRIPT}</script></html>"""
 
@@ -160,6 +188,88 @@ def _sev_pill(sev):
 
 
 # --- 화면 -------------------------------------------------------------
+
+ASU_FILE = DOCS_DIR / "asu_dcs_overview.html"
+
+# 임도영님 원본을 그대로 서비스한다. 복사하지 않는 이유 — 그분이 고칠 때마다
+# 사본이 뒤처지고, 태그 체계가 어긋나면 심사에서 화면과 데이터가 다르게 보인다.
+# 해시(#ovw/#data/#scen)로 원하는 탭을 열도록 클릭 한 줄만 덧붙인다.
+_ASU_TAB_JS = """
+<script>
+(function(){
+  function open(){
+    var h=(location.hash||'').replace('#','');
+    var id={ovw:'tabOvw',data:'tabData',scen:'tabScen'}[h];
+    if(!id) return;
+    var el=document.getElementById(id);
+    if(el && el.click) el.click();
+  }
+  if(document.readyState==='complete') open();
+  else window.addEventListener('load', open);
+  window.addEventListener('hashchange', open);
+})();
+</script>"""
+
+
+def view_asu():
+    """설비 개요·태그 상세 원본 (docs/asu_dcs_overview.html)."""
+    if not ASU_FILE.exists():
+        return page("설비 화면 없음",
+                    '<div class="card"><div class="empty">'
+                    'docs/asu_dcs_overview.html 이 없습니다.</div></div>')
+    return ASU_FILE.read_text(encoding="utf-8") + _ASU_TAB_JS
+
+
+def _embed(title, active, tab, note):
+    """원본 화면을 우리 이동줄 안에 품는다."""
+    return page(title, f"""<div class="card">
+<h2>{esc(title)} <span class="pill">기존 시스템 · ENGRA 개입 없음</span></h2>
+<p class="note">{note}</p>
+<iframe class="frame" src="/asu#{tab}" title="{esc(title)}"></iframe>
+<p class="note" style="margin-top:10px">이 화면은 팀에서 만든 모의 설비 화면
+(<code>docs/asu_dcs_overview.html</code>)을 그대로 띄운 것입니다. 태그 체계·정상범위·
+알람 한계는 <code>docs/tag_master.csv</code>(계측 태그 53점)를 정본으로 씁니다.
+모든 값은 가상 데이터입니다.</p>
+</div>""", active=active)
+
+
+def view_dcs():
+    return _embed("제어시스템 공정 개요 화면", "/dcs", "ovw",
+                  "근무자가 근무 중 주시하는 화면입니다. 공정 흐름도 위에 태그값이 직접 "
+                  "표시되고 임계값을 넘으면 색으로 경보가 뜹니다. 실시간 감시와 알람은 "
+                  "전적으로 DCS 의 역할이며 ENGRA 는 이 화면에 나타나지 않습니다.")
+
+
+def view_rtdb():
+    return _embed("실시간 데이터베이스 — 태그 상세", "/rtdb", "data",
+                  "DCS 가 감시하는 태그값이 2초 주기로 쌓이는 원본입니다. 태그를 고르면 "
+                  "추이 파형이 그려집니다. 12시간이면 태그당 21,600점, 태그 53점이면 "
+                  "114만 점이라 사람이 훑어 이상을 찾는 것은 불가능합니다 — ENGRA 는 "
+                  "구간이 닫히는 시각에 이 전체를 한 번에 검토합니다.")
+
+
+def view_draft():
+    """승인 대기 중인 가장 최근 근무의 초안을 띄운다.
+
+    이동줄에서 초안 검토를 누를 때 근무 ID 를 몰라도 되게 하려는 것이다.
+    대기 중인 것이 없으면 (전부 확정됐으면) 가장 최근 근무를 보여준다.
+    """
+    with db.connect() as conn:
+        rows = db.list_shifts(conn)
+        pending = None
+        newest = None
+        for r in rows:
+            if newest is None:
+                newest = r["id"]
+            if db.load_handover(conn, r["id"]) is None and db.load_draft(conn, r["id"]):
+                pending = r["id"]
+                break
+    target = pending or newest
+    if not target:
+        return page("초안", '<div class="card"><div class="empty">'
+                            '아직 근무 구간이 없습니다.</div></div>', active="/draft")
+    return view_shift(target, active="/draft")
+
 
 def view_index():
     with db.connect() as conn:
@@ -198,10 +308,10 @@ def view_index():
             f'<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
             f'분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>'
             f'{"".join(out)}')
-    return page("일지 조회", body)
+    return page("일지 조회", body, active="/")
 
 
-def _view_confirmed(shift_id, draft, handover):
+def _view_confirmed(shift_id, draft, handover, active="/"):
     adopted = [i for i in draft["items"] if i["adopted"] == 1]
     excluded = [i for i in draft["items"] if i["adopted"] == 0]
 
@@ -241,10 +351,10 @@ def _view_confirmed(shift_id, draft, handover):
 {esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(draft["items"])}건 중
 <b>{handover["adopted_count"]}건 채택 / {handover["excluded_count"]}건 제외</b></div>
 {"".join(ents)}{ex}
-</div>""")
+</div>""", active=active)
 
 
-def _view_pending(shift_id, draft):
+def _view_pending(shift_id, draft, active="/"):
     items = []
     for it in draft["items"]:
         sug = ""
@@ -300,10 +410,10 @@ def _view_pending(shift_id, draft):
 <div class="bar"><div class="cnt">채택 <b id="n">{n}</b> / <span>{n}</span>건
 <span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span></div>
 <button type="submit" class="btn">승인하고 확정</button></div>
-</form>""")
+</form>""", active=active)
 
 
-def view_shift(shift_id):
+def view_shift(shift_id, active="/"):
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
         handover = db.load_handover(conn, shift_id)
@@ -315,12 +425,12 @@ def view_shift(shift_id):
         return page(shift_id, f'<a class="back" href="/">‹ 목록으로</a>'
                               f'<div class="card"><div class="empty">{esc(shift_id)} 의 초안이 '
                               f'없습니다.<br><code class="mono">python3 app/cli.py run '
-                              f'{esc(shift_id)}</code></div></div>')
+                              f'{esc(shift_id)}</code></div></div>', active=active)
 
     draft["window_start"] = row["window_start"] if row else None
     if handover:
-        return _view_confirmed(shift_id, draft, handover)
-    return _view_pending(shift_id, draft)
+        return _view_confirmed(shift_id, draft, handover, active)
+    return _view_pending(shift_id, draft, active)
 
 
 # --- 서버 -------------------------------------------------------------
@@ -348,6 +458,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/":
                 self._send(200, view_index())
+            elif path == "/draft":
+                self._send(200, view_draft())
+            elif path == "/dcs":
+                self._send(200, view_dcs())
+            elif path == "/rtdb":
+                self._send(200, view_rtdb())
+            elif path == "/asu":
+                self._send(200, view_asu())
             elif path.startswith("/shift/"):
                 self._send(200, view_shift(path[len("/shift/"):]))
             elif path == "/api/shifts":
