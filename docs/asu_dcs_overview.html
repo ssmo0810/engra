@@ -495,6 +495,15 @@
             <div id="sTbl"></div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
               <button class="dbtn" id="sCsv" disabled>이 근무 CSV</button>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--sub)">결함
+                <select id="sDef" style="font-size:11px;padding:2px 4px;border:1px solid #a9a9a4;border-radius:3px">
+                  <option value="">없음</option>
+                  <option value="empty">빈 값</option>
+                  <option value="bad">깨진 값</option>
+                  <option value="mix">혼합</option>
+                </select>
+                <input id="sDefR" type="number" value="0.2" step="0.1" min="0" max="20" style="width:52px;font-size:11px;padding:2px 4px;border:1px solid #a9a9a4;border-radius:3px">%
+              </label>
               <button class="dbtn" id="sAns" disabled>이 근무 답안지</button>
               <button class="dbtn" id="sAll" disabled>통합 답안지</button>
             </div>
@@ -1457,7 +1466,7 @@
           return { scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
                    trigger_tag:w.S.tag, affected_tags:w.S.tags,
                    start:fmtTs(shiftMs+w.s*STEP*1000), end:fmtTs(shiftMs+w.e*STEP*1000),
-                   minutes:Math.round((w.e-w.s)*STEP/60),
+                   duration_sec:(w.e-w.s)*STEP, minutes:Math.round((w.e-w.s)*STEP/60),
                    carried_in:w.fromPrev, continues_next:w.toNext,
                    dcs_alarm:w.fired.length?('발생 · '+w.fired.join(', ')):'미발생' };
         }),
@@ -1629,16 +1638,34 @@
   }
 
   /* ── 내보내기 ──────────────────────────────────────────── */
-  function csvBlob(c){
-    var chunks=[], buf='timestamp,tag,value\n', cnt=0;
+  /* 형식이 어긋난 값 — 실제 히스토리언에서 나오는 형태들 */
+  var BADV = ['N/A','NaN','---','ERR','#VALUE!','null','1.2.3',''];
+
+  /* CSV 만들기. defect 를 주면 값 일부를 비우거나 깨뜨린다.
+     「03. 검증 환경」이 요구하는 '형식이 어긋난 값'·'값이 비어 있을 때' 조건을
+     만들기 위한 것. 위치는 seed 로 정해지므로 몇 번 뽑아도 같은 파일이 나온다. */
+  function csvBlob(c, defect, ratePct){
+    var chunks=[], buf='timestamp,tag,value\n', cnt=0, hit=0;
+    var rate=(ratePct||0)/100, sd=(c.entry.base_seed^0x0DEF)|0;
     for(var i=0;i<N;i++){
       var ts=fmtTs(c.shiftMs+i*STEP*1000);
-      for(var k=0;k<c.ids.length;k++){ var id=c.ids[k];
-        buf += ts+','+id+','+c.D[id][i].toFixed(c.dec[id])+'\n'; }
+      for(var k=0;k<c.ids.length;k++){
+        var id=c.ids[k], v=c.D[id][i].toFixed(c.dec[id]);
+        if(defect && rate>0){
+          var r=hrnd(sd, k*7919+13, i);
+          if(r<rate){
+            var pick = (defect==='empty') ? ''
+                     : (defect==='bad')   ? BADV[Math.floor(hrnd(sd,k+91,i)*7)]
+                     : (r < rate/2 ? '' : BADV[Math.floor(hrnd(sd,k+91,i)*7)]);
+            v=pick; hit++;
+          }
+        }
+        buf += ts+','+id+','+v+'\n';
+      }
       if(++cnt%2000===0){ chunks.push(buf); buf=''; }
     }
     if(buf) chunks.push(buf);
-    return new Blob(chunks,{type:'text/csv;charset=utf-8'});
+    return { blob:new Blob(chunks,{type:'text/csv;charset=utf-8'}), rows:N*c.ids.length, hit:hit };
   }
   function save(blob,name){
     try{
@@ -1648,7 +1675,7 @@
       smsg(name+' 저장을 시작했습니다.',true);
     }catch(e){ smsg('이 화면에서는 파일 저장이 차단됩니다. GitHub Pages 주소에서 열어주세요.',false); }
   }
-  function csvName(E){ return 'asu_'+E.shift_id.replace(/-/g,'')+'_12h.csv'; }
+  function csvName(E,defect){ return 'asu_'+E.shift_id.replace(/-/g,'')+'_12h'+(defect?'_'+defect:'')+'.csv'; }
   function mergedAnswer(){
     var cov={}; RUN.hist.forEach(function(E){ E.injected.forEach(function(w){ cov[w.scenario_id]=1; }); });
     return {
@@ -1684,7 +1711,14 @@
     paintOverview(null);
     renderHist(); smsg('초기화했습니다.',true);
   };
-  $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; save(csvBlob(c),csvName(c.entry)); };
+  function dumpCsv(c){
+    var defect=$('sDef').value, rate=parseFloat($('sDefR').value)||0;
+    var r=csvBlob(c, defect, rate);
+    save(r.blob, csvName(c.entry, defect));
+    if(defect) smsg(csvName(c.entry,defect)+' 저장 — 전체 '+r.rows.toLocaleString()+'셀 중 '
+      +r.hit.toLocaleString()+'셀에 '+(defect==='empty'?'빈 값':defect==='bad'?'깨진 값':'빈 값·깨진 값')+' 주입', true);
+  }
+  $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; dumpCsv(c); };
   $('sAns').onclick = function(){ var E=RUN.hist[RUN.hist.length-1]; if(!E)return;
     save(new Blob([JSON.stringify(E,null,2)],{type:'application/json'}),'asu_answer_'+E.shift_id+'.json'); };
   $('sAll').onclick = function(){ if(!RUN.hist.length)return;
@@ -1692,7 +1726,7 @@
   $('sHist').addEventListener('click',function(ev){
     var a=ev.target.getAttribute('data-ans'), c=ev.target.getAttribute('data-csv');
     if(a!==null&&a!==undefined){ var E=RUN.hist.filter(function(x){return x.idx===+a;})[0]; if(E) openModal(E); }
-    if(c!==null&&c!==undefined){ var cc=CACHE.filter(function(x){return x.idx===+c;})[0]; if(cc) save(csvBlob(cc),csvName(cc.entry)); }
+    if(c!==null&&c!==undefined){ var cc=CACHE.filter(function(x){return x.idx===+c;})[0]; if(cc) dumpCsv(cc); }
   });
   $('mClose').onclick=function(){ $('sModal').hidden=true; };
   $('sModal').onclick=function(ev){ if(ev.target===$('sModal')) $('sModal').hidden=true; };
