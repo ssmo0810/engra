@@ -1,0 +1,983 @@
+{
+  "generated_at": "2026-08-25T20:14:09.924Z",
+  "generator": "docs/asu_dcs_overview.html — SCENARIO INJECT (랜덤 6~10종)",
+  "purpose": "다일 시뮬레이션용. 근무 6개(3일) 연속. 제출용 기준 데이터셋은 data/ 루트의 2근무입니다.",
+  "mode": "random",
+  "base_seed": 20260830,
+  "base_start": "2026-08-22T06:00:00",
+  "sampling_interval_sec": 2,
+  "shift_hours": 12,
+  "shifts": 6,
+  "note": [
+    "값이 재현 가능합니다. 같은 base_seed·base_start 로 생성기를 돌리면 동일한 데이터가 나옵니다.",
+    "dcs_alarm 은 선언값이 아니라 생성된 데이터에서 실측한 값입니다.",
+    "동시 발생(overlaps)이 있는 구간에서는 한 시나리오의 dcs_alarm 이 겹친 다른 시나리오 때문일 수 있습니다. overlaps 를 함께 보십시오.",
+    "carried_in 은 앞 근무에서 이어진 것, continues_next 는 다음 근무로 이어지는 것입니다.",
+    "근무 순서대로 ingest → run → approve 를 반복해야 과거 조치 회수가 동작합니다 (HANDOFF 경고 참고)."
+  ],
+  "scenario_coverage": {
+    "covered": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "missing": [],
+    "rate": "20/20"
+  },
+  "shift_list": [
+    {
+      "idx": 0,
+      "shift_id": "2026-08-22-day",
+      "kind": "day",
+      "kind_ko": "주간",
+      "csv_file": "asu_2026-08-22-day_12h.csv",
+      "from": "2026-08-22T06:00:00",
+      "to": "2026-08-22T18:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260830,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 8,
+          "name": "압축기 서지 전조",
+          "description": "토출압 +3% 상승과 유량 −6% 감소가 동시 진행",
+          "trigger_tag": "PI-203",
+          "affected_tags": [
+            "PI-203",
+            "FI-204",
+            "JI-206",
+            "TI-205"
+          ],
+          "start": "2026-08-22T10:30:14",
+          "end": "2026-08-22T10:55:14",
+          "duration_sec": 1500,
+          "minutes": 25,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 7,
+          "name": "탱크 인입밸브 고착",
+          "description": "개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승",
+          "trigger_tag": "ZI-801",
+          "affected_tags": [
+            "ZI-801",
+            "LI-802"
+          ],
+          "start": "2026-08-22T11:36:04",
+          "end": "2026-08-22T13:36:04",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 6,
+          "name": "흡착탑 수분 파과",
+          "description": "차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승",
+          "trigger_tag": "MI-302",
+          "affected_tags": [
+            "MI-302",
+            "PDI-303"
+          ],
+          "start": "2026-08-22T12:14:44",
+          "end": "2026-08-22T13:44:44",
+          "duration_sec": 5400,
+          "minutes": 90,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · MI-302 H, PDI-303 H"
+        },
+        {
+          "scenario_id": 12,
+          "name": "분석기 순간 이상값",
+          "description": "0.5 → 999 ppm 순간 폭등 후 3초 내 원복 × 5회",
+          "trigger_tag": "MI-804",
+          "affected_tags": [
+            "MI-804"
+          ],
+          "start": "2026-08-22T12:46:16",
+          "end": "2026-08-22T14:46:16",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · MI-804 HH"
+        },
+        {
+          "scenario_id": 10,
+          "name": "LIN 탱크 레벨 임계 근접",
+          "description": "87.3% 에서 체류하다 후반에 89.0% 로 상한(88%) 돌파",
+          "trigger_tag": "LI-806",
+          "affected_tags": [
+            "LI-806"
+          ],
+          "start": "2026-08-22T13:52:20",
+          "end": "2026-08-22T15:52:20",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · LI-806 H"
+        },
+        {
+          "scenario_id": 2,
+          "name": "토출온도 드리프트",
+          "description": "시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다",
+          "trigger_tag": "TI-205",
+          "affected_tags": [
+            "TI-205"
+          ],
+          "start": "2026-08-22T15:20:34",
+          "end": "2026-08-22T18:00:00",
+          "duration_sec": 9566,
+          "minutes": 159,
+          "carried_in": false,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 9,
+          "name": "Cold end 저온 이탈",
+          "description": "시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파",
+          "trigger_tag": "TI-403",
+          "affected_tags": [
+            "TI-403"
+          ],
+          "start": "2026-08-22T16:08:56",
+          "end": "2026-08-22T18:00:00",
+          "duration_sec": 6664,
+          "minutes": 111,
+          "carried_in": false,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 20,
+          "name": "압축기 전력 급증",
+          "description": "3,240 → 3,670 kW 급증 후 10분 유지, 이후 원복 — H(3,600 kW) 초과 후 알람 해제",
+          "trigger_tag": "JI-206",
+          "affected_tags": [
+            "JI-206"
+          ],
+          "start": "2026-08-22T17:14:38",
+          "end": "2026-08-22T17:29:38",
+          "duration_sec": 900,
+          "minutes": 15,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · JI-206 H"
+        }
+      ],
+      "overlaps": []
+    },
+    {
+      "idx": 1,
+      "shift_id": "2026-08-22-night",
+      "kind": "night",
+      "kind_ko": "야간",
+      "csv_file": "asu_2026-08-22-night_12h.csv",
+      "from": "2026-08-22T18:00:00",
+      "to": "2026-08-23T06:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260831,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 9,
+          "name": "Cold end 저온 이탈",
+          "description": "시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파",
+          "trigger_tag": "TI-403",
+          "affected_tags": [
+            "TI-403"
+          ],
+          "start": "2026-08-22T18:00:00",
+          "end": "2026-08-22T19:08:56",
+          "duration_sec": 4136,
+          "minutes": 69,
+          "carried_in": true,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 2,
+          "name": "토출온도 드리프트",
+          "description": "시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다",
+          "trigger_tag": "TI-205",
+          "affected_tags": [
+            "TI-205"
+          ],
+          "start": "2026-08-22T18:00:00",
+          "end": "2026-08-23T06:00:00",
+          "duration_sec": 43200,
+          "minutes": 720,
+          "carried_in": true,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 12,
+          "name": "분석기 순간 이상값",
+          "description": "0.5 → 999 ppm 순간 폭등 후 3초 내 원복 × 5회",
+          "trigger_tag": "MI-804",
+          "affected_tags": [
+            "MI-804"
+          ],
+          "start": "2026-08-22T19:14:12",
+          "end": "2026-08-22T21:14:12",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · MI-804 HH"
+        },
+        {
+          "scenario_id": 10,
+          "name": "LIN 탱크 레벨 임계 근접",
+          "description": "87.3% 에서 체류하다 후반에 89.0% 로 상한(88%) 돌파",
+          "trigger_tag": "LI-806",
+          "affected_tags": [
+            "LI-806"
+          ],
+          "start": "2026-08-22T20:25:12",
+          "end": "2026-08-22T22:25:12",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · LI-806 H"
+        },
+        {
+          "scenario_id": 3,
+          "name": "개도 반복변동 (진폭 증가)",
+          "description": "±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동",
+          "trigger_tag": "ZI-601",
+          "affected_tags": [
+            "ZI-601",
+            "FI-602",
+            "PI-604",
+            "LI-701"
+          ],
+          "start": "2026-08-22T20:49:18",
+          "end": "2026-08-23T00:50:18",
+          "duration_sec": 14460,
+          "minutes": 241,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 11,
+          "name": "개도–유량 상관 붕괴",
+          "description": "개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음",
+          "trigger_tag": "FI-602",
+          "affected_tags": [
+            "FI-602",
+            "ZI-601",
+            "PI-604",
+            "LI-701",
+            "FI-710"
+          ],
+          "start": "2026-08-22T22:23:24",
+          "end": "2026-08-22T23:23:24",
+          "duration_sec": 3600,
+          "minutes": 60,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 17,
+          "name": "GN2 공급압 저하",
+          "description": "4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질",
+          "trigger_tag": "PI-901",
+          "affected_tags": [
+            "PI-901"
+          ],
+          "start": "2026-08-22T23:33:50",
+          "end": "2026-08-23T00:33:50",
+          "duration_sec": 3600,
+          "minutes": 60,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · PI-901 L"
+        },
+        {
+          "scenario_id": 4,
+          "name": "인입온도 임계 근접",
+          "description": "상한(20℃)의 95%인 19℃ 부근에서 40분 체류",
+          "trigger_tag": "TI-401",
+          "affected_tags": [
+            "TI-401"
+          ],
+          "start": "2026-08-23T01:48:12",
+          "end": "2026-08-23T02:28:12",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 16,
+          "name": "흡착탑 과온",
+          "description": "32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과",
+          "trigger_tag": "TI-301",
+          "affected_tags": [
+            "TI-301"
+          ],
+          "start": "2026-08-23T02:00:20",
+          "end": "2026-08-23T02:40:20",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · TI-301 H"
+        },
+        {
+          "scenario_id": 6,
+          "name": "흡착탑 수분 파과",
+          "description": "차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승",
+          "trigger_tag": "MI-302",
+          "affected_tags": [
+            "MI-302",
+            "PDI-303"
+          ],
+          "start": "2026-08-23T02:08:22",
+          "end": "2026-08-23T03:38:22",
+          "duration_sec": 5400,
+          "minutes": 90,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · MI-302 H, PDI-303 H"
+        }
+      ],
+      "overlaps": [
+        {
+          "a": 3,
+          "b": 11,
+          "tags": [
+            "ZI-601",
+            "FI-602",
+            "PI-604",
+            "LI-701"
+          ],
+          "from": "2026-08-22T22:23:24",
+          "to": "2026-08-22T23:23:24",
+          "minutes": 60
+        }
+      ]
+    },
+    {
+      "idx": 2,
+      "shift_id": "2026-08-23-day",
+      "kind": "day",
+      "kind_ko": "주간",
+      "csv_file": "asu_2026-08-23-day_12h.csv",
+      "from": "2026-08-23T06:00:00",
+      "to": "2026-08-23T18:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260832,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 2,
+          "name": "토출온도 드리프트",
+          "description": "시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다",
+          "trigger_tag": "TI-205",
+          "affected_tags": [
+            "TI-205"
+          ],
+          "start": "2026-08-23T06:00:00",
+          "end": "2026-08-23T15:20:34",
+          "duration_sec": 33634,
+          "minutes": 561,
+          "carried_in": true,
+          "continues_next": false,
+          "dcs_alarm": "발생 · TI-205 H"
+        },
+        {
+          "scenario_id": 14,
+          "name": "터빈 회전수 순간 강하",
+          "description": "−800 rpm 로 20초간 강하 후 즉시 복귀",
+          "trigger_tag": "SI-507",
+          "affected_tags": [
+            "SI-507"
+          ],
+          "start": "2026-08-23T06:02:48",
+          "end": "2026-08-23T06:03:08",
+          "duration_sec": 20,
+          "minutes": 0,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 19,
+          "name": "흡입 필터 차압 상승",
+          "description": "0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘",
+          "trigger_tag": "PDI-103",
+          "affected_tags": [
+            "PDI-103"
+          ],
+          "start": "2026-08-23T07:35:16",
+          "end": "2026-08-23T10:35:16",
+          "duration_sec": 10800,
+          "minutes": 180,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · PDI-103 H"
+        },
+        {
+          "scenario_id": 4,
+          "name": "인입온도 임계 근접",
+          "description": "상한(20℃)의 95%인 19℃ 부근에서 40분 체류",
+          "trigger_tag": "TI-401",
+          "affected_tags": [
+            "TI-401"
+          ],
+          "start": "2026-08-23T09:58:32",
+          "end": "2026-08-23T10:38:32",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 13,
+          "name": "GN2 공급압 반복 헌팅",
+          "description": "±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적",
+          "trigger_tag": "ZI-904",
+          "affected_tags": [
+            "ZI-904",
+            "PI-901",
+            "FI-902"
+          ],
+          "start": "2026-08-23T12:24:16",
+          "end": "2026-08-23T14:24:16",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 1,
+          "name": "순도 헌팅",
+          "description": "평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707"
+          ],
+          "start": "2026-08-23T13:21:42",
+          "end": "2026-08-23T13:51:42",
+          "duration_sec": 1800,
+          "minutes": 30,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 7,
+          "name": "탱크 인입밸브 고착",
+          "description": "개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승",
+          "trigger_tag": "ZI-801",
+          "affected_tags": [
+            "ZI-801",
+            "LI-802"
+          ],
+          "start": "2026-08-23T16:00:00",
+          "end": "2026-08-23T18:00:00",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 15,
+          "name": "순도 동반 저하",
+          "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707",
+            "AI-803"
+          ],
+          "start": "2026-08-23T16:09:26",
+          "end": "2026-08-23T18:00:00",
+          "duration_sec": 6634,
+          "minutes": 111,
+          "carried_in": false,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 8,
+          "name": "압축기 서지 전조",
+          "description": "토출압 +3% 상승과 유량 −6% 감소가 동시 진행",
+          "trigger_tag": "PI-203",
+          "affected_tags": [
+            "PI-203",
+            "FI-204",
+            "JI-206",
+            "TI-205"
+          ],
+          "start": "2026-08-23T16:35:54",
+          "end": "2026-08-23T17:00:54",
+          "duration_sec": 1500,
+          "minutes": 25,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        }
+      ],
+      "overlaps": []
+    },
+    {
+      "idx": 3,
+      "shift_id": "2026-08-23-night",
+      "kind": "night",
+      "kind_ko": "야간",
+      "csv_file": "asu_2026-08-23-night_12h.csv",
+      "from": "2026-08-23T18:00:00",
+      "to": "2026-08-24T06:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260833,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 15,
+          "name": "순도 동반 저하",
+          "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707",
+            "AI-803"
+          ],
+          "start": "2026-08-23T18:00:00",
+          "end": "2026-08-23T18:09:26",
+          "duration_sec": 566,
+          "minutes": 9,
+          "carried_in": true,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 5,
+          "name": "공급유량 헌팅",
+          "description": "−5% 급강하 후 10초 내 원복 × 5회 — PDI-702·TI-704 동반 흔들림",
+          "trigger_tag": "FI-602",
+          "affected_tags": [
+            "FI-602",
+            "PDI-702",
+            "TI-704",
+            "FI-710",
+            "LI-701"
+          ],
+          "start": "2026-08-23T18:12:06",
+          "end": "2026-08-23T20:12:06",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 3,
+          "name": "개도 반복변동 (진폭 증가)",
+          "description": "±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동",
+          "trigger_tag": "ZI-601",
+          "affected_tags": [
+            "ZI-601",
+            "FI-602",
+            "PI-604",
+            "LI-701"
+          ],
+          "start": "2026-08-23T19:57:52",
+          "end": "2026-08-23T23:58:52",
+          "duration_sec": 14460,
+          "minutes": 241,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 17,
+          "name": "GN2 공급압 저하",
+          "description": "4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질",
+          "trigger_tag": "PI-901",
+          "affected_tags": [
+            "PI-901"
+          ],
+          "start": "2026-08-23T22:42:46",
+          "end": "2026-08-23T23:42:46",
+          "duration_sec": 3600,
+          "minutes": 60,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · PI-901 L"
+        },
+        {
+          "scenario_id": 13,
+          "name": "GN2 공급압 반복 헌팅",
+          "description": "±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적",
+          "trigger_tag": "ZI-904",
+          "affected_tags": [
+            "ZI-904",
+            "PI-901",
+            "FI-902"
+          ],
+          "start": "2026-08-24T01:13:52",
+          "end": "2026-08-24T03:13:52",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 18,
+          "name": "HP Column 고레벨",
+          "description": "25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버",
+          "trigger_tag": "LI-701",
+          "affected_tags": [
+            "LI-701"
+          ],
+          "start": "2026-08-24T01:53:42",
+          "end": "2026-08-24T03:23:42",
+          "duration_sec": 5400,
+          "minutes": 90,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · LI-701 H"
+        },
+        {
+          "scenario_id": 4,
+          "name": "인입온도 임계 근접",
+          "description": "상한(20℃)의 95%인 19℃ 부근에서 40분 체류",
+          "trigger_tag": "TI-401",
+          "affected_tags": [
+            "TI-401"
+          ],
+          "start": "2026-08-24T04:17:18",
+          "end": "2026-08-24T04:57:18",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        }
+      ],
+      "overlaps": [
+        {
+          "a": 3,
+          "b": 5,
+          "tags": [
+            "FI-602",
+            "LI-701"
+          ],
+          "from": "2026-08-23T19:57:52",
+          "to": "2026-08-23T20:12:06",
+          "minutes": 14
+        }
+      ]
+    },
+    {
+      "idx": 4,
+      "shift_id": "2026-08-24-day",
+      "kind": "day",
+      "kind_ko": "주간",
+      "csv_file": "asu_2026-08-24-day_12h.csv",
+      "from": "2026-08-24T06:00:00",
+      "to": "2026-08-24T18:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260834,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 16,
+          "name": "흡착탑 과온",
+          "description": "32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과",
+          "trigger_tag": "TI-301",
+          "affected_tags": [
+            "TI-301"
+          ],
+          "start": "2026-08-24T06:23:28",
+          "end": "2026-08-24T07:03:28",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · TI-301 H"
+        },
+        {
+          "scenario_id": 4,
+          "name": "인입온도 임계 근접",
+          "description": "상한(20℃)의 95%인 19℃ 부근에서 40분 체류",
+          "trigger_tag": "TI-401",
+          "affected_tags": [
+            "TI-401"
+          ],
+          "start": "2026-08-24T09:48:24",
+          "end": "2026-08-24T10:28:24",
+          "duration_sec": 2400,
+          "minutes": 40,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 8,
+          "name": "압축기 서지 전조",
+          "description": "토출압 +3% 상승과 유량 −6% 감소가 동시 진행",
+          "trigger_tag": "PI-203",
+          "affected_tags": [
+            "PI-203",
+            "FI-204",
+            "JI-206",
+            "TI-205"
+          ],
+          "start": "2026-08-24T10:03:36",
+          "end": "2026-08-24T10:28:36",
+          "duration_sec": 1500,
+          "minutes": 25,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 9,
+          "name": "Cold end 저온 이탈",
+          "description": "시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파",
+          "trigger_tag": "TI-403",
+          "affected_tags": [
+            "TI-403"
+          ],
+          "start": "2026-08-24T10:25:18",
+          "end": "2026-08-24T13:25:18",
+          "duration_sec": 10800,
+          "minutes": 180,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 1,
+          "name": "순도 헌팅",
+          "description": "평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707"
+          ],
+          "start": "2026-08-24T10:37:20",
+          "end": "2026-08-24T11:07:20",
+          "duration_sec": 1800,
+          "minutes": 30,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 3,
+          "name": "개도 반복변동 (진폭 증가)",
+          "description": "±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동",
+          "trigger_tag": "ZI-601",
+          "affected_tags": [
+            "ZI-601",
+            "FI-602",
+            "PI-604",
+            "LI-701"
+          ],
+          "start": "2026-08-24T12:55:46",
+          "end": "2026-08-24T16:56:46",
+          "duration_sec": 14460,
+          "minutes": 241,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 15,
+          "name": "순도 동반 저하",
+          "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707",
+            "AI-803"
+          ],
+          "start": "2026-08-24T14:42:12",
+          "end": "2026-08-24T16:42:12",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 19,
+          "name": "흡입 필터 차압 상승",
+          "description": "0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘",
+          "trigger_tag": "PDI-103",
+          "affected_tags": [
+            "PDI-103"
+          ],
+          "start": "2026-08-24T16:48:04",
+          "end": "2026-08-24T18:00:00",
+          "duration_sec": 4316,
+          "minutes": 72,
+          "carried_in": false,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        }
+      ],
+      "overlaps": []
+    },
+    {
+      "idx": 5,
+      "shift_id": "2026-08-24-night",
+      "kind": "night",
+      "kind_ko": "야간",
+      "csv_file": "asu_2026-08-24-night_12h.csv",
+      "from": "2026-08-24T18:00:00",
+      "to": "2026-08-25T06:00:00",
+      "base_seed": 20260830,
+      "placement_seed": 20260835,
+      "sampling_interval_sec": 2,
+      "tag_count": 53,
+      "rows": 1144800,
+      "injected": [
+        {
+          "scenario_id": 19,
+          "name": "흡입 필터 차압 상승",
+          "description": "0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘",
+          "trigger_tag": "PDI-103",
+          "affected_tags": [
+            "PDI-103"
+          ],
+          "start": "2026-08-24T18:00:00",
+          "end": "2026-08-24T19:48:04",
+          "duration_sec": 6484,
+          "minutes": 108,
+          "carried_in": true,
+          "continues_next": false,
+          "dcs_alarm": "발생 · PDI-103 H"
+        },
+        {
+          "scenario_id": 15,
+          "name": "순도 동반 저하",
+          "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+          "trigger_tag": "AI-707",
+          "affected_tags": [
+            "AI-707",
+            "AI-803"
+          ],
+          "start": "2026-08-24T19:02:42",
+          "end": "2026-08-24T21:02:42",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 13,
+          "name": "GN2 공급압 반복 헌팅",
+          "description": "±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적",
+          "trigger_tag": "ZI-904",
+          "affected_tags": [
+            "ZI-904",
+            "PI-901",
+            "FI-902"
+          ],
+          "start": "2026-08-24T21:23:38",
+          "end": "2026-08-24T23:23:38",
+          "duration_sec": 7200,
+          "minutes": 120,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 6,
+          "name": "흡착탑 수분 파과",
+          "description": "차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승",
+          "trigger_tag": "MI-302",
+          "affected_tags": [
+            "MI-302",
+            "PDI-303"
+          ],
+          "start": "2026-08-24T21:52:32",
+          "end": "2026-08-24T23:22:32",
+          "duration_sec": 5400,
+          "minutes": 90,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "발생 · MI-302 H, PDI-303 H"
+        },
+        {
+          "scenario_id": 9,
+          "name": "Cold end 저온 이탈",
+          "description": "시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파",
+          "trigger_tag": "TI-403",
+          "affected_tags": [
+            "TI-403"
+          ],
+          "start": "2026-08-25T01:05:26",
+          "end": "2026-08-25T04:05:26",
+          "duration_sec": 10800,
+          "minutes": 180,
+          "carried_in": false,
+          "continues_next": false,
+          "dcs_alarm": "미발생"
+        },
+        {
+          "scenario_id": 2,
+          "name": "토출온도 드리프트",
+          "description": "시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다",
+          "trigger_tag": "TI-205",
+          "affected_tags": [
+            "TI-205"
+          ],
+          "start": "2026-08-25T02:27:56",
+          "end": "2026-08-25T06:00:00",
+          "duration_sec": 12724,
+          "minutes": 212,
+          "carried_in": false,
+          "continues_next": true,
+          "dcs_alarm": "미발생"
+        }
+      ],
+      "overlaps": []
+    }
+  ]
+}
