@@ -221,7 +221,17 @@ rclone lsf gdrive: --drive-root-folder-id 1XyKabi7L6FcREAhKWZgJz52nGSgXTMdR -R
 ```
 제출 폴더의 안내문 요구사항은 `제출_체크리스트.md` 에 정리해 두었다. **폴더 이름을 바꾸지 마라.**
 
-배포된 화면
+🟢 **실제 앱 (제출용 · 조작 가능)** — https://engra.64-176-227-85.sslip.io
+`/` 일지 조회 · `/shift/<근무ID>` 초안 검토·확정 일지 · `/api/shifts` · `/api/draft/<근무ID>`
+Vultr + Caddy(자동 HTTPS) + systemd. `engra.service` 가 `127.0.0.1:4320` 에서 돌고
+Caddy 가 프록시한다. 같은 서버의 cs-study-lms 와 별도 유저·별도 포트로 격리돼 있다.
+**시드는 근무 3건**(2건 확정 + 1건 승인 대기)이고 `engra-reset.timer` 가 매시 초기
+상태로 되돌린다 — 방문자가 승인을 눌러도 다음 방문자가 같은 흐름을 본다.
+⚠ 시드를 다시 만들 때는 **근무별로 `ingest → run → approve` 순서**로 돌려야 한다.
+셋을 다 `run` 한 뒤 승인하면 과거 조치가 회수되지 않는다(사례 검색이 초안 생성
+시점에 일어난다 — 2026-08-26 실제로 겪었다).
+
+정적 배포 화면 (백업 경로 · 앱이 죽어도 볼 수 있다)
 - 데모 4탭 https://ssmo0810.github.io/engra/demo/
 - 프로토타입 스냅샷 https://ssmo0810.github.io/engra/sample/
 - 소개 https://ssmo0810.github.io/engra
