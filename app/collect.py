@@ -8,6 +8,8 @@ RTDB 는 데이터를 넘겨주는 통로이지 보관하는 곳이 아니다. �
 근무와 비교하는 주체는 ENGRA 다 — 그래서 수집한 것을 여기서 저장소에 적재한다.
 """
 import csv
+import io
+import urllib.request
 from datetime import datetime, timedelta
 
 import db
@@ -44,6 +46,28 @@ def shift_id_for(ts):
 
 # --- 데이터 소스 ------------------------------------------------------
 
+def _rows(fh, label):
+    """열린 텍스트 스트림 -> (ts, tag, value). CsvSource·UrlSource 가 같이 쓴다.
+
+    형식 오류는 삼키지 않고 줄 번호와 함께 올린다. 03 검증 항목에 "형식이 어긋난 값이
+    섞였을 때" 가 있어서, 어디서 어떻게 깨졌는지가 곧 검증 기록이 된다.
+    """
+    reader = csv.DictReader(fh)
+    missing = {"timestamp", "tag", "value"} - set(reader.fieldnames or [])
+    if missing:
+        raise ValueError(
+            f"{label}: 열이 없습니다 {sorted(missing)}. "
+            f"연결 규약은 timestamp,tag,value 입니다. 실제 열: {reader.fieldnames}"
+        )
+    for lineno, row in enumerate(reader, start=2):
+        try:
+            ts = datetime.fromisoformat(row["timestamp"])
+            value = float(row["value"])
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
+        yield ts, row["tag"].strip(), value
+
+
 class CsvSource:
     """`timestamp,tag,value` 형식 CSV. app/README.md 연결 규약 ①."""
 
@@ -53,20 +77,37 @@ class CsvSource:
 
     def read(self):
         with open(self.path, encoding="utf-8-sig", newline="") as f:
-            reader = csv.DictReader(f)
-            missing = {"timestamp", "tag", "value"} - set(reader.fieldnames or [])
-            if missing:
-                raise ValueError(
-                    f"{self.path.name}: 열이 없습니다 {sorted(missing)}. "
-                    f"연결 규약은 timestamp,tag,value 입니다. 실제 열: {reader.fieldnames}"
-                )
-            for lineno, row in enumerate(reader, start=2):
-                try:
-                    ts = datetime.fromisoformat(row["timestamp"])
-                    value = float(row["value"])
-                except (ValueError, TypeError) as exc:
-                    raise ValueError(f"{self.path.name}:{lineno} 읽기 실패 — {exc}") from exc
-                yield ts, row["tag"].strip(), value
+            yield from _rows(f, self.path.name)
+
+
+class UrlSource:
+    """URL 의 CSV. 형식은 CsvSource 와 같다 (#12, 임도영 제안).
+
+    사람이 파일을 받아 경로를 치는 대신 ENGRA 가 직접 가져간다. 실배포에서 RTDB 조회로
+    바뀌어도 바뀌는 것은 이 Source 클래스 하나뿐이라는 설계를 그대로 따른다.
+    36MB 를 스트리밍으로 읽으므로 메모리에 다 올리지 않는다. 캐시는 두지 않았다 —
+    같은 URL 을 여러 번 적재할 일이 드물고, 두면 "어느 버전을 읽었나" 가 흐려진다.
+    """
+
+    def __init__(self, url):
+        self.url = url
+        self.name = f"url:{url.rsplit('/', 1)[-1]}"
+
+    def read(self):
+        req = urllib.request.Request(self.url, headers={"User-Agent": "engra-collect/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            if r.status != 200:
+                raise ValueError(f"{self.url}: HTTP {r.status}")
+            with io.TextIOWrapper(r, encoding="utf-8-sig", newline="") as f:
+                yield from _rows(f, self.name)
+
+
+def source_for(arg):
+    """ingest 인자 -> Source. http(s) 면 URL, 아니면 파일 경로."""
+    from pathlib import Path
+    if str(arg).startswith(("http://", "https://")):
+        return UrlSource(str(arg))
+    return CsvSource(Path(arg))
 
 
 class RtdbSource:

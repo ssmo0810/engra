@@ -47,7 +47,7 @@ def cmd_sample(args):
 
 def cmd_ingest(args):
     db.init()
-    source = collect.CsvSource(Path(args.csv))
+    source = collect.source_for(args.csv)   # 파일 경로 또는 URL (#12)
     counts = collect.ingest(source)
     if not counts:
         print("적재된 데이터가 없습니다.")
@@ -155,7 +155,7 @@ def build_parser():
     s.set_defaults(fn=cmd_sample)
 
     s = sub.add_parser("ingest", help="CSV 적재")
-    s.add_argument("csv")
+    s.add_argument("csv", help="CSV 파일 경로 또는 http(s) URL")
     s.set_defaults(fn=cmd_ingest)
 
     sub.add_parser("shifts", help="근무 구간 목록").set_defaults(fn=cmd_shifts)
