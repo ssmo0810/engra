@@ -63,6 +63,21 @@
   .tcap{font-size:7.5px;fill:#84857e;letter-spacing:.09em;font-weight:700}
   .guide{fill:none;stroke:#c2c3bd;stroke-width:1;stroke-dasharray:2 3}
   .bartrk{fill:#dedfd8}
+
+  /* ── 시나리오 발생 태그 표시 ── */
+  @keyframes tagBlink{0%,100%{fill:#fbfbf8;stroke:#a9a9a4}50%{fill:#ffdcdc;stroke:#e0776e}}
+  @keyframes tagBlinkA{0%,100%{fill:#fdefee;stroke:#c0392b}50%{fill:#ffb6af;stroke:#EA002C}}
+  svg.mimic g[data-tag].alm  rect.tbox, svg.mimic g[data-tag].alm  rect.zbox{animation:tagBlink 1.25s ease-in-out infinite}
+  svg.mimic g[data-tag].almA rect.tbox, svg.mimic g[data-tag].almA rect.zbox{animation:tagBlinkA 1s ease-in-out infinite}
+  svg.mimic g[data-tag].alm  .tn{fill:#b5453b}
+  svg.mimic g[data-tag].almA .tn{fill:#c0392b;font-weight:700}
+  .apBox{fill:#fff;stroke:#d98b84;stroke-width:1.2}
+  .apBar{fill:#EA002C}
+  .apTtl{font-size:9px;fill:#fff;font-weight:700;letter-spacing:.1em;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apSub{font-size:9.5px;fill:#4a4b47;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apLbl{font-size:8px;fill:#8a8a84;letter-spacing:.08em;font-weight:700}
+  .apEv{font-size:10.5px;fill:#0b3d91;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apAl{font-size:10.5px;fill:#EA002C;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
   .barfil{fill:#0b3d91}
 
   /* ── Transmitter : 취출점 + 스템 + ISA 밸룬 ── */
@@ -385,6 +400,9 @@
           <path d="M1135,108 V172"/>
         </g>
 
+        <!-- ══════════ 시나리오 발생 알림창 (스크립트 생성) ══════════ -->
+        <g id="alarmPanel"></g>
+
         <!-- ══════════ 태그 레이어 (스크립트 생성) ══════════ -->
         <g id="tagLayer"></g>
       </svg>
@@ -622,16 +640,19 @@
         var ex = (S.side === 'L') ? x : x + BW;
         g.appendChild(el('line', {'class':'guide', x1:ex, y1:y + BH / 2, x2:S.tick, y2:y + BH / 2}));
       }
-      g.appendChild(el('rect', {'class':'tbox', x:x, y:y, width:BW, height:BH, rx:2}));
-      g.appendChild(txt('tn', x + BW / 2, y + 11, tag[0]));
-      g.appendChild(txt('tv', x + BW / 2, y + 22.5, tag[1]));
-      g.appendChild(txt('tu', x + BW / 2, y + 31, tag[2]));
+      // 태그마다 별도 그룹. 시나리오 주입 결과를 화면에 표시할 때 이 표식으로 찾는다.
+      var tg = el('g', {'data-tag': tag[0]});
+      tg.appendChild(el('rect', {'class':'tbox', x:x, y:y, width:BW, height:BH, rx:2}));
+      tg.appendChild(txt('tn', x + BW / 2, y + 11, tag[0]));
+      tg.appendChild(txt('tv', x + BW / 2, y + 22.5, tag[1]));
+      tg.appendChild(txt('tu', x + BW / 2, y + 31, tag[2]));
+      g.appendChild(tg);
     });
     layer.appendChild(g);
   });
 
   VALVES.forEach(function(V){
-    var g = el('g', {});
+    var g = el('g', {'data-tag': V.n});
     var x = V.cx - BW / 2, y = V.y;
     g.appendChild(el('path', {'class':'guide', d:V.gp}));
     g.appendChild(el('rect', {'class':'zbox', x:x, y:y, width:BW, height:BH, rx:2}));
@@ -1461,8 +1482,67 @@
   function smsg(t,ok){ var m=$('sMsg'); m.textContent=t;
     m.style.color = ok===false ? '#b45309' : ok===true ? '#1a7f37' : '#6b7280'; }
 
+  /* ── Overview 화면에 발생 태그 표시 + 알림창 ─────────────
+     이벤트가 걸린 태그 박스를 연빨강으로 깜빡이게 하고, 좌측 상단에
+     이번 근무의 발생 이벤트를 알림창으로 띄운다. */
+  function tabBadge(n){
+    var el3 = $('tabOvw');
+    el3.textContent = n ? ('OVERVIEW PAGE  ▲' + n) : 'OVERVIEW PAGE';
+    el3.style.background = n ? '#ffd0cb' : '';
+    el3.style.borderColor = n ? '#c0392b' : '';
+  }
+
+  function paintOverview(E){
+    // 이전 표시 지우기
+    Array.prototype.forEach.call(document.querySelectorAll('svg.mimic g[data-tag]'), function(g){
+      g.classList.remove('alm'); g.classList.remove('almA');
+    });
+    var panel=$('alarmPanel');
+    while(panel.firstChild) panel.removeChild(panel.firstChild);
+    if(!E){ tabBadge(0); return; }
+
+    // 태그별 최고 심각도 — 알람 발생 시나리오에 걸린 태그가 우선
+    var lv={};
+    E.injected.forEach(function(w){
+      var a = w.dcs_alarm !== '미발생';
+      w.affected_tags.forEach(function(t){ if(a || !lv[t]) lv[t] = a ? 2 : 1; });
+    });
+    Object.keys(lv).forEach(function(t){
+      var g=document.querySelector('svg.mimic g[data-tag="'+t+'"]');
+      if(g) g.classList.add(lv[t]===2 ? 'almA' : 'alm');
+    });
+    tabBadge(E.injected.length);
+
+    // 알림창
+    var quiet=[], loud=[];
+    E.injected.forEach(function(w){
+      (w.dcs_alarm==='미발생' ? quiet : loud).push('#'+w.scenario_id);
+    });
+    function el2(n,at){ var e=document.createElementNS(NS,n); for(var k in at) e.setAttribute(k,at[k]); panel.appendChild(e); return e; }
+    function tx2(cls,x,y,s){ var e=document.createElementNS(NS,'text'); e.setAttribute('class',cls);
+      e.setAttribute('x',x); e.setAttribute('y',y); e.textContent=s; panel.appendChild(e); return e; }
+
+    var X=24, Y=14, W=452, rows=(loud.length?2:1), H=42+rows*19+8;
+    el2('rect',{'class':'apBox',x:X,y:Y,width:W,height:H,rx:4});
+    el2('rect',{'class':'apBar',x:X,y:Y,width:W,height:15,rx:4});
+    el2('rect',{'class':'apBar',x:X,y:Y+8,width:W,height:7});
+    tx2('apTtl',X+9,Y+11,'▲ ACTIVE EVENTS');
+    tx2('apTtl',X+W-9,Y+11,(E.idx+1)+'회차').setAttribute('text-anchor','end');
+    tx2('apSub',X+9,Y+30, E.from.slice(0,10)+'  ·  '+E.kind_ko+'  ·  '+E.from.slice(11,16)+'~'+E.to.slice(11,16));
+
+    var y=Y+48;
+    tx2('apLbl',X+9,y,'EVENT');
+    tx2('apEv',X+58,y+1, quiet.length?quiet.join('  '):'—');
+    if(loud.length){
+      y+=19;
+      tx2('apLbl',X+9,y,'ALARM');
+      tx2('apAl',X+58,y+1, loud.join('  '));
+    }
+  }
+
   /* ── 현재 근무 표시 ────────────────────────────────────── */
   function renderShift(E){
+    paintOverview(E);
     $('sHead').textContent = E.shift_id+'  ·  '+E.kind_ko+' '+E.from.slice(11,16)+'~'+E.to.slice(11,16)
                            + '  ·  '+(E.idx+1)+'회차';
     // 타임테이블
@@ -1590,6 +1670,7 @@
     function p2(x){ return x<10?'0'+x:''+x; }
     $('sStart').value=d0.getFullYear()+'-'+p2(d0.getMonth()+1)+'-'+p2(d0.getDate())+'T'+p2(d0.getHours())+':'+p2(d0.getMinutes());
     smsg('이전 진행 상태를 불러왔습니다 — '+RUN.hist.length+'근무 생성됨. 다음은 '+(RUN.idx+1)+'회차입니다.',null);
+    if(RUN.hist.length){ var last=RUN.hist[RUN.hist.length-1]; renderShift(last); }
   }
 
   $('sRun').onclick = nextShift;
@@ -1600,6 +1681,7 @@
     $('sHead').textContent='아직 생성하지 않았습니다';
     $('sTbl').innerHTML=''; var sv=$('sTl'); while(sv.firstChild) sv.removeChild(sv.firstChild);
     ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=true; });
+    paintOverview(null);
     renderHist(); smsg('초기화했습니다.',true);
   };
   $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; save(csvBlob(c),csvName(c.entry)); };
