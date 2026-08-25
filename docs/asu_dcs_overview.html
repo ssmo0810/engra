@@ -133,6 +133,12 @@
   table.st td{border-bottom:1px solid #eceae6;padding:3px 6px;font-family:ui-monospace,Menlo,Consolas,monospace}
   table.st td.nm{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
   #sMsg{font-size:11.5px;color:var(--ok);min-height:18px;margin:6px 0}
+  #sModal{position:fixed;inset:0;background:rgba(20,22,26,.45);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+  #sModal[hidden]{display:none}
+  #sModal .mbox{background:#fff;border-radius:9px;max-width:920px;width:100%;max-height:82vh;overflow:auto;padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.28)}
+  #sModal .mhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+  #sModal .mhead b{font-size:13.5px}
+  #sModal h4{font-size:12px;color:#1c3f8f}
   #sWarn{font-size:11px;color:var(--warn);background:#fff8e6;border:1px solid #f0e3bd;border-radius:4px;padding:6px 9px;margin-bottom:8px}
 </style>
 </head>
@@ -441,8 +447,8 @@
       <div id="viewScen" hidden>
         <div id="sWarn">
           <b>연결 규약 준수</b> — 내보내기 형식은 <code>timestamp,tag,value</code> CSV · 2초 주기 · 12시간 1근무입니다 (<code>app/README.md</code>).
-          24시간을 생성한 뒤 <b>주간·야간 12시간 2개 파일</b>로 나눕니다.
-          정답지는 엔진이 커닝하지 못하도록 <b>별도 파일</b>로 분리합니다.
+          <b>버튼을 누를 때마다 다음 근무</b>가 생성됩니다 — 주간(06~18) → 야간(18~06) → 다음날 주간 …
+          이상은 근무 경계를 넘어 이어질 수 있고, 같은 태그에서 동시에 일어날 수도 있습니다. 정답지는 <b>별도 파일</b>로 분리합니다.
         </div>
 
         <div class="sgrid">
@@ -450,34 +456,39 @@
             <h4>주입 설정</h4>
             <div class="dbar" style="display:block">
               <label style="display:flex;margin-bottom:6px">Seed <input id="sSeed" type="number" value="20260821" style="width:100px"></label>
-              <label style="display:flex;margin-bottom:6px">시작 <input id="sStart" type="datetime-local" value="2026-08-21T06:00" style="width:170px"></label>
+              <label style="display:flex;margin-bottom:6px">시작 <input id="sStart" type="datetime-local" value="2026-08-21T06:00" style="width:175px"></label>
               <label style="display:flex;margin-bottom:8px">방식
-                <select id="sMode" style="width:150px">
-                  <option value="rand">랜덤 2~3종</option>
+                <select id="sMode" style="width:155px">
+                  <option value="rand">랜덤 6~10종</option>
                   <option value="manual">아래에서 직접 선택</option>
                 </select>
               </label>
             </div>
             <div class="schk" id="sList"></div>
-            <button class="dbtn pri" id="sRun" style="width:100%;margin-top:8px">시나리오 주입 &amp; 생성</button>
+            <button class="dbtn pri" id="sRun" style="width:100%;margin-top:8px">시나리오 주입 &amp; 생성 — 다음 근무</button>
+            <button class="dbtn" id="sReset" style="width:100%;margin-top:5px">처음부터 다시</button>
+            <p class="note" style="margin-top:6px">시작 일시는 첫 근무에만 적용됩니다. 이후에는 12시간씩 자동으로 넘어갑니다.</p>
           </div>
 
           <div class="spanel">
-            <h4>주입 결과</h4>
-            <svg id="sTl" viewBox="0 0 720 96"></svg>
-            <div id="sMsg">아직 생성하지 않았습니다.</div>
+            <h4 id="sHead">아직 생성하지 않았습니다</h4>
+            <svg id="sTl" viewBox="0 0 720 60"></svg>
+            <div id="sMsg">시작 일시와 방식을 정하고 좌측 버튼을 누르세요.</div>
             <div id="sTbl"></div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-              <button class="dbtn" id="sCsv1" disabled>주간 12h CSV</button>
-              <button class="dbtn" id="sCsv2" disabled>야간 12h CSV</button>
-              <button class="dbtn" id="sAns"  disabled>정답지 JSON</button>
-              <button class="dbtn" id="sPrev" disabled>정답지 화면에 보기</button>
+              <button class="dbtn" id="sCsv" disabled>이 근무 CSV</button>
+              <button class="dbtn" id="sAns" disabled>이 근무 답안지</button>
+              <button class="dbtn" id="sAll" disabled>통합 답안지</button>
             </div>
-            <p class="note" style="margin-top:6px">파일 저장은 GitHub Pages 주소에서만 됩니다. 아티팩트 미리보기 화면은 다운로드가 차단돼 있습니다.</p>
+            <p class="note" style="margin-top:6px">파일 저장은 GitHub Pages 주소에서만 됩니다. 아티팩트 미리보기 화면은 브라우저가 다운로드를 차단합니다.</p>
           </div>
         </div>
 
-        <textarea id="sOut" readonly style="width:100%;height:170px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;border:1px solid #a9a9a4;border-radius:3px;padding:6px;margin-top:8px;background:#fff;white-space:pre;display:none"></textarea>
+        <div class="spanel" style="margin-top:9px">
+          <h4>과거 기록 <span id="sHistCnt" style="color:#6b7280;font-weight:400"></span></h4>
+          <div id="sHist"></div>
+          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 그 이전 근무는 같은 seed 로 처음부터 다시 돌리면 동일한 데이터가 재생성됩니다.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -499,6 +510,14 @@
   <p class="note">임도영 스케치 기준 · <code>demo/index.html</code>의 HMI 미믹 스타일 계승 · 태그 53점 (스택 46 + 밸브 개도 7)</p>
 
 </div>
+
+  <div id="sModal" hidden>
+    <div class="mbox">
+      <div class="mhead"><b id="mTitle"></b><button class="dbtn" id="mClose">닫기</button></div>
+      <div id="mBody"></div>
+    </div>
+  </div>
+
 
 <script>
 (function(){
@@ -662,7 +681,7 @@
     'ZI-201':[ 0.46, 0   ],   // 밀도 저하를 IGV 개도로 보상
     'FI-204':[-0.67, 0   ],   // 공기 밀도 저하 → 질량유량 감소
     'TI-205':[ 0.89, 0   ],   // 흡입 온도가 그대로 토출로
-    'JI-206':[ 0.67, 0   ],   // 같은 압력비 유지에 더 많은 일
+    'JI-206':[ 0.30, 0   ],   // 유량 감소(전력↓)와 IGV 보상(전력↑)이 상쇄되어 순 효과는 작다
     /* 흡착 계통 */
     'TI-301':[ 0.56, 0.20],   // 입구 온도 상승 + 흡착열
     'MI-302':[ 0.29, 0.75],   // 수분 부하 증가가 주된 영향
@@ -711,7 +730,7 @@
     ['PI-203','토출 압력','bar',       5.85,  5.60,  6.10,   5.20,  5.40,  6.20,  6.40, 2,2, 'JI-206:0.80, TI-205:0.50'],
     ['FI-204','토출 유량','Nm3/h',     42500, 40000, 45000,  36000, 38500, 46500, 48000,2,2, 'JI-206:0.60'],
     ['TI-205','토출 온도','℃',         108.6, 95,    120,    '',    '',    125,   135,  2,2, ''],
-    ['JI-206','소비 전력','kW',        3240,  3000,  3500,   '',    2800,  3600,  3800, 2,2, ''],
+    ['JI-206','소비 전력','kW',        3240,  3000,  3500,   '',    2800,  3600,  3800, 1,2, ''],
 
     ['#300', 'ADSORBER  A-301 / A-302'],
     ['TI-301','A탑 내부온도','℃',      32.1,  25,    45,     '',    '',    50,    60,   2,2, ''],
@@ -873,23 +892,37 @@
   }
   function hash(s){ var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
 
+  /* 3-입력 해시 난수. 값이 전역 인덱스만으로 정해지므로 근무를 나눠 생성해도
+     경계에서 파형이 끊기지 않고, 아무 근무나 독립적으로 재생성할 수 있다. */
+  function hrnd(a,b,c){
+    var h = (a ^ Math.imul(b,0x27d4eb2d) ^ Math.imul(c,0x85ebca6b)) | 0;
+    h = Math.imul(h ^ (h>>>15), 0x2c1b3c6d); h ^= h>>>12;
+    h = Math.imul(h, 0x297a2d39); h ^= h>>>15;
+    return (h>>>0) / 4294967296;
+  }
+  function gaussAt(seed, th, i){
+    var u = 1 - hrnd(seed, th, i*2+1), v = hrnd(seed, th, i*2+2);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
   /* ── 태그 1개 베이스라인 ──────────────────────────────────
      외기 두 태그는 24시간 일주기를 따르고, 나머지는 드리프트+노이즈.
-     startHour 는 데이터 시작 시각(기본 06시, 주간조 분석 구간 시작).   */
-  function series(id, seed, stepSec, n, startHour){
+     startHour = 전체 데이터 시작 시각 / gOffset = 전체 시작부터의 스텝 오프셋. */
+  function series(id, seed, stepSec, n, startHour, gOffset){
     var d = state[id];
     var nom = +d.nom, lo = +d.lo, hi = +d.hi;
     var range = Math.abs(hi - lo) || Math.abs(nom) * 0.1 || 1;
     var sig = range * NOISE[Math.min(2, Math.max(0, d.noise - 1))];
-    var rnd = rng(seed ^ hash(id));
+    var th = hash(id), g0 = gOffset || 0;
+    var rnd = rng(seed ^ th);                    // 드리프트 위상만 뽑는다 (근무와 무관)
     var h0 = (startHour === undefined ? 6 : startHour);
-    var out = new Array(n), i, t;
+    var out = new Array(n), i, gi, t;
 
     if (id === AMBT.tag || id === AMBH.tag){
       var A = (id === AMBT.tag) ? AMBT : AMBH;
       for (i = 0; i < n; i++){
-        t = i * stepSec;
-        out[i] = A.base + A.span * diurnal(h0 + t / 3600) + sig * gauss(rnd);
+        gi = g0 + i; t = gi * stepSec;
+        out[i] = A.base + A.span * diurnal(h0 + t / 3600) + sig * gaussAt(seed, th, gi);
       }
       return out;
     }
@@ -898,11 +931,11 @@
     var p1 = 1200 + rnd() * 2400, p2 = 300 + rnd() * 600;
     var f1 = rnd() * 6.283, f2 = rnd() * 6.283;
     for (i = 0; i < n; i++){
-      t = i * stepSec;
+      gi = g0 + i; t = gi * stepSec;
       out[i] = nom
              + amp * Math.sin(2 * Math.PI * t / p1 + f1)
              + amp * 0.4 * Math.sin(2 * Math.PI * t / p2 + f2)
-             + sig * gauss(rnd);
+             + sig * gaussAt(seed, th, gi);
     }
     return out;
   }
@@ -1113,12 +1146,16 @@
   $('dSeed').onchange = function(){ if (sel) drawPreview(); };
 
   /* ══════════════════════════════════════════════════════════
-     시나리오 주입 — docs/scenarios.md 15종
-     ══════════════════════════════════════════════════════════ */
-  var STEP = 2, DAY = 86400, N = DAY / STEP;          // 2초 주기 · 24시간 · 43,200 스텝
-  var HALF = N / 2;                                    // 12시간 = 21,600 스텝
+     시나리오 주입 — 근무(12시간) 단위 연속 생성
+     ══════════════════════════════════════════════════════════
+     버튼을 누를 때마다 다음 근무가 생성된다. 주간(06~18) → 야간(18~06)
+     → 다음날 주간 … 으로 app/config.py 의 교대 구간과 일치시킨다.
 
-  function ramp(D,tag,s,e,perHour){ for(var i=s;i<e;i++) D[tag][i] += perHour*(i-s)*STEP/3600; }
+     이상은 근무 경계를 넘어 이어질 수 있다. 앞 근무에서 시작된 드리프트가
+     다음 근무에서 알람에 도달하는 것이 ENGRA 가 해결하려는 문제 그 자체다. */
+  var STEP = 2, SHIFT_SEC = 12 * 3600, N = SHIFT_SEC / STEP;   // 근무 1개 = 21,600 스텝
+  var CACHE_MAX = 3;                          // CSV 재발급 가능한 최근 근무 수
+  var FORBID = [[2, 8], [1, 15]];             // 시간 겹침을 금지하는 조합
 
   /* 물리 한계까지 남은 여유. 진동을 태우기 전에 확인한다.
      외기·노이즈·연동이 나중에 더해지므로 정상범위 폭의 15% 를 그 몫으로 남긴다. */
@@ -1128,101 +1165,88 @@
     var lo = (d.unit === '℃') ? -Infinity : 0;
     return { up: Math.max(0, hi - nom - rsv), dn: Math.max(0, nom - lo - rsv) };
   }
+  function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  /* 대칭 진동. 상·하 각각 물리 여유 안으로 제한한다 (Issue #7).
-     예전에는 여유 검사 없이 진폭을 그대로 더해, 순도 태그에서 100% 를 넘었다. */
-  function osc(D,tag,s,e,amp,period,decay){
-    var hr = headroom(tag), up = Math.min(amp, hr.up), dn = Math.min(amp, hr.dn);
-    for(var i=s;i<e;i++){
-      var t=(i-s)*STEP, dec = decay ? Math.exp(-3*t/((e-s)*STEP)) : 1;
-      var w = Math.sin(2*Math.PI*t/period);
-      D[tag][i] += dec * w * (w >= 0 ? up : dn);
-    }
-  }
-
-  /* 상한이 물리적으로 막힌 태그(순도 등)용 하향 편향 진동 (Issue #7).
-     기저값과 (기저값 − depth) 사이에서만 흔들리므로 상한을 절대 넘지 않는다.
-     O2 순도가 99.6% 일 때 위로 갈 여유는 0.4%p 뿐이라, 실제 헌팅도 아래로만 크게 흔들린다. */
-  function oscDown(D,tag,s,e,depth,period,decay){
-    for(var i=s;i<e;i++){
-      var t=(i-s)*STEP, dec = decay ? Math.exp(-3*t/((e-s)*STEP)) : 1;
-      D[tag][i] -= depth * dec * (1 - Math.cos(2*Math.PI*t/period)) / 2;
-    }
-  }
-  function plateau(D,tag,s,e,target){ for(var i=s;i<e;i++) D[tag][i] = target + (D[tag][i]-target)*0.25; }
-  function freeze(D,tag,s,e){ var v=D[tag][s]; for(var i=s;i<e;i++) D[tag][i]=v; }
-  // 구간 앞부분에서 delta 만큼 이동한 뒤 그대로 유지 (한계 초과형)
-  function stepTo(D,tag,s,e,delta,frac){
-    var m = s + Math.max(1, Math.round((e-s)*(frac||0.5)));
-    for(var i=s;i<e;i++){ var f = i<m ? (i-s)/(m-s) : 1; D[tag][i] += delta*f; }
-  }
-
-  // dur: 필요한 구간 길이(초) / tags: 점유 태그 / pre: 연동 전 주입 / post: 연동 후 덮어쓰기
+  /* 각 시나리오의 pre/post 는 (D, s, e, c) 를 받는다.
+     c.off = 시나리오 시작부터 이 구간 첫 샘플까지 경과한 초. 근무를 넘어
+     이어질 때 c.off 가 채워지므로, 파형을 '경과초 x' 의 함수로만 쓰면
+     경계에서 끊기지 않는다. c.memo 는 근무를 넘겨 기억할 값. */
   var SCEN = [
    {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707'], dur:1800,
     desc:'평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정',
-    pre:function(D,s,e){ oscDown(D,'AI-707',s,e,0.42,180,true); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['AI-707'][i] -= 0.42*Math.exp(-3*x/c.tot)*(1-Math.cos(2*Math.PI*x/180))/2; } }},
 
-   {id:2, nm:'토출온도 드리프트', tag:'TI-205', tags:['TI-205'], dur:43200,
-    desc:'시간당 +0.68℃ 완만 상승 — 2교대 유지 시 H(125℃) 도달',
-    pre:function(D,s,e){ ramp(D,'TI-205',s,e,0.68); }},
+   {id:2, nm:'토출온도 드리프트', tag:'TI-205', tags:['TI-205'], dur:86400, span:1,
+    desc:'시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['TI-205'][i] += 0.68*x/3600; } }},
 
    {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601','FI-602','PI-604','LI-701'], dur:14460,
     desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
-    pre:function(D,s,e){ var a=[6,9,13];
-      for(var k=0;k<3;k++){ var b=s+Math.round(k*7200/STEP), n=Math.round(60/STEP);
-        if(b+n<e) osc(D,'ZI-601',b,b+n,a[k],20,false); } }},
+    pre:function(D,s,e,c){ var hr=headroom('ZI-601'), a=[6,9,13];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/7200), r=x-k*7200;
+        if(k>2||r>=60) continue;
+        var w=Math.sin(2*Math.PI*r/20);
+        D['ZI-601'][i] += w*(w>=0?Math.min(a[k],hr.up):Math.min(a[k],hr.dn)); } }},
 
    {id:4, nm:'인입온도 임계 근접', tag:'TI-401', tags:['TI-401'], dur:2400,
     desc:'상한(20℃)의 95%인 19℃ 부근에서 40분 체류',
-    pre:function(D,s,e){ plateau(D,'TI-401',s,e,19); }},
+    pre:function(D,s,e){ for(var i=s;i<e;i++) D['TI-401'][i] = 19 + (D['TI-401'][i]-19)*0.25; }},
 
    {id:5, nm:'공급유량 헌팅', tag:'FI-602', tags:['FI-602','PDI-702','TI-704','FI-710','LI-701'], dur:7200,
     desc:'−5% 급강하 후 10초 내 원복 × 5회 — PDI-702·TI-704 동반 흔들림',
-    pre:function(D,s,e){ var n=Math.round(10/STEP);
-      for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
-        for(var i=b;i<b+n && i<e;i++) D['FI-602'][i] -= 39800*0.05; } }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+      if(k<5 && r<10) D['FI-602'][i] -= 39800*0.05; } }},
 
    {id:6, nm:'흡착탑 수분 파과', tag:'MI-302', tags:['MI-302','PDI-303'], dur:5400,
-    desc:'차압 선행 상승 5분 뒤 후단 수분 0.8 → 2.5 ppm 지수 상승',
-    pre:function(D,s,e){ var L=e-s, lead=Math.round(300/STEP);
-      for(var i=s;i<e;i++){ var u=(i-s)/L, g=(Math.exp(3*u)-1)/(Math.exp(3)-1);
-        D['MI-302'][i] += 1.7*g;    // 연동 기여 0.87 포함 최종 약 3.4ppm — H(3.0) 초과, 알람 발생 설계
-        var j=i-lead; if(j>=s) D['PDI-303'][j] += 0.08*g; } }},   // H(0.15) 초과, 알람 발생
+    desc:'차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승',
+    pre:function(D,s,e,c){ var E=Math.exp(3)-1;
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        D['MI-302'][i]  += 1.7*(Math.exp(3*clamp01(x/c.tot))-1)/E;
+        D['PDI-303'][i] += 0.08*(Math.exp(3*clamp01((x+300)/c.tot))-1)/E; } }},
 
    {id:7, nm:'탱크 인입밸브 고착', tag:'ZI-801', tags:['ZI-801','LI-802'], dur:7200,
     desc:'개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승',
-    pre:function(D,s,e){ freeze(D,'ZI-801',s,e); ramp(D,'LI-802',s,e,6); }},
+    pre:function(D,s,e,c){
+      if(c.memo.v===undefined) c.memo.v = D['ZI-801'][s];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        D['ZI-801'][i] = c.memo.v;
+        D['LI-802'][i] += 6*x/3600; } }},
 
    {id:8, nm:'압축기 서지 전조', tag:'PI-203', tags:['PI-203','FI-204','JI-206','TI-205'], dur:1500,
     desc:'토출압 +3% 상승과 유량 −6% 감소가 동시 진행',
-    pre:function(D,s,e){ var h=(e-s)*STEP/3600;
-      ramp(D,'PI-203',s,e, 5.85*0.03/h); ramp(D,'FI-204',s,e, -42500*0.06/h); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['PI-203'][i] += 5.85*0.03*f; D['FI-204'][i] -= 42500*0.06*f; } }},
 
    {id:9, nm:'Cold end 저온 이탈', tag:'TI-403', tags:['TI-403'], dur:10800,
     desc:'시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파',
-    pre:function(D,s,e){ ramp(D,'TI-403',s,e,1.5); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['TI-403'][i] += 1.5*(c.off+(i-s)*STEP)/3600; }},
 
    {id:10, nm:'LIN 탱크 레벨 임계 근접', tag:'LI-806', tags:['LI-806'], dur:7200,
-    desc:'H(88%) 직전인 87.5%에서 2시간 체류',
-    pre:function(D,s,e){ plateau(D,'LI-806',s,e,87.5); }},
+    desc:'87.3% 에서 체류하다 후반에 89.0% 로 상한(88%) 돌파',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['LI-806'][i] = 87.3 + (D['LI-806'][i]-87.3)*0.25 + 1.7*clamp01((x-c.tot*0.6)/(c.tot*0.2)); } }},
 
    {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601','PI-604','LI-701','FI-710'], dur:3600,
     desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
-    pre:function(D,s,e){ osc(D,'ZI-601',s,e,4,900,false); },
-    post:function(D,s,e){ freeze(D,'FI-602',s,e); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['ZI-601'][i] += 4*Math.sin(2*Math.PI*(c.off+(i-s)*STEP)/900); },
+    post:function(D,s,e,c){
+      if(c.memo.f===undefined) c.memo.f = D['FI-602'][s];
+      for(var i=s;i<e;i++) D['FI-602'][i] = c.memo.f; }},
 
    {id:12, nm:'분석기 순간 이상값', tag:'MI-804', tags:['MI-804'], dur:7200,
     desc:'0.5 → 999 ppm 순간 폭등 후 3초 내 원복 × 5회',
-    post:function(D,s,e){ var n=Math.round(4/STEP);
-      for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
-        for(var i=b;i<b+n && i<e;i++) D['MI-804'][i]=999; } }},
+    post:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+      if(k<5 && r<4) D['MI-804'][i] = 999; } }},
 
    {id:13, nm:'GN2 공급압 반복 헌팅', tag:'ZI-904', tags:['ZI-904','PI-901','FI-902'], dur:7200,
     desc:'±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적',
-    pre:function(D,s,e){ var n=Math.round(180/STEP);
-      for(var k=0;k<5;k++){ var b=s+Math.round(k*1440/STEP);
-        if(b+n<e) osc(D,'ZI-904',b,b+n,5,45,false); } }},
+    pre:function(D,s,e,c){ var hr=headroom('ZI-904');
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+        if(k>4||r>=180) continue;
+        var w=Math.sin(2*Math.PI*r/45);
+        D['ZI-904'][i] += w*(w>=0?Math.min(5,hr.up):Math.min(5,hr.dn)); } }},
 
    {id:14, nm:'터빈 회전수 순간 강하', tag:'SI-507', tags:['SI-507'], dur:20,
     desc:'−800 rpm 로 20초간 강하 후 즉시 복귀',
@@ -1230,204 +1254,366 @@
 
    {id:15, nm:'순도 동반 저하', tag:'AI-707', tags:['AI-707','AI-803'], dur:7200,
     desc:'LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락',
-    pre:function(D,s,e){ var h=(e-s)*STEP/3600; ramp(D,'AI-707',s,e,-0.3/h); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['AI-707'][i] -= 0.3*clamp01((c.off+(i-s)*STEP)/c.tot); }},
 
    /* ── 16~20 : 한계를 명확히 넘어 알람이 발생하는 단순 유형 (Issue #1) ── */
    {id:16, nm:'흡착탑 과온', tag:'TI-301', tags:['TI-301'], dur:2400, alarm:'H 50℃',
     desc:'32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과',
-    pre:function(D,s,e){ stepTo(D,'TI-301',s,e,22.9,0.5); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['TI-301'][i] += 22.9*clamp01((c.off+(i-s)*STEP)/(c.tot*0.5)); }},
 
    {id:17, nm:'GN2 공급압 저하', tag:'PI-901', tags:['PI-901'], dur:3600, alarm:'L 4.50 bar',
     desc:'4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질',
-    pre:function(D,s,e){ stepTo(D,'PI-901',s,e,-0.50,0.4); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['PI-901'][i] -= 0.50*clamp01((c.off+(i-s)*STEP)/(c.tot*0.4)); }},
 
    {id:18, nm:'HP Column 고레벨', tag:'LI-701', tags:['LI-701'], dur:5400, alarm:'H 40%',
     desc:'25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버',
-    pre:function(D,s,e){ stepTo(D,'LI-701',s,e,18.6,0.6); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['LI-701'][i] += 18.6*clamp01((c.off+(i-s)*STEP)/(c.tot*0.6)); }},
 
    {id:19, nm:'흡입 필터 차압 상승', tag:'PDI-103', tags:['PDI-103'], dur:10800, alarm:'H 0.030 bar',
     desc:'0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘',
-    pre:function(D,s,e){ stepTo(D,'PDI-103',s,e,0.021,1.0); }},
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['PDI-103'][i] += 0.021*clamp01((c.off+(i-s)*STEP)/c.tot); }},
 
-   {id:20, nm:'압축기 전력 과부하', tag:'JI-206', tags:['JI-206'], dur:1800, alarm:'H 3,600 kW',
-    desc:'3,240 → 3,680 kW 급증 후 유지 — H(3,600 kW) 초과, 부하 이상',
-    pre:function(D,s,e){ stepTo(D,'JI-206',s,e,440,0.3); }}
+   {id:20, nm:'압축기 전력 급증', tag:'JI-206', tags:['JI-206'], dur:900, alarm:'H 3,600 kW',
+    desc:'3,240 → 3,670 kW 급증 후 10분 유지, 이후 원복 — H(3,600 kW) 초과 후 알람 해제',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<120) f=x/120; else if(x<720) f=1; else f=Math.max(0,1-(x-720)/180);
+      D['JI-206'][i] += 430*f; } }}
   ];
 
-  var lastRun = null;
+  function scenById(id){ for(var i=0;i<SCEN.length;i++) if(SCEN[i].id===id) return SCEN[i]; return null; }
+  function forbidden(a,b){
+    for(var i=0;i<FORBID.length;i++){
+      if((FORBID[i][0]===a&&FORBID[i][1]===b)||(FORBID[i][0]===b&&FORBID[i][1]===a)) return true;
+    }
+    return false;
+  }
+
+  /* ── 진행 상태 ─────────────────────────────────────────── */
+  var RKEY = 'engra_asu_shiftrun_v1';
+  var RUN = { baseMs:null, seed:0, idx:0, hist:[], active:[] };
+  var CACHE = [];                                   // {idx, ids, D, dec, shiftMs}
+  try {
+    var sv = localStorage.getItem(RKEY);
+    if (sv){ var o = JSON.parse(sv);
+      RUN.baseMs=o.baseMs; RUN.seed=o.seed; RUN.idx=o.idx||0;
+      RUN.hist=o.hist||[];
+      RUN.active=(o.active||[]).map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo||{}}; });
+    }
+  } catch(e){}
+  function saveRun(){
+    try { localStorage.setItem(RKEY, JSON.stringify({
+      baseMs:RUN.baseMs, seed:RUN.seed, idx:RUN.idx, hist:RUN.hist,
+      active:RUN.active.map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo}; })
+    })); } catch(e){}
+  }
 
   function buildScenList(){
     var w=$('sList'); w.innerHTML='';
     SCEN.forEach(function(S){
       var l=document.createElement('label');
-      l.innerHTML='<input type="checkbox" value="'+S.id+'"><span><b>'+S.id+'. '+S.nm+'</b> · '+S.tag+'<br>'+S.desc+'</span>';
+      l.innerHTML='<input type="checkbox" value="'+S.id+'"><span><b>'+S.id+'. '+S.nm+'</b> · '+S.tag
+                 +(S.span?' <b style="color:#EA002C">근무 넘김</b>':'')+'<br>'+S.desc+'</span>';
       w.appendChild(l);
     });
   }
 
-  function pickScenarios(rnd, mode){
-    if (mode==='manual'){
-      var ids=[]; Array.prototype.forEach.call($('sList').querySelectorAll('input:checked'),function(c){ ids.push(+c.value); });
-      return ids.map(function(id){ return SCEN.filter(function(s){return s.id===id;})[0]; });
-    }
-    var want = 2 + Math.floor(rnd()*2);                  // 2~3종
-    var pool = SCEN.slice(), used = {}, out = [];
-    while (out.length < want && pool.length){
-      var k = Math.floor(rnd()*pool.length), S = pool.splice(k,1)[0];
-      if (S.tags.some(function(t){ return used[t]; })) continue;   // 태그 중복 방지
-      S.tags.forEach(function(t){ used[t]=1; });
-      out.push(S);
-    }
-    return out;
+  function shiftLabel(ms){
+    var d=new Date(ms), h=d.getHours();
+    function p(x){ return x<10?'0'+x:''+x; }
+    var date=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+    return { date:date, kind:(h<12?'day':'night'), ko:(h<12?'주간':'야간'), id:date+'-'+(h<12?'day':'night') };
   }
-
-  function placeWindows(list, rnd){
-    var taken = [];
-    return list.map(function(S){
-      var len = Math.round(S.dur/STEP);
-      var s = 0, ok = false;
-      for (var tryN=0; tryN<200 && !ok; tryN++){
-        s = Math.floor(rnd()*(N-len-1));
-        ok = taken.every(function(w){ return s+len+900 < w[0] || s > w[1]+900; });   // 최소 30분 간격
-      }
-      taken.push([s, s+len]);
-      return {S:S, s:s, e:Math.min(N, s+len)};
-    });
-  }
-
-  function fmtTs(baseMs, idx){
-    var d = new Date(baseMs + idx*STEP*1000);
+  function fmtTs(ms){
+    var d=new Date(ms);
     function p(x){ return x<10?'0'+x:''+x; }
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
   }
+  function hhmm(ms){ var d=new Date(ms); function p(x){return x<10?'0'+x:''+x;} return p(d.getHours())+':'+p(d.getMinutes()); }
 
-  function runInject(){
-    var seed = +$('sSeed').value || 1;
-    var mode = $('sMode').value;
-    var rnd  = rng(seed ^ 0x5CE9);
-    var baseMs = new Date($('sStart').value).getTime();
-    if (isNaN(baseMs)){ $('sMsg').textContent='시작 일시를 확인해주세요.'; $('sMsg').style.color='#b45309'; return; }
+  /* ── 근무 1개 생성 ─────────────────────────────────────── */
+  function nextShift(){
+    if (RUN.baseMs===null){
+      var t=new Date($('sStart').value).getTime();
+      if (isNaN(t)){ smsg('시작 일시를 확인해주세요.',false); return; }
+      RUN.baseMs=t; RUN.seed=+$('sSeed').value||1; RUN.idx=0; RUN.hist=[]; RUN.active=[]; CACHE=[];
+    }
+    var k=RUN.idx, gStart=k*N, gEnd=gStart+N;
+    var shiftMs=RUN.baseMs+k*SHIFT_SEC*1000;
+    var lab=shiftLabel(shiftMs);
+    var baseHour=new Date(RUN.baseMs).getHours();
+    var seed=(RUN.seed+k)|0;
 
-    var picked = pickScenarios(rnd, mode);
-    if (!picked.length){ $('sMsg').textContent='시나리오를 하나 이상 선택해주세요.'; $('sMsg').style.color='#b45309'; return; }
-
-    $('sMsg').style.color='#6b7280';
-    $('sMsg').textContent='생성 중... (24시간 × 53태그 = 약 229만 행)';
+    smsg('생성 중… 12시간 × 53태그 = 약 114만 행', null);
 
     setTimeout(function(){
-      var startHour = new Date(baseMs).getHours();
-      var ids = Object.keys(state), D = {};
-      ids.forEach(function(id){ D[id] = series(id, seed, STEP, N, startHour); });
-
-      var wins = placeWindows(picked, rnd);
-      wins.forEach(function(w){ if (w.S.pre) w.S.pre(D, w.s, w.e); });
-      applyLinks(D, STEP, N);
-      applyAmbient(D, N);
-      wins.forEach(function(w){ if (w.S.post) w.S.post(D, w.s, w.e); });
-      clampPhysical(D, ids);
-
-      var dec = {}; ids.forEach(function(id){ dec[id]=decimals(id); });
-      lastRun = {seed:seed, baseMs:baseMs, ids:ids, D:D, dec:dec, wins:wins};
-
-      drawTimeline(wins, baseMs);
-      drawTable(wins, baseMs);
-      ['sCsv1','sCsv2','sAns','sPrev'].forEach(function(b){ $(b).disabled=false; });
-      $('sMsg').style.color='#1a7f37';
-      $('sMsg').textContent='완료 — 시나리오 '+wins.length+'종 주입, seed '+seed+'. 같은 seed면 항상 같은 결과가 나옵니다.';
-    }, 30);
-  }
-
-  function drawTimeline(wins, baseMs){
-    var svg=$('sTl'); while(svg.firstChild) svg.removeChild(svg.firstChild);
-    var W=720, L=8, R=8, y0=26, rowH=17;
-    function add(t,a){ var e=document.createElementNS(NS,t); for(var k in a) e.setAttribute(k,a[k]); svg.appendChild(e); return e; }
-    function txt(x,y,s,c,sz,an){ var e=document.createElementNS(NS,'text'); e.setAttribute('x',x); e.setAttribute('y',y);
-      e.setAttribute('font-size',sz||8); e.setAttribute('fill',c); e.setAttribute('font-family','ui-monospace,Menlo,Consolas,monospace');
-      if(an) e.setAttribute('text-anchor',an); e.textContent=s; svg.appendChild(e); }
-
-    svg.setAttribute('viewBox','0 0 720 '+(y0+wins.length*rowH+14));
-    var px=function(i){ return L+(W-L-R)*i/N; };
-
-    add('rect',{x:L,y:8,width:W-L-R,height:11,fill:'#dfe4ee'});
-    add('rect',{x:L,y:8,width:(W-L-R)/2,height:11,fill:'#eef2f8'});
-    add('line',{x1:px(HALF),y1:6,x2:px(HALF),y2:21,stroke:'#8a8a84','stroke-width':1});
-    txt(L+4,17,'주간 12h','#5c6d72',7.5);
-    txt(px(HALF)+4,17,'야간 12h','#5c6d72',7.5);
-    for(var h=0;h<=24;h+=6) txt(px(h*3600/STEP), y0-9, h+'h', '#9a9b93', 7, h===0?'start':(h===24?'end':'middle'));
-
-    wins.forEach(function(w,k){
-      var y=y0+k*rowH;
-      add('rect',{x:L,y:y,width:W-L-R,height:11,fill:'#f4f4f1'});
-      var x1=px(w.s), x2=Math.max(px(w.e), x1+2.5);
-      add('rect',{x:x1,y:y,width:x2-x1,height:11,fill:'#EA002C',opacity:.78,rx:1});
-      txt(L+4,y+8.5,'#'+w.S.id+' '+w.S.tag,'#3a3a3a',7.5);
-    });
-  }
-
-  function drawTable(wins, baseMs){
-    var h='<table class="st"><thead><tr><th>#</th><th>시나리오</th><th>태그</th><th>시작</th><th>종료</th><th>지속</th></tr></thead><tbody>';
-    wins.forEach(function(w){
-      h+='<tr><td>'+w.S.id+'</td><td class="nm">'+w.S.nm+'</td><td>'+w.S.tags.join(', ')+'</td>'
-       + '<td>'+fmtTs(baseMs,w.s).replace('T',' ')+'</td><td>'+fmtTs(baseMs,w.e).replace('T',' ')+'</td>'
-       + '<td>'+Math.round((w.e-w.s)*STEP/60)+'분</td></tr>';
-    });
-    $('sTbl').innerHTML = h+'</tbody></table>';
-  }
-
-  function csvBlob(from, to){
-    var R=lastRun, chunks=[], buf='timestamp,tag,value\n', c=0;
-    for (var i=from;i<to;i++){
-      var ts = fmtTs(R.baseMs, i);
-      for (var k=0;k<R.ids.length;k++){
-        var id=R.ids[k];
-        buf += ts+','+id+','+R.D[id][i].toFixed(R.dec[id])+'\n';
+      // 1) 이번 근무에 새로 넣을 시나리오 선택
+      var rnd=rng(seed^0x5CE9), mode=$('sMode').value, picked;
+      if (mode==='manual'){
+        picked=[]; Array.prototype.forEach.call($('sList').querySelectorAll('input:checked'),function(c){
+          var S=scenById(+c.value); if(S) picked.push(S); });
+      } else {
+        // 앞 근무에서 이어지는 중인 시나리오는 새로 뽑지 않는다 — 같은 이상이 겹쳐 쌓이면
+        // 파형이 두 배로 커져 정답지와 어긋난다.
+        var busy={}, carried=0;
+        RUN.active.forEach(function(a){ busy[a.id]=1; if(a.g1>gStart) carried++; });
+        // 6~10건은 '이번 근무에 보이는 총 건수' 기준. 이어지는 것만큼 새로 뽑는 수를 줄인다.
+        var want=Math.max(1, 6+Math.floor(rnd()*5)-carried);
+        var pool=SCEN.filter(function(S){ return !busy[S.id]; });
+        picked=[];
+        while(picked.length<want && pool.length) picked.push(pool.splice(Math.floor(rnd()*pool.length),1)[0]);
       }
-      if (++c % 2000 === 0){ chunks.push(buf); buf=''; }
+
+      // 2) 배치 — 금지 조합만 시간 겹침 회피, 나머지는 겹침 허용
+      var placed=[];
+      picked.forEach(function(S){
+        var len=Math.round(S.dur/STEP);
+        for(var tryN=0;tryN<300;tryN++){
+          var g0=gStart+Math.floor(rnd()*N), g1=g0+len;
+          var bad=RUN.active.concat(placed).some(function(a){
+            return forbidden(a.id,S.id) && g0<a.g1 && a.g0<g1; });
+          if(bad) continue;
+          placed.push({id:S.id,g0:g0,g1:g1,memo:{}});
+          return;
+        }
+      });
+      RUN.active=RUN.active.concat(placed);
+
+      // 3) 데이터 생성 — 이번 근무 구간에 걸친 모든 이상을 적용
+      var ids=Object.keys(state), D={};
+      // 베이스라인은 기준 seed 하나로 생성한다. 근무마다 seed 를 바꾸면 드리프트
+      // 위상이 달라져 경계에서 값이 튄다. 전역 스텝 오프셋만 넘겨 이어붙인다.
+      ids.forEach(function(id){ D[id]=series(id,RUN.seed,STEP,N,baseHour,gStart); });
+
+      var segs=RUN.active.filter(function(a){ return a.g1>gStart && a.g0<gEnd; }).map(function(a){
+        var s=Math.max(a.g0,gStart)-gStart, e=Math.min(a.g1,gEnd)-gStart, S=scenById(a.id);
+        return { a:a, S:S, s:s, e:e,
+                 c:{ off:(Math.max(a.g0,gStart)-a.g0)*STEP, tot:S.dur, memo:a.memo },
+                 fromPrev:a.g0<gStart, toNext:a.g1>gEnd };
+      });
+
+      segs.forEach(function(w){ if(w.S.pre) w.S.pre(D,w.s,w.e,w.c); });
+      applyLinks(D,STEP,N);
+      applyAmbient(D,N);
+      segs.forEach(function(w){ if(w.S.post) w.S.post(D,w.s,w.e,w.c); });
+      clampPhysical(D,ids);
+
+      // 4) 알람 실측 + 겹침 검출
+      segs.forEach(function(w){
+        var fired=[];
+        w.S.tags.forEach(function(t){
+          var d=state[t], mn=Infinity, mx=-Infinity;
+          for(var i=w.s;i<w.e;i++){ var v=D[t][i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+          if(d.HH!==''&&mx>+d.HH) fired.push(t+' HH');
+          else if(d.H!==''&&mx>+d.H) fired.push(t+' H');
+          if(d.LL!==''&&mn<+d.LL) fired.push(t+' LL');
+          else if(d.L!==''&&mn<+d.L) fired.push(t+' L');
+        });
+        w.fired=fired;
+      });
+      var overlaps=[];
+      for(var i=0;i<segs.length;i++) for(var j=i+1;j<segs.length;j++){
+        var sh=segs[i].S.tags.filter(function(t){ return segs[j].S.tags.indexOf(t)>=0; });
+        if(sh.length && segs[i].s<segs[j].e && segs[j].s<segs[i].e){
+          var os=Math.max(segs[i].s,segs[j].s), oe=Math.min(segs[i].e,segs[j].e);
+          overlaps.push({ a:segs[i].S.id, b:segs[j].S.id, tags:sh,
+                          from:fmtTs(shiftMs+os*STEP*1000), to:fmtTs(shiftMs+oe*STEP*1000),
+                          minutes:Math.round((oe-os)*STEP/60) });
+        }
+      }
+
+      // 5) 답안지 + 이력
+      segs.sort(function(a,b){ return a.s-b.s; });
+      var entry={
+        idx:k, shift_id:lab.id, kind:lab.kind, kind_ko:lab.ko,
+        from:fmtTs(shiftMs), to:fmtTs(shiftMs+SHIFT_SEC*1000),
+        base_seed:RUN.seed, placement_seed:seed, sampling_interval_sec:STEP, tag_count:ids.length,
+        injected:segs.map(function(w){
+          return { scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
+                   trigger_tag:w.S.tag, affected_tags:w.S.tags,
+                   start:fmtTs(shiftMs+w.s*STEP*1000), end:fmtTs(shiftMs+w.e*STEP*1000),
+                   minutes:Math.round((w.e-w.s)*STEP/60),
+                   carried_in:w.fromPrev, continues_next:w.toNext,
+                   dcs_alarm:w.fired.length?('발생 · '+w.fired.join(', ')):'미발생' };
+        }),
+        overlaps:overlaps
+      };
+      RUN.hist.push(entry);
+      RUN.active=RUN.active.filter(function(a){ return a.g1>gEnd; });
+      RUN.idx++;
+
+      var dec={}; ids.forEach(function(id){ dec[id]=decimals(id); });
+      CACHE.push({idx:k, ids:ids, D:D, dec:dec, shiftMs:shiftMs, entry:entry});
+      while(CACHE.length>CACHE_MAX) CACHE.shift();
+
+      saveRun();
+      renderShift(entry);
+      renderHist();
+      smsg('완료 — '+lab.date+' '+lab.ko+' ('+entry.injected.length+'건 주입, seed '+seed+')'
+           +(overlaps.length?' · 동시 발생 '+overlaps.length+'건':''), true);
+    },30);
+  }
+
+  function smsg(t,ok){ var m=$('sMsg'); m.textContent=t;
+    m.style.color = ok===false ? '#b45309' : ok===true ? '#1a7f37' : '#6b7280'; }
+
+  /* ── 현재 근무 표시 ────────────────────────────────────── */
+  function renderShift(E){
+    $('sHead').textContent = E.shift_id+'  ·  '+E.kind_ko+' '+E.from.slice(11,16)+'~'+E.to.slice(11,16)
+                           + '  ·  '+(E.idx+1)+'회차';
+    // 타임테이블
+    var svg=$('sTl'); while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var W=720,L=8,R=8,y0=26,rowH=15, rows=E.injected.length;
+    svg.setAttribute('viewBox','0 0 720 '+(y0+rows*rowH+16));
+    function add(t,a){ var el2=document.createElementNS(NS,t); for(var k in a) el2.setAttribute(k,a[k]); svg.appendChild(el2); return el2; }
+    function tx(x,y,s,c,sz,an){ var e=document.createElementNS(NS,'text');
+      e.setAttribute('x',x);e.setAttribute('y',y);e.setAttribute('font-size',sz||7.5);e.setAttribute('fill',c);
+      e.setAttribute('font-family','ui-monospace,Menlo,Consolas,monospace'); if(an)e.setAttribute('text-anchor',an);
+      e.textContent=s; svg.appendChild(e); }
+    var t0=new Date(E.from).getTime();
+    function px(ms){ return L+(W-L-R)*(ms-t0)/(SHIFT_SEC*1000); }
+
+    add('rect',{x:L,y:8,width:W-L-R,height:10,fill:'#dfe4ee'});
+    for(var h=0;h<=12;h+=2){
+      var ms=t0+h*3600*1000;
+      add('line',{x1:px(ms),y1:6,x2:px(ms),y2:y0-12,stroke:'#c8c9c4','stroke-width':.8});
+      tx(px(ms), y0-4, hhmm(ms), '#9a9b93', 7, h===0?'start':(h===12?'end':'middle'));
     }
-    if (buf) chunks.push(buf);
-    return new Blob(chunks, {type:'text/csv;charset=utf-8'});
+    E.injected.forEach(function(w,k){
+      var y=y0+k*rowH;
+      add('rect',{x:L,y:y,width:W-L-R,height:10,fill:'#f4f4f1'});
+      var x1=px(new Date(w.start).getTime()), x2=Math.max(px(new Date(w.end).getTime()), x1+2.5);
+      var col = w.dcs_alarm==='미발생' ? '#1c3f8f' : '#EA002C';
+      add('rect',{x:x1,y:y,width:x2-x1,height:10,fill:col,opacity:.8,rx:1});
+      if(w.carried_in) tx(L+2,y+7.8,'◀','#EA002C',7);
+      if(w.continues_next) tx(W-R-6,y+7.8,'▶','#EA002C',7);
+      tx(L+12,y+7.8,'#'+w.scenario_id+' '+w.trigger_tag,'#3a3a3a',7);
+    });
+    // 표
+    var h2='<table class="st"><thead><tr><th>시각</th><th>#</th><th>시나리오</th><th>태그</th><th>지속</th><th>DCS 알람</th><th>비고</th></tr></thead><tbody>';
+    E.injected.forEach(function(w){
+      var note=[];
+      if(w.carried_in) note.push('앞 근무에서 이어짐');
+      if(w.continues_next) note.push('다음 근무로 이어짐');
+      var ov=E.overlaps.filter(function(o){ return o.a===w.scenario_id||o.b===w.scenario_id; });
+      if(ov.length) note.push('동시발생 #'+ov.map(function(o){ return o.a===w.scenario_id?o.b:o.a; }).join(',#'));
+      h2+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
+        + '<td>'+w.affected_tags.join(', ')+'</td><td>'+w.minutes+'분</td>'
+        + '<td'+(w.dcs_alarm==='미발생'?'':' style="color:#EA002C;font-weight:700"')+'>'+w.dcs_alarm+'</td>'
+        + '<td class="nm" style="color:#6b7280">'+note.join(' · ')+'</td></tr>';
+    });
+    $('sTbl').innerHTML=h2+'</tbody></table>';
+    ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=false; });
   }
 
-  function answerObj(){
-    var R=lastRun;
-    return {
-      generated_at: new Date().toISOString(),
-      seed: R.seed,
-      sampling_interval_sec: STEP,
-      duration_hours: 24,
-      shift_split: [{name:'주간', from:fmtTs(R.baseMs,0), to:fmtTs(R.baseMs,HALF)},
-                    {name:'야간', from:fmtTs(R.baseMs,HALF), to:fmtTs(R.baseMs,N)}],
-      tag_count: R.ids.length,
-      injected: R.wins.map(function(w){
-        return {scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
-                trigger_tag:w.S.tag, affected_tags:w.S.tags,
-                start:fmtTs(R.baseMs,w.s), end:fmtTs(R.baseMs,w.e),
-                duration_min:Math.round((w.e-w.s)*STEP/60),
-                shift:(w.s<HALF?'주간':'야간'),
-                dcs_alarm:(w.S.alarm ? '발생 · '+w.S.alarm : (w.S.id===6||w.S.id===10 ? '발생 · 연동 기여로 한계 초과' : '미발생'))};
-      })
-    };
+  /* ── 과거 기록 ─────────────────────────────────────────── */
+  function renderHist(){
+    $('sHistCnt').textContent = RUN.hist.length ? '('+RUN.hist.length+'근무)' : '';
+    if(!RUN.hist.length){ $('sHist').innerHTML='<p class="note">아직 없습니다.</p>'; return; }
+    var cached={}; CACHE.forEach(function(c){ cached[c.idx]=1; });
+    var h='<table class="st"><thead><tr><th>회차</th><th>날짜</th><th>근무</th><th>시각</th><th>발생 이벤트</th><th>동시</th><th></th></tr></thead><tbody>';
+    RUN.hist.slice().reverse().forEach(function(E){
+      h+='<tr><td>'+(E.idx+1)+'</td><td>'+E.from.slice(0,10)+'</td><td class="nm">'+E.kind_ko+'</td>'
+       + '<td>'+E.from.slice(11,16)+'~'+E.to.slice(11,16)+'</td>'
+       + '<td>#'+E.injected.map(function(w){ return w.scenario_id; }).join(' #')+'</td>'
+       + '<td>'+(E.overlaps.length||'')+'</td>'
+       + '<td><button class="dbtn" data-ans="'+E.idx+'" style="padding:1px 7px">답안지</button>'
+       + (cached[E.idx]?' <button class="dbtn" data-csv="'+E.idx+'" style="padding:1px 7px">CSV</button>':'')
+       + '</td></tr>';
+    });
+    $('sHist').innerHTML=h+'</tbody></table>';
   }
 
-  function save(blob, name){
+  /* ── 답안지 팝업 ───────────────────────────────────────── */
+  function openModal(E){
+    $('mTitle').textContent = E.shift_id+' '+E.kind_ko+' 답안지';
+    var h='<table class="st"><thead><tr><th>시각</th><th>#</th><th>시나리오</th><th>태그</th><th>지속</th><th>알람</th></tr></thead><tbody>';
+    E.injected.forEach(function(w){
+      h+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
+       + '<td>'+w.affected_tags.join(', ')+'</td><td>'+w.minutes+'분</td><td>'+w.dcs_alarm+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    if(E.overlaps.length){
+      h+='<h4 style="margin:10px 0 5px">동시 발생 '+E.overlaps.length+'건</h4><table class="st"><thead><tr><th>조합</th><th>태그</th><th>구간</th><th>지속</th></tr></thead><tbody>';
+      E.overlaps.forEach(function(o){
+        h+='<tr><td>#'+o.a+' × #'+o.b+'</td><td>'+o.tags.join(', ')+'</td>'
+         + '<td>'+o.from.slice(11,16)+'~'+o.to.slice(11,16)+'</td><td>'+o.minutes+'분</td></tr>'; });
+      h+='</tbody></table>';
+    }
+    $('mBody').innerHTML=h;
+    $('sModal').hidden=false;
+  }
+
+  /* ── 내보내기 ──────────────────────────────────────────── */
+  function csvBlob(c){
+    var chunks=[], buf='timestamp,tag,value\n', cnt=0;
+    for(var i=0;i<N;i++){
+      var ts=fmtTs(c.shiftMs+i*STEP*1000);
+      for(var k=0;k<c.ids.length;k++){ var id=c.ids[k];
+        buf += ts+','+id+','+c.D[id][i].toFixed(c.dec[id])+'\n'; }
+      if(++cnt%2000===0){ chunks.push(buf); buf=''; }
+    }
+    if(buf) chunks.push(buf);
+    return new Blob(chunks,{type:'text/csv;charset=utf-8'});
+  }
+  function save(blob,name){
     try{
       var u=URL.createObjectURL(blob), a=document.createElement('a');
       a.href=u; a.download=name; document.body.appendChild(a); a.click();
-      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); }, 1500);
-      $('sMsg').style.color='#1a7f37';
-      $('sMsg').textContent=name+' 저장을 시작했습니다. 브라우저가 막으면 GitHub Pages 주소에서 열어주세요.';
-    }catch(e){
-      $('sMsg').style.color='#b45309';
-      $('sMsg').textContent='이 화면에서는 파일 저장이 차단됩니다. GitHub Pages 주소에서 열어주세요.';
-    }
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); },1500);
+      smsg(name+' 저장을 시작했습니다.',true);
+    }catch(e){ smsg('이 화면에서는 파일 저장이 차단됩니다. GitHub Pages 주소에서 열어주세요.',false); }
+  }
+  function csvName(E){ return 'asu_'+E.shift_id.replace(/-/g,'')+'_12h.csv'; }
+  function mergedAnswer(){
+    var cov={}; RUN.hist.forEach(function(E){ E.injected.forEach(function(w){ cov[w.scenario_id]=1; }); });
+    return {
+      generated_at:new Date().toISOString(),
+      base_seed:RUN.seed, base_start:fmtTs(RUN.baseMs),
+      sampling_interval_sec:STEP, shift_hours:12, shifts:RUN.hist.length,
+      scenario_coverage:{ covered:Object.keys(cov).map(Number).sort(function(a,b){return a-b;}),
+                          missing:SCEN.map(function(S){return S.id;}).filter(function(i){return !cov[i];}),
+                          rate:Object.keys(cov).length+'/'+SCEN.length },
+      shift_list:RUN.hist
+    };
   }
 
-  buildScenList();
-  $('sRun').onclick = runInject;
-  $('sCsv1').onclick = function(){ save(csvBlob(0,HALF), 'asu_shift_day_12h.csv'); };
-  $('sCsv2').onclick = function(){ save(csvBlob(HALF,N), 'asu_shift_night_12h.csv'); };
-  $('sAns').onclick  = function(){ save(new Blob([JSON.stringify(answerObj(),null,2)],{type:'application/json'}), 'asu_answer_key.json'); };
-  $('sPrev').onclick = function(){ var o=$('sOut'); o.style.display='block'; o.value=JSON.stringify(answerObj(),null,2); o.focus(); o.select(); };
+  /* ── 이벤트 연결 ───────────────────────────────────────── */
+  buildScenList(); renderHist();
+  if(RUN.baseMs!==null){
+    $('sSeed').value=RUN.seed;
+    var d0=new Date(RUN.baseMs);
+    function p2(x){ return x<10?'0'+x:''+x; }
+    $('sStart').value=d0.getFullYear()+'-'+p2(d0.getMonth()+1)+'-'+p2(d0.getDate())+'T'+p2(d0.getHours())+':'+p2(d0.getMinutes());
+    smsg('이전 진행 상태를 불러왔습니다 — '+RUN.hist.length+'근무 생성됨. 다음은 '+(RUN.idx+1)+'회차입니다.',null);
+  }
+
+  $('sRun').onclick = nextShift;
+  $('sReset').onclick = function(){
+    if(!confirm('진행 상태와 과거 기록을 모두 지우고 처음부터 시작합니다.')) return;
+    RUN={baseMs:null,seed:0,idx:0,hist:[],active:[]}; CACHE=[];
+    try{ localStorage.removeItem(RKEY); }catch(e){}
+    $('sHead').textContent='아직 생성하지 않았습니다';
+    $('sTbl').innerHTML=''; var sv=$('sTl'); while(sv.firstChild) sv.removeChild(sv.firstChild);
+    ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=true; });
+    renderHist(); smsg('초기화했습니다.',true);
+  };
+  $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; save(csvBlob(c),csvName(c.entry)); };
+  $('sAns').onclick = function(){ var E=RUN.hist[RUN.hist.length-1]; if(!E)return;
+    save(new Blob([JSON.stringify(E,null,2)],{type:'application/json'}),'asu_answer_'+E.shift_id+'.json'); };
+  $('sAll').onclick = function(){ if(!RUN.hist.length)return;
+    save(new Blob([JSON.stringify(mergedAnswer(),null,2)],{type:'application/json'}),'asu_answer_all.json'); };
+  $('sHist').addEventListener('click',function(ev){
+    var a=ev.target.getAttribute('data-ans'), c=ev.target.getAttribute('data-csv');
+    if(a!==null&&a!==undefined){ var E=RUN.hist.filter(function(x){return x.idx===+a;})[0]; if(E) openModal(E); }
+    if(c!==null&&c!==undefined){ var cc=CACHE.filter(function(x){return x.idx===+c;})[0]; if(cc) save(csvBlob(cc),csvName(cc.entry)); }
+  });
+  $('mClose').onclick=function(){ $('sModal').hidden=true; };
+  $('sModal').onclick=function(ev){ if(ev.target===$('sModal')) $('sModal').hidden=true; };
 
   /* ── 페이지 탭 ── */
   function tab(which){
