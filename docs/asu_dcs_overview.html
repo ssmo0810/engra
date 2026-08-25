@@ -112,6 +112,7 @@
   table.dt input.lnk{width:230px;text-align:left}
   table.dt input:focus,table.dt select:focus{outline:2px solid #7fb0f0;border-color:#7fb0f0}
   table.dt td.al input{background:#fdf6f4}
+  table.dt td.am input{background:#f2f7ec;width:52px}
   #dOut{width:100%;height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;border:1px solid #a9a9a4;border-radius:3px;padding:6px;margin-top:8px;background:#fff;white-space:pre;display:none}
 
   /* ── SCENARIO INJECT 화면 ── */
@@ -416,7 +417,7 @@
                 <th>태그</th><th>설명</th><th>단위</th>
                 <th>정상값</th><th>정상↓</th><th>정상↑</th>
                 <th>LL</th><th>L</th><th>H</th><th>HH</th>
-                <th>드리프트</th><th>노이즈</th><th>연동 태그 (대상:이득:지연초)</th>
+                <th>드리프트</th><th>노이즈</th><th>외기T</th><th>외기H</th><th>연동 태그 (대상:이득:지연초)</th>
               </tr></thead>
               <tbody id="dBody"></tbody>
             </table>
@@ -509,7 +510,7 @@
   // col:1 = 1열 세로 / flat:1 = 1행 가로 / side:'L'|'R' + tick = 유닛 옆 세로배치
   var STACKS = [
     {cx:65,   y:170, cap:'AIR FILTER',      g:[248,420], t:[
-      ['TI-101','24.3','℃'],['MI-102','61.2','%'],['PDI-103','0.012','bar']]},
+      ['TI-101','28.5','℃'],['MI-102','68.5','%'],['PDI-103','0.012','bar']]},
 
     {cx:387,  y:170, cap:'ADSORBER A / B',  g:[287,420], t:[
       ['TI-301','32.1','℃'],['MI-302','0.8','ppm'],['PDI-303','0.08','bar'],
@@ -636,11 +637,72 @@
   var DRIFT = [0.02, 0.06, 0.12];
   var NOISE = [0.005, 0.015, 0.035];
 
+  /* ── 외기 일주기 (여름 기준) ────────────────────────────────
+     TI-101 대기온도 24.0 → 33.0℃ · MI-102 대기습도 82 → 55% (역위상)
+     최저 05시 · 최고 15시. 실제 일교차는 상승 10시간·하강 14시간으로
+     비대칭이므로 반코사인 두 구간을 이어 붙인다.                     */
+  var AMBT = {tag:'TI-101', base:24.0, span:9.0,  minH:5, maxH:15};
+  var AMBH = {tag:'MI-102', base:82.0, span:-27.0};
+
+  function diurnal(hourOfDay){          // 05시 0 → 15시 1 → 다음날 05시 0
+    var h = ((hourOfDay % 24) + 24) % 24, a = AMBT.minH, b = AMBT.maxH;
+    if (h >= a && h <= b) return (1 - Math.cos(Math.PI * (h - a) / (b - a))) / 2;
+    var span = 24 - (b - a);
+    var d = h > b ? h - b : h + 24 - b;
+    return (1 + Math.cos(Math.PI * d / span)) / 2;
+  }
+
+  /* ── 외기 감도 [온도, 습도] ─────────────────────────────────
+     각 태그가 외기 변화에 얼마나 반응하는지. 연동 태그와 같은 정규화
+     방식이라 값의 의미가 일관된다. 여기 없는 태그는 외기 영향 없음.
+     제외 : 탱크 계통(ZI-801·ZI-805·LI-802·AI-803·MI-804·LI-806·AI-807·MI-808)
+            제어로 유지되는 압력·레벨·회전수                            */
+  var AMB = {
+    /* 압축 계통 */
+    'ZI-201':[ 0.46, 0   ],   // 밀도 저하를 IGV 개도로 보상
+    'FI-204':[-0.67, 0   ],   // 공기 밀도 저하 → 질량유량 감소
+    'TI-205':[ 0.89, 0   ],   // 흡입 온도가 그대로 토출로
+    'JI-206':[ 0.67, 0   ],   // 같은 압력비 유지에 더 많은 일
+    /* 흡착 계통 */
+    'TI-301':[ 0.56, 0.20],   // 입구 온도 상승 + 흡착열
+    'MI-302':[ 0.29, 0.75],   // 수분 부하 증가가 주된 영향
+    'PDI-303':[0,    0.35],
+    'TI-304':[ 0,    0.35],   // 재생 부하 증가
+    'MI-305':[ 0.29, 0.75],
+    'PDI-306':[0,    0.35],
+    'PDI-103':[0,    0.31],   // 습기로 먼지 응집
+    /* 콜드박스 */
+    'TI-401':[ 1.11, 0   ],   // 애프터쿨러 출구가 외기·냉각수에 지배됨
+    'TI-403':[ 0.56, 0   ],   // 냉량 부족
+    'TI-501':[ 0.37, 0   ],
+    'TI-503':[ 0.37, 0   ],
+    'FI-602':[-0.56, 0   ],   // 상류 공기량 감소
+    'TI-603':[ 0.67, 0   ],
+    'AI-707':[-0.37, 0   ],   // 냉량 부족으로 분리 성능 저하
+    /* GN2 공급 */
+    'PI-901':[-0.44, 0   ],
+    'FI-902':[-0.33, 0   ],
+    'MI-903':[ 0,    0.37],
+    'ZI-904':[ 0.32, 0   ]    // 공급압 유지를 위한 보상 움직임
+  };
+
+  // 물리적으로 불가능한 값 방지. % 는 0~100, 나머지는 0 이상.
+  function clampPhysical(D, ids){
+    ids.forEach(function(id){
+      var u = state[id].unit, a = D[id], lo = 0, hi = Infinity;
+      if (u === '%') hi = 100;
+      else if (u === '℃') { lo = -273; }
+      for (var i = 0; i < a.length; i++){
+        if (a[i] < lo) a[i] = lo; else if (a[i] > hi) a[i] = hi;
+      }
+    });
+  }
+
   // id, 설명, 단위, 정상값, 정상↓, 정상↑, LL, L, H, HH, 드리프트, 노이즈, 연동
   var DEFAULTS = [
     ['#100', 'AIR FILTER  F-101'],
-    ['TI-101','대기 온도','℃',        24.3,  10,    35,     -5,    0,     35,    40,   2,2, ''],
-    ['MI-102','대기 습도','%',         61.2,  30,    85,     '',    20,    85,    95,   2,2, ''],
+    ['TI-101','대기 온도','℃',        28.5,  10,    35,     -5,    0,     35,    40,   1,1, ''],
+    ['MI-102','대기 습도','%',         68.5,  30,    85,     '',    20,    85,    95,   1,1, ''],
     ['PDI-103','필터 차압','bar',      0.012, 0.005, 0.025,  '',    '',    0.030, 0.040,1,2, ''],
 
     ['#200', 'AIR COMPRESSOR  K-201 / MOTOR M-202'],
@@ -716,8 +778,10 @@
     var s = {};
     DEFAULTS.forEach(function(r){
       if (r[0].charAt(0) === '#') return;
+      var a = AMB[r[0]] || [0, 0];
       s[r[0]] = {desc:r[1], unit:r[2], nom:r[3], lo:r[4], hi:r[5],
-                 LL:r[6], L:r[7], H:r[8], HH:r[9], drift:r[10], noise:r[11], links:r[12]};
+                 LL:r[6], L:r[7], H:r[8], HH:r[9], drift:r[10], noise:r[11], links:r[12],
+                 ambT:a[0], ambH:a[1]};
     });
     return s;
   }
@@ -743,7 +807,7 @@
       var tr = document.createElement('tr');
       if (r[0].charAt(0) === '#'){
         tr.className = 'grp';
-        tr.innerHTML = '<td colspan="13">' + r[1] + '</td>';
+        tr.innerHTML = '<td colspan="15">' + r[1] + '</td>';
         tb.appendChild(tr);
         return;
       }
@@ -759,6 +823,8 @@
       });
       h += '<td><select data-f="drift">' + opt(d.drift) + '</select></td>'
          + '<td><select data-f="noise">' + opt(d.noise) + '</select></td>'
+         + '<td class="am"><input data-f="ambT" value="' + d.ambT + '"></td>'
+         + '<td class="am"><input data-f="ambH" value="' + d.ambH + '"></td>'
          + '<td><input class="lnk" data-f="links" value="' + d.links + '"></td>';
       tr.innerHTML = h;
       tb.appendChild(tr);
@@ -777,6 +843,7 @@
     var v = t.value.trim();
     if (f === 'links') state[id][f] = v;
     else if (f === 'drift' || f === 'noise') state[id][f] = +v;
+    else if (f === 'ambT' || f === 'ambH') state[id][f] = (v === '' ? 0 : +v);
     else state[id][f] = (v === '' ? '' : (isNaN(+v) ? v : +v));
     if (id === sel) drawPreview();
   }
@@ -806,27 +873,58 @@
   }
   function hash(s){ var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
 
-  /* ── 태그 1개 베이스라인 (드리프트 + 노이즈) ── */
-  function series(id, seed, stepSec, n){
+  /* ── 태그 1개 베이스라인 ──────────────────────────────────
+     외기 두 태그는 24시간 일주기를 따르고, 나머지는 드리프트+노이즈.
+     startHour 는 데이터 시작 시각(기본 06시, 주간조 분석 구간 시작).   */
+  function series(id, seed, stepSec, n, startHour){
     var d = state[id];
     var nom = +d.nom, lo = +d.lo, hi = +d.hi;
     var range = Math.abs(hi - lo) || Math.abs(nom) * 0.1 || 1;
-    var amp = range * DRIFT[Math.min(2, Math.max(0, d.drift - 1))];
     var sig = range * NOISE[Math.min(2, Math.max(0, d.noise - 1))];
-
     var rnd = rng(seed ^ hash(id));
+    var h0 = (startHour === undefined ? 6 : startHour);
+    var out = new Array(n), i, t;
+
+    if (id === AMBT.tag || id === AMBH.tag){
+      var A = (id === AMBT.tag) ? AMBT : AMBH;
+      for (i = 0; i < n; i++){
+        t = i * stepSec;
+        out[i] = A.base + A.span * diurnal(h0 + t / 3600) + sig * gauss(rnd);
+      }
+      return out;
+    }
+
+    var amp = range * DRIFT[Math.min(2, Math.max(0, d.drift - 1))];
     var p1 = 1200 + rnd() * 2400, p2 = 300 + rnd() * 600;
     var f1 = rnd() * 6.283, f2 = rnd() * 6.283;
-
-    var out = new Array(n);
-    for (var i = 0; i < n; i++){
-      var t = i * stepSec;
+    for (i = 0; i < n; i++){
+      t = i * stepSec;
       out[i] = nom
              + amp * Math.sin(2 * Math.PI * t / p1 + f1)
              + amp * 0.4 * Math.sin(2 * Math.PI * t / p2 + f2)
              + sig * gauss(rnd);
     }
     return out;
+  }
+
+  /* ── 외기 영향 전파 ───────────────────────────────────────
+     연동(applyLinks) 이후에 적용한다. 그래야 감도값이 '순 일변동'을
+     그대로 의미하고, IGV 보상과 밀도 저하가 이중 계산되지 않는다.     */
+  function applyAmbient(D, n){
+    var tN = +state[AMBT.tag].nom, tR = Math.abs(+state[AMBT.tag].hi - +state[AMBT.tag].lo) || 1;
+    var hN = +state[AMBH.tag].nom, hR = Math.abs(+state[AMBH.tag].hi - +state[AMBH.tag].lo) || 1;
+    var T = D[AMBT.tag], H = D[AMBH.tag];
+    if (!T || !H) return;
+
+    Object.keys(D).forEach(function(id){
+      var d = state[id], gt = +d.ambT || 0, gh = +d.ambH || 0;
+      if (!gt && !gh) return;
+      var R = Math.abs(+d.hi - +d.lo) || 1, a = D[id];
+      for (var i = 0; i < n; i++){
+        if (gt) a[i] += gt * (T[i] - tN) * (R / tR);
+        if (gh) a[i] += gh * (H[i] - hN) * (R / hR);
+      }
+    });
   }
 
   /* ── 연동 태그 반영 ── */
@@ -876,8 +974,12 @@
     var d = state[sel];
     $('pvTag').textContent = sel + '  ·  ' + d.desc + '  (' + d.unit + ')';
 
-    var step = 10, n = 360;                       // 60분 / 10초
-    var y = series(sel, +$('dSeed').value || 1, step, n);
+    var step = 60, n = 1440;                      // 24시간 / 60초 — 일주기가 보이도록
+    var sd = +$('dSeed').value || 1, tmp = {}, y;
+    [sel, AMBT.tag, AMBH.tag].forEach(function(id){ if (!tmp[id]) tmp[id] = series(id, sd, step, n, 6); });
+    applyAmbient(tmp, n);
+    clampPhysical(tmp, Object.keys(tmp));
+    y = tmp[sel];
     var mn = Math.min.apply(null, y), mx = Math.max.apply(null, y);
     var lo = +d.lo, hi = +d.hi;
     if (!isNaN(lo)) mn = Math.min(mn, lo);
@@ -922,13 +1024,15 @@
     add('path', {d:pth, fill:'none', stroke:'#0b3d91', 'stroke-width':1.1});
     // 축
     add('line', {x1:L, y1:H - B, x2:W - R, y2:H - B, stroke:'#c8c9c4', 'stroke-width':.8});
-    label(L, H - 5, '0분', '#8a8a84');
-    label(W - R, H - 5, '60분', '#8a8a84', 'end');
+    label(L, H - 5, '06시', '#8a8a84');
+    label((L+W-R)/2, H - 5, '18시', '#8a8a84', 'middle');
+    label(W - R, H - 5, '06시', '#8a8a84', 'end');
 
     var mn2 = Math.min.apply(null, y), mx2 = Math.max.apply(null, y);
     $('pvNote').innerHTML = '생성값 범위 <b>' + fmt(mn2, sel) + ' ~ ' + fmt(mx2, sel) + '</b> ' + d.unit
       + ' · 드리프트 ' + d.drift + ' / 노이즈 ' + d.noise
-      + '<br>초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
+      + (d.ambT || d.ambH ? ' · 외기감도 T' + d.ambT + ' H' + d.ambH : ' · 외기 영향 없음')
+      + '<br>24시간 파형입니다. 초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
   }
   function fmt(v, id){ return (+v).toFixed(decimals(id)); }
 
@@ -943,8 +1047,10 @@
     if (n * ids.length > 3000000){ msg('데이터가 너무 큽니다. 샘플 주기를 늘리거나 길이를 줄이세요.', false); return; }
 
     var data = {};
-    ids.forEach(function(id){ data[id] = series(id, seed, step, n); });
+    ids.forEach(function(id){ data[id] = series(id, seed, step, n, 6); });
     applyLinks(data, step, n);
+    applyAmbient(data, n);
+    clampPhysical(data, ids);
 
     var dec = {};
     ids.forEach(function(id){ dec[id] = decimals(id); });
@@ -962,11 +1068,11 @@
   }
 
   function specCsv(){
-    var h = 'tag,description,unit,nominal,normal_lo,normal_hi,LL,L,H,HH,drift_level,noise_level,links';
+    var h = 'tag,description,unit,nominal,normal_lo,normal_hi,LL,L,H,HH,drift_level,noise_level,amb_temp_gain,amb_humid_gain,links';
     var rows = [h];
     Object.keys(state).forEach(function(id){
       var d = state[id];
-      rows.push([id, d.desc, d.unit, d.nom, d.lo, d.hi, d.LL, d.L, d.H, d.HH, d.drift, d.noise, '"' + d.links + '"'].join(','));
+      rows.push([id, d.desc, d.unit, d.nom, d.lo, d.hi, d.LL, d.L, d.H, d.HH, d.drift, d.noise, d.ambT, d.ambH, '"' + d.links + '"'].join(','));
     });
     show(rows.join('\n'));
     msg('태그 마스터 CSV — ' + Object.keys(state).length + '행. 아래 상자를 복사해 엑셀에 붙여넣으세요.');
@@ -1183,13 +1289,16 @@
     $('sMsg').textContent='생성 중... (24시간 × 53태그 = 약 229만 행)';
 
     setTimeout(function(){
+      var startHour = new Date(baseMs).getHours();
       var ids = Object.keys(state), D = {};
-      ids.forEach(function(id){ D[id] = series(id, seed, STEP, N); });
+      ids.forEach(function(id){ D[id] = series(id, seed, STEP, N, startHour); });
 
       var wins = placeWindows(picked, rnd);
       wins.forEach(function(w){ if (w.S.pre) w.S.pre(D, w.s, w.e); });
       applyLinks(D, STEP, N);
+      applyAmbient(D, N);
       wins.forEach(function(w){ if (w.S.post) w.S.post(D, w.s, w.e); });
+      clampPhysical(D, ids);
 
       var dec = {}; ids.forEach(function(id){ dec[id]=decimals(id); });
       lastRun = {seed:seed, baseMs:baseMs, ids:ids, D:D, dec:dec, wins:wins};
