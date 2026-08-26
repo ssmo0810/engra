@@ -2,7 +2,7 @@
 # AI 시드가 끝난 뒤 한 번 실행. 지금 DB 를 기준선(seed.db)으로 굳히고 서비스를 올린다.
 set -eu
 cd /opt/engra
-if pgrep -f "python3 tools/seed.py" >/dev/null; then echo "시드가 아직 돌고 있습니다. 끝난 뒤 실행하세요."; exit 2; fi
+if ps -eo args= | grep -E "^python3 [^ ]*tools/seed.py" | grep -v grep >/dev/null; then echo "시드가 아직 돌고 있습니다. 끝난 뒤 실행하세요."; exit 2; fi
 n=$(sudo -u engra python3 -c "
 import sys; sys.path.insert(0,\"app\"); import db
 with db.connect() as c:
