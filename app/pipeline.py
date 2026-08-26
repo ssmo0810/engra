@@ -6,6 +6,7 @@
 이 파일은 그대로 두고 `engine/api.py` 만 생기면 된다.
 """
 import db
+import llm
 import ports
 
 
@@ -71,6 +72,18 @@ def run(shift_id, verbose=True, redo=False):
             "SELECT * FROM shift WHERE id = ?", (shift_id,)
         ).fetchone())
         items = ports.compose(shift, stored, find_precedents)
+
+        # 4-1) AI 서술 — 문장만 다시 쓴다. 근거·숫자는 이벤트 metrics 로 넘기고 출력에서는 뺀다.
+        # 실패하면 여기서 멈춘다. AI 없이 만든 초안을 저장하지 않는다 (llm.py 원칙 1).
+        by_event = {e["id"]: (e.get("metrics") or {}) for e in stored}
+        for it in items:
+            it["metrics"] = by_event.get(it.get("event_id"), {})
+        items, ai_status = llm.rewrite(shift, items)
+        for it in items:
+            it.pop("metrics", None)             # 저장 스키마엔 없는 임시 필드
+        result["ai"] = ai_status
+        say(f"서술 작성 — {ai_status}")
+
         db.save_draft(conn, shift_id, items, ports.engine_source())
         result["items"] = len(items)
         say(f"초안 {len(items)}개 항목 생성 — 승인 대기")

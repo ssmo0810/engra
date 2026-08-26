@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import approve as approve_mod  # noqa: E402
 import collect  # noqa: E402
 import db  # noqa: E402
+import llm  # noqa: E402
 import pipeline  # noqa: E402
 import ports  # noqa: E402
 from config import APP_DIR, DB_PATH, HOST, PORT  # noqa: E402
@@ -29,6 +30,7 @@ def cmd_init(_):
     path = db.init()
     print(f"저장소 준비 완료: {path}")
     print(f"검출 엔진: {ports.engine_source()}")
+    print(f"AI: {llm.status()}")
 
 
 def cmd_sample(args):

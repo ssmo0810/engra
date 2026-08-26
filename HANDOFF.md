@@ -145,7 +145,11 @@ DCS 가 태그 체계의 기준이고 뒤 화면들이 그것을 인용한다.
    기획서·status 에 반영됨. 정기영님이 #13 을 고치면 **다시 재서 개선폭을 기획서 4-2 노트에 적는다.**
    데모 시드는 `tools/seed.py` (팀 정본 데이터 + 조치 문구, 순서 보장). 서버는 8근무 seed-v3.
 
-7. 🔴 **AI 계층 구현 — 이제 최우선이다.** 최종 구조는 §3 아래 "AI 구조" 참조 (#9 두 번 정정).
+7. 🔴 **AI 계층 — 어댑터 + ⑤ 서술 완료 (2026-08-26). 남은 것 ② 중요도 → ④ 사례 적합성 → ③ 의미 묶음.**
+   `app/llm.py` — `ENGRA_LLM=cli|api|off`. 기본 api, 키 없으면 **초안 저장 없이 멈춤**(fail-loud 확인).
+   cli 실호출 29초/3항목, off·cli 스모크 모두 통과, **불변 필드(tag·severity·evidence·origin) 동일성 대조 통과**.
+   서버는 `.env` 에 `ENGRA_LLM=off` 명시 → 배지 「AI 미연결」. **키 들어오면 그 줄 지우고 재시작.**
+   ⚠ `--redo` 는 event_id 를 새로 매기니 대조할 때 event_id 는 제외. 최종 구조는 §3 아래 "AI 구조" 참조.
    착수에 필요한 사실은 전부 확인해 뒀다:
    - 감쌀 지점: `app/ports.py` `compose()` (pipeline.py 가 `shift`·`stored`·`find_precedents` 로 호출)
    - fail-loud 관례: `ports.py` 의 엔진 로드 — "파일이 있는데 못 읽으면 멈춘다". AI 도 같다.

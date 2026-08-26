@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 import approve as approve_mod
 import db
+import llm
 import ports
 from config import DOCS_DIR
 
@@ -167,7 +168,8 @@ def page(title, body, active=None):
 <div class="wrap">
 <div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
 <span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
-<span class="eng pill{' on' if ports.engine_source() == 'engine' else ''}">엔진 {ports.engine_source()}</span></div>
+<span class="eng pill{' on' if ports.engine_source() == 'engine' else ''}">엔진 {ports.engine_source()}</span>
+<span class="pill{' on' if llm.mode() != 'off' else ' red'}">{llm.status()}</span></div>
 {_nav(active)}
 {body}
 </div><script>{SCRIPT}</script></html>"""
