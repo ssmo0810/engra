@@ -6,3 +6,4 @@ engra.db-shm
 sample_*.csv
 __pycache__/
 *.pyc
+seed.db

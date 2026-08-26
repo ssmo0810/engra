@@ -266,11 +266,14 @@ def view_draft():
             if db.load_handover(conn, r["id"]) is None and db.load_draft(conn, r["id"]):
                 pending = r["id"]
                 break
-    target = pending or newest
-    if not target:
-        return page("초안", '<div class="card"><div class="empty">'
-                            '아직 근무 구간이 없습니다.</div></div>', active="/draft")
-    return view_shift(target, active="/draft")
+    if not pending:
+        latest = f'<br><a href="/shift/{esc(newest)}">가장 최근 확정 일지 보기 ({esc(newest)}) ›</a>' if newest else ""
+        return page("초안", f'<div class="card"><div class="empty">'
+                            f'<b>승인 대기 중인 초안이 없습니다.</b><br>모든 근무가 확정됐습니다. '
+                            f'다음 근무 초안은 교대 1시간 전에 자동 생성됩니다.{latest}<br><br>'
+                            f'<span class="muted">QA 중이면 일지 조회의 「데모 상태 되돌리기」로 대기 건을 복원할 수 있습니다.</span>'
+                            f'</div></div>', active="/draft")
+    return view_shift(pending, active="/draft")
 
 
 def view_index():
@@ -305,7 +308,12 @@ def view_index():
             f'<span class="c">{badge}</span><span class="arw">›</span></a>'
         )
 
-    body = (f'<div class="card" style="padding:14px 18px">'
+    reset_bar = ('<form method="post" action="/reset" style="display:flex;gap:8px;align-items:center;margin:0 0 12px">'
+                 '<span class="muted" style="font-size:12px">데모 상태 되돌리기 —</span>'
+                 '<button class="btn" style="padding:6px 12px;font-size:12px">기준선으로 (팀 정본 8근무)</button>'
+                 '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)">완전 빈 상태로</button>'
+                 '<span class="muted" style="font-size:11.5px">· 매시 정각에도 자동으로 기준선으로 돌아갑니다</span></form>')
+    body = (reset_bar + f'<div class="card" style="padding:14px 18px">'
             f'<h2>근무 일지</h2>'
             f'<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
             f'분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>'
@@ -504,7 +512,17 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         form = parse_qs(self.rfile.read(length).decode("utf-8"))
         try:
-            if urlparse(self.path).path != "/approve":
+            path = urlparse(self.path).path
+            if path == "/reset":
+                # QA 용. 확정을 눌러도 되돌릴 수 있어야 마음 놓고 눌러본다.
+                empty = form.get("empty", ["0"])[0] == "1"
+                what = db.reset(empty=empty)
+                self.send_response(303)
+                self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
+                self.end_headers()
+                print(f"  RESET → {what}")
+                return
+            if path != "/approve":
                 self._send(404, page("없음", '<div class="card">없는 주소입니다.</div>'))
                 return
 

@@ -10,6 +10,7 @@ APP_DIR = ROOT / "app"
 DOCS_DIR = ROOT / "docs"
 
 DB_PATH = APP_DIR / "engra.db"
+SEED_DB = APP_DIR / "seed.db"          # 데모 기준선. 리셋 버튼이 이 파일로 되돌린다
 TAG_MASTER = DOCS_DIR / "tag_master.csv"
 
 # 근무는 07:00~19:00(주간) / 19:00~07:00(야간).

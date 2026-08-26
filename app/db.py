@@ -170,6 +170,29 @@ def _migrate(conn):
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
 
 
+def reset(empty=False):
+    """데모 상태를 되돌린다. QA 중 시간 맞춰 기다리지 않게 하려는 것이다.
+
+    empty=False: SEED_DB(팀 정본 8근무 + 조치 문구)로 복원. 과거 조치 순환이 첫 화면부터 보인다.
+    empty=True : 완전 빈 저장소. "처음부터 쌓기" 를 보고 싶을 때.
+    시드 파일이 없으면 empty 만 가능하고, 그 사실을 올린다 — 조용히 빈 상태로 가지 않는다.
+    """
+    import shutil
+    from config import SEED_DB
+    for suffix in ("", "-wal", "-shm"):
+        p = DB_PATH.parent / (DB_PATH.name + suffix)
+        if p.exists():
+            p.unlink()
+    if empty:
+        init()
+        return "빈 상태"
+    if not SEED_DB.exists():
+        raise FileNotFoundError(f"기준선 시드가 없습니다: {SEED_DB}. `python3 tools/seed.py` 로 만들거나 빈 상태 리셋을 쓰세요.")
+    shutil.copyfile(SEED_DB, DB_PATH)
+    init()          # 스키마 마이그레이션까지
+    return "기준선(팀 정본 8근무)"
+
+
 def init():
     """스키마 생성. 여러 번 실행해도 안전하다."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -13,6 +13,15 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
+# 이 스크립트는 app/engra.db 를 지우고 다시 만든다. 시드(tools/seed.py)나 AI 초안 생성이
+# 돌고 있으면 그 작업이 "no such table" 로 죽는다 — 2026-08-27 실제로 40분짜리 AI 시드를
+# 스모크 한 번으로 날렸다. 다른 파이썬이 DB 를 쓰고 있으면 멈춘다.
+if pgrep -f "tools/seed.py|cli.py run|cli.py ingest" >/dev/null 2>&1; then
+  echo "✗ 다른 작업이 app/engra.db 를 쓰고 있습니다 (seed/run/ingest). 끝난 뒤 다시 실행하세요."
+  pgrep -fa "tools/seed.py|cli.py run|cli.py ingest" | cut -c1-90
+  exit 2
+fi
+
 DAY=$(date +%F)
 SID="$DAY-day"
 fail=0
