@@ -7,3 +7,6 @@ sample_*.csv
 __pycache__/
 *.pyc
 seed.db
+seed_build.db*
+uploads/
+.qa_active

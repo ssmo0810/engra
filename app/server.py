@@ -827,7 +827,7 @@ class Handler(BaseHTTPRequestHandler):
                                         f'<pre class="mono">{esc(exc)}</pre></div>'))
 
     MAX_BODY = 256 * 1024           # 승인·리셋 폼. 코멘트 수십 개라도 수십 KB
-    MAX_UPLOAD = 200 * 1024 * 1024  # 생성기 CSV 37MB×2 + 정답지. 폼 상한 256KB 에 막혔던 것(경모님 재현 2026-08-27)
+    MAX_UPLOAD = 96 * 1024 * 1024   # 생성기 12h CSV 35.8MB(24h 도 72MB). 서버 RAM 955MB·MemoryMax 700MB 에서 본문+파서 복제가 3배라 200MB 는 OOM (Codex 반증 2026-08-27)
 
     def do_POST(self):
         try:
@@ -841,25 +841,34 @@ class Handler(BaseHTTPRequestHandler):
             self._send(413, page("요청이 너무 큽니다", f'<div class="card"><div class="empty">'
                                                   f'본문 {length:,}B — 허용 {cap:,}B</div></div>', active="/pipeline"))
             return
-        raw = self.rfile.read(length)
         if is_upload:
-            # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
-            import email.parser, email.policy
-            msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
-                b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
-            saved = []
-            try:
-                for part in msg.iter_parts():
-                    fn = part.get_filename()
-                    if fn:
-                        saved.append(jobs.save_upload(fn, part.get_payload(decode=True)).name)
-            except Exception as exc:
-                self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
-                return
-            print("  UPLOAD " + str(saved))
-            jobs.note_upload(saved)
-            self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+            # 한 번에 하나만 — 본문을 읽기 전에 줄을 서므로 두 번째 업로드는 메모리를 안 먹고 기다린다.
+            # (409 로 거절하면 브라우저가 본문을 다 보내기 전에 끊겨 "연결 재설정"만 본다 — 실측)
+            with jobs.upload_lock:
+                self._handle_upload(ctype, self.rfile.read(length))
             return
+        self._handle_form(self.rfile.read(length))
+
+    def _handle_upload(self, ctype, raw):
+        # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
+        import email.parser, email.policy
+        msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
+            b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
+        saved = []
+        try:
+            for part in msg.iter_parts():
+                fn = part.get_filename()
+                if fn:
+                    saved.append(jobs.save_upload(fn, part.get_payload(decode=True)).name)
+        except Exception as exc:
+            self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
+            return
+        print("  UPLOAD " + str(saved))
+        jobs.note_upload(saved)
+        self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+        return
+
+    def _handle_form(self, raw):
         form = parse_qs(raw.decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path

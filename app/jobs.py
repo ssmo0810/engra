@@ -37,6 +37,7 @@ SOURCES.sort(key=lambda s: s["shift_id"])
 UPLOAD_DIR = ROOT / "app" / "uploads"
 
 _lock = threading.Lock()
+upload_lock = threading.Lock()   # 업로드는 한 번에 하나 — 본문을 메모리에 다 올리므로 동시 2건이면 MemoryMax 를 넘는다
 _job = {"running": False, "step": None, "lines": [], "error": None, "shift_id": None, "result": None}
 
 
@@ -144,7 +145,7 @@ def save_upload(name, data):
     if safe.endswith(".json"):
         d = json.loads(data.decode("utf-8"))
         for sh in d.get("shift_list", []):
-            csv = UPLOAD_DIR / sh["csv_file"]
+            csv = UPLOAD_DIR / Path(sh["csv_file"]).name   # 절대경로·../ 로 uploads 밖을 못 가리킨다 (Codex 반증 2026-08-27)
             if not csv.exists():
                 cand = [c for c in UPLOAD_DIR.glob("*.csv") if sh["shift_id"] in c.name]   # 이름이 달라도 근무 ID 로 붙인다
                 if cand:
