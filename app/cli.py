@@ -83,6 +83,15 @@ def cmd_shifts(_):
 
 
 def cmd_run(args):
+    if args.latest:
+        # 교대 시각(06:00/18:00) 직후에 돈다고 가정하고 "지금 끝난 근무" 를 고른다.
+        # now-1초가 속하는 근무가 그것이다 — 18:00:00 정각은 이미 야간조 시작이라 1초를 뺀다.
+        from datetime import datetime, timedelta
+        sid, _kind, _s, _e = collect.shift_id_for(datetime.now() - timedelta(seconds=1))
+        args.shift_id = sid
+        print(f"--latest → {sid}")
+    if not args.shift_id:
+        raise SystemExit("근무 ID 를 주거나 --latest 를 쓰세요.")
     print(f"[{args.shift_id}] 실행 — 엔진: {ports.engine_source()}")
     r = pipeline.run(args.shift_id, redo=args.redo)
     if r["baseline_provisional"]:
@@ -171,7 +180,9 @@ def build_parser():
     sub.add_parser("shifts", help="근무 구간 목록").set_defaults(fn=cmd_shifts)
 
     s = sub.add_parser("run", help="요약·검출·초안 생성")
-    s.add_argument("shift_id")
+    s.add_argument("shift_id", nargs="?", help="근무 ID (YYYY-MM-DD-day|night). --latest 면 생략")
+    s.add_argument("--latest", action="store_true",
+                   help="지금 막 끝난 근무를 고른다. 스케줄러(교대 시각)에서 쓴다 — 06:00 에 돌면 전날 야간, 18:00 에 돌면 당일 주간")
     s.add_argument("--redo", action="store_true", help="확정된 일지를 지우고 다시 만든다")
     s.set_defaults(fn=cmd_run)
 
