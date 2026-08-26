@@ -143,7 +143,14 @@ def save_upload(name, data):
     p = UPLOAD_DIR / safe
     p.write_bytes(data)
     if safe.endswith(".json"):
-        d = json.loads(data.decode("utf-8"))
+        _register_key(p)
+    return p
+
+
+def _register_key(p):
+    """정답지 JSON 하나를 SOURCES 에 올린다. 업로드 직후와 서버 시작 시(재시작 뒤에도 목록에 남게) 둘 다 여기로."""
+    d = json.loads(p.read_bytes().decode("utf-8"))
+    if True:
         for sh in d.get("shift_list", []):
             csv = UPLOAD_DIR / Path(sh["csv_file"]).name   # 절대경로·../ 로 uploads 밖을 못 가리킨다 (Codex 반증 2026-08-27)
             if not csv.exists():
@@ -154,4 +161,16 @@ def save_upload(name, data):
             SOURCES.append({"shift_id": sh["shift_id"], "csv": str(csv), "key": str(p),
                             "injected": len(sh["injected"]), "set": "업로드"})
         SOURCES.sort(key=lambda s: s["shift_id"])
-    return p
+
+
+def _reload_uploads():
+    """서버 시작 시 이전에 올라온 정답지를 다시 등록한다 — 재시작(배포·타이머) 뒤 업로드 근무가 목록에서
+    사라지던 것(라이브 실측 2026-08-27). 깨진 JSON 하나가 공개 서비스 기동을 막지 않게 건너뛰고 크게 남긴다."""
+    for j in sorted(UPLOAD_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime):
+        try:
+            _register_key(j)
+        except (ValueError, KeyError, TypeError) as exc:
+            print(f"  !! 업로드 정답지 {j.name} 등록 실패 — 건너뜀: {exc}", file=sys.stderr)
+
+
+_reload_uploads()
