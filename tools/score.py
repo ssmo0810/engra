@@ -44,6 +44,7 @@ def score(answer_path):
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0
     lead_times, missed, false_pos = [], [], []
+    detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
 
     with db.connect() as conn:
         for sh in shifts:
@@ -55,6 +56,8 @@ def score(answer_path):
             total_events += len(events)
             used = set()
             hits = 0
+            dshift = {"injected": [], "fp": [], "overlaps": sh.get("overlaps") or []}
+            detail[sid] = dshift
             for inj in sh["injected"]:
                 inj_ids.add(inj["scenario_id"])
                 total_inj += 1
@@ -65,6 +68,10 @@ def score(answer_path):
                     if e["tag"] in tags and e.get("start_ts") and e.get("end_ts")
                     and _overlap(a0, a1, _ts(e["start_ts"]), _ts(e["end_ts"]))
                 ]
+                dshift["injected"].append({**inj, "hit": bool(found),
+                                           "matched": [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"],
+                                                        "start": e["start_ts"][11:16], "end": e["end_ts"][11:16],
+                                                        "evidence": e.get("evidence")} for _, e in found]})
                 if found:
                     hits += 1
                     hit_ids.add(inj["scenario_id"])
@@ -80,6 +87,8 @@ def score(answer_path):
                                    inj["start"][11:16], inj["end"][11:16]))
             total_hit += hits
             fp = [e for i, e in enumerate(events) if i not in used]
+            dshift["fp"] = [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"], "start": e["start_ts"][11:16],
+                            "end": e["end_ts"][11:16], "evidence": e.get("evidence")} for e in fp]
             total_fp += len(fp)
             false_pos.extend((sid, e["tag"], e["kind"], e["start_ts"][11:16], e["end_ts"][11:16]) for e in fp)
             per_shift.append((sid, len(events), len(sh["injected"]), hits, len(fp)))
@@ -89,6 +98,7 @@ def score(answer_path):
         "cov_inj": sorted(inj_ids), "cov_hit": sorted(hit_ids),
         "events": total_events, "fp": total_fp,
         "missed": missed, "false_pos": false_pos, "lead": lead_times, "shifts": len(shifts),
+        "detail": detail, "shift_list": shifts,
     }
 
 

@@ -117,6 +117,30 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
 .empty{color:var(--sub);text-align:center;padding:28px;font-size:13px}
 """
 
+# 트렌드 호버. 목업(demo/index.html)의 move()/out() 을 서버 차트 좌표계로 옮겼다.
+# viewBox 720×150 을 width:100% 로 그리므로 x 축 배율만 계산하면 된다(세로 비율 유지).
+TREND_JS = """
+document.querySelectorAll('.trend[data-trend]').forEach(function(box){
+  var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
+  var svg=box.querySelector('svg'), cur=svg.querySelector('.cur'), dot=svg.querySelector('.dot'), tip=box.querySelector('.tip');
+  var n=d.v.length, t0=Date.parse(d.t0), t1=Date.parse(d.t1);
+  function hm(ms){ var x=new Date(ms); return ('0'+x.getHours()).slice(-2)+':'+('0'+x.getMinutes()).slice(-2); }
+  function move(ev){
+    var r=svg.getBoundingClientRect(), sc=r.width/720;
+    var cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left, x=cx/sc;
+    var g=Math.max(0,Math.min(1,(x-d.L)/d.pw)), i=Math.round(g*(n-1)), val=d.v[i];
+    var px=d.L+g*d.pw, py=d.T+d.ph-(val-d.ylo)/d.span*d.ph;
+    cur.setAttribute('x1',px); cur.setAttribute('x2',px); cur.style.display='';
+    dot.setAttribute('cx',px); dot.setAttribute('cy',py); dot.style.display='';
+    tip.textContent=hm(t0+g*(t1-t0))+'  '+(Math.abs(val)>=100?val.toFixed(1):val.toFixed(3))+(d.unit?' '+d.unit:'');
+    tip.style.left=(px*sc)+'px'; tip.style.display='';
+  }
+  function out(){ cur.style.display='none'; dot.style.display='none'; tip.style.display='none'; }
+  svg.addEventListener('mousemove',move); svg.addEventListener('mouseleave',out);
+  svg.addEventListener('touchstart',move,{passive:true}); svg.addEventListener('touchmove',move,{passive:true}); svg.addEventListener('touchend',out);
+});
+"""
+
 SCRIPT = """
 function tg(cb){cb.closest('.item').classList.toggle('off',!cb.checked);cnt()}
 function cnt(){
@@ -176,7 +200,7 @@ def page(title, body, active=None):
 <span class="pill{' on' if llm.mode() != 'off' else ' red'}">{llm.status()}</span></div>
 {_nav(active)}
 {body}
-</div><script>{SCRIPT}</script></html>"""
+</div><script>{SCRIPT}</script><script>{TREND_JS}</script></html>"""
 
 
 def esc(v):
@@ -269,7 +293,7 @@ def _score_html():
                 cells = '<td class="muted">—</td><td>' + str(inj) + '</td><td class="muted">—</td><td class="muted">—</td>'
             else:
                 cells = '<td>' + str(ev) + '</td><td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td>' + str(fp) + '</td>'
-            rows.append('<tr><td class="mono">' + esc(sid) + '</td>' + cells + '</tr>')
+            rows.append('<tr><td class="mono"><a href="/answer/' + esc(Path(b["key"]).name) + '/' + esc(sid) + '">' + esc(sid) + '</a></td>' + cells + '</tr>')
         scored = [x for x in b["per_shift"] if x[1] is not None]
         if scored:
             pct = 100 * b["hit"] / b["inj"] if b["inj"] else 0
@@ -292,6 +316,66 @@ def _score_html():
     return "".join(out)
 
 
+def view_answer(key_name, shift_id):
+    """정답지 뷰 — 이 근무에 무엇을 심었고, 검출기가 무엇을 잡았고 무엇을 놓쳤고 무엇이 오탐인지.
+
+    경모님 지적(2026-08-27): "정답지에 어떤 게 들어있는지 보여줘야 하고, 어떤 케이스가 어떤 문제였는지
+    날짜별·CSV별로 조회가 다 돼야 한다." 대조표의 숫자 한 줄을 여기서 펼친다.
+    """
+    src = next((s for s in jobs.SOURCES if Path(s["key"]).name == key_name and s["shift_id"] == shift_id), None)
+    if not src:
+        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다.</div></div>', active="/pipeline")
+    r = jobs.score_mod.score(src["key"])
+    sh = next(x for x in r["shift_list"] if x["shift_id"] == shift_id)
+    d = r["detail"].get(shift_id)
+    kind = "주간" if sh.get("kind") == "day" else "야간"
+    head = (f'<a class="back" href="/pipeline">‹ 파이프라인으로</a>'
+            f'<div class="card" style="padding:14px 18px"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
+            f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc(sh["csv_file"])}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
+            f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · seed {esc(str(sh.get("base_seed","")))} · 주입 <b>{len(sh["injected"])}건</b>'
+            + (f' · 동시 발생 {len(sh.get("overlaps") or [])}건' if sh.get("overlaps") else "") + '</p>')
+    if not d:
+        head += ('<p class="note"><b>아직 이 근무를 돌리지 않았습니다.</b> 아래는 심어둔 시나리오만 보입니다. '
+                 '③ 파이프라인에서 실행하면 검출 결과와 대조가 붙습니다.</p>')
+    else:
+        hit = sum(1 for i in d["injected"] if i["hit"]); tot = len(d["injected"])
+        head += (f'<p class="note"><b>대조 결과 — 주입 {tot}건 중 {hit}건 잡음 · 오탐 {len(d["fp"])}건</b> '
+                 f'<span class="muted">(잡음 = 주입 구간과 시간이 겹치는 이벤트가 영향 태그 중 하나에서 나옴)</span></p>')
+    head += '</div>'
+    rows = []
+    items = d["injected"] if d else [{**i, "hit": None, "matched": []} for i in sh["injected"]]
+    for inj in items:
+        st = ('<span class="pill on">잡음</span>' if inj["hit"] else ('<span class="pill red">놓침</span>' if inj["hit"] is False else '<span class="pill">미실행</span>'))
+        alarm = esc(str(inj.get("dcs_alarm", "")))
+        flags = []
+        if inj.get("carried_in"): flags.append("앞 근무에서 이어짐")
+        if inj.get("continues_next"): flags.append("다음 근무로 이어짐")
+        matched = "".join(f'<li><span class="mono">{esc(m["tag"])}</span> {esc(m["kind"])} {esc(m["start"])}~{esc(m["end"])} <span class="muted">— {esc(m["evidence"] or "")[:90]}</span></li>'
+                          for m in inj.get("matched", []))
+        flags_html = ('<span class="muted" style="font-size:12px">· ' + " · ".join(flags) + '</span>') if flags else ""
+        matched_html = ('<div style="margin-top:6px;font-size:12.5px"><b>잡은 이벤트</b><ul style="margin:4px 0 0 18px">' + matched + '</ul></div>') if matched else ""
+        rows.append(f'''<div class="card" style="padding:12px 16px">
+<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>#{inj["scenario_id"]} {esc(inj["name"])}</b> {st}
+<span class="mono muted" style="font-size:12px">{esc(inj["trigger_tag"])} · {esc(inj["start"][11:16])}~{esc(inj["end"][11:16])} · {inj.get("minutes","?")}분</span>
+<span class="muted" style="font-size:12px">알람 {alarm}</span>{flags_html}</div>
+<p class="note" style="margin:6px 0">{esc(inj.get("description",""))}</p>
+<div class="muted" style="font-size:12px">영향 태그: <span class="mono">{esc(", ".join(inj.get("affected_tags", [])))}</span></div>
+{matched_html}
+</div>''')
+    fp_html = ""
+    if d and d["fp"]:
+        fp_html = ('<div class="card" style="padding:12px 16px"><h2 style="font-size:15px">오탐 — 어느 주입과도 겹치지 않는 검출 ' + str(len(d["fp"])) + '건</h2>'
+                   '<ul style="margin:6px 0 0 18px;font-size:12.5px">'
+                   + "".join(f'<li><span class="mono">{esc(f["tag"])}</span> {esc(f["kind"])} {esc(f["start"])}~{esc(f["end"])} <span class="muted">— {esc(f["evidence"] or "")[:90]}</span></li>' for f in d["fp"])
+                   + '</ul><p class="note" style="margin-top:8px">오탐이 전부 12시간 전구간 드리프트면 외기 일주기 오인이다 (#13). 단일 태그 전구간 드리프트가 정상인지는 정답지가 아니라 현장 판단이다.</p></div>')
+    ov_html = ""
+    if sh.get("overlaps"):
+        ov_html = ('<div class="card" style="padding:12px 16px"><h2 style="font-size:15px">동시 발생</h2><ul style="margin:6px 0 0 18px;font-size:12.5px">'
+                   + "".join(f'<li>#{o["a"]} × #{o["b"]} — <span class="mono">{esc(", ".join(o.get("tags", [])))}</span> {esc(o["from"][11:16])}~{esc(o["to"][11:16])} ({o.get("minutes","?")}분)</li>' for o in sh["overlaps"])
+                   + '</ul><p class="note" style="margin-top:6px">겹친 구간에서는 한 시나리오의 알람이 다른 시나리오 때문일 수 있다. 어느 쪽에 붙어도 탐지로 인정한다.</p></div>')
+    return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html, active="/pipeline")
+
+
 def view_pipeline():
     """전체 흐름을 화면에서 돌린다. 적재 → 검출·AI 초안 → (초안 검토로) → 정답지 대조."""
     st = jobs.state()
@@ -302,6 +386,14 @@ def view_pipeline():
         d, h = have.get(src["shift_id"], (False, False))
         tag = "확정" if h else ("초안 있음" if d else ("적재됨" if src["shift_id"] in have else "미적재"))
         opts.append('<option value="' + esc(src["shift_id"]) + '">' + esc(src["shift_id"]) + ' · ' + esc(src["set"]) + ' · 주입 ' + str(src["injected"]) + '건 · ' + tag + '</option>')
+    up = jobs.last_upload()
+    up_html = ""
+    if up["files"]:
+        up_html = ('<div class="note" style="margin:0 0 10px"><b>업로드 결과</b> — 받은 파일: ' + esc(", ".join(up["files"]))
+                   + (' · 등록된 근무: <b>' + esc(", ".join(up["added"])) + '</b>' if up["added"] else ' · <b>등록된 근무 없음</b>')
+                   + "".join('<br><span style="color:var(--accent)">⚠ ' + esc(w) + '</span>' for w in up["warn"]) + '</div>')
+    links = "".join('<a href="/answer/' + esc(Path(x["key"]).name) + '/' + esc(x["shift_id"]) + '" class="pill" style="text-decoration:none;font-size:11.5px">'
+                    + esc(x["shift_id"]) + ' 정답지</a> ' for x in jobs.SOURCES)
     log = "\n".join(esc(x) for x in st["lines"][-40:])
     running = st["running"]
     err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>') if st.get("error") else ""
@@ -327,7 +419,8 @@ def view_pipeline():
             '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
             '<span class="muted" style="font-size:11.5px">CSV(근무) + 정답지 JSON 을 같이. 정답지가 있어야 대조가 된다</span>'
-            '</form>'
+            '</form>' + up_html
+            + '<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>'
             '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
             '<span class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
@@ -548,13 +641,20 @@ def _spark(w, metrics=None, unit=""):
                f'<text x="{W-R}" y="{y-4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {limit:g}{esc(unit)}</text>')
     # 마지막 점 강조
     end = f'<circle cx="{X(n-1):.1f}" cy="{Y(v[-1]):.1f}" r="3" fill="var(--ink)"/>'
-    return (f'<div class="trend"><svg viewBox="0 0 {W} {H}" style="display:block;width:100%;height:auto;background:var(--card);'
+    # 호버용 데이터: 표본값 배열과 창 시각. JS 가 마우스 x → 가장 가까운 표본 → 값·시각 툴팁.
+    hover = json.dumps({"v": v, "t0": w["t0"], "t1": w["t1"], "L": L, "pw": pw, "T": T, "ph": ph, "ylo": ylo, "span": span, "unit": unit}, ensure_ascii=False)
+    return (f'<div class="trend" data-trend=\'{esc(hover)}\' style="position:relative">'
+            f'<svg viewBox="0 0 {W} {H}" style="display:block;width:100%;height:auto;background:var(--card);'
             f'border:1px solid var(--line);border-radius:8px">'
             f'{"".join(yt)}{band}<polygon points="{area}" fill="var(--ink)" opacity=".05"/>'
             f'<polyline points="{pts}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>'
             f'{lim}{end}{xt}'
             f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T+ph}" stroke="var(--line)"/>'
-            f'<line x1="{L}" y1="{T+ph}" x2="{W-R}" y2="{T+ph}" stroke="var(--line)"/></svg>'
+            f'<line x1="{L}" y1="{T+ph}" x2="{W-R}" y2="{T+ph}" stroke="var(--line)"/>'
+            f'<line class="cur" x1="0" y1="{T}" x2="0" y2="{T+ph}" stroke="var(--accent)" stroke-width="1" style="display:none"/>'
+            f'<circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg>'
+            f'<div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;'
+            f'font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div>'
             f'<div class="muted" style="font-size:11px;margin-top:3px">감지 구간 ±30분 · 최저 {lo:g} · 최고 {hi:g}{(" " + esc(unit)) if unit else ""} · 음영 = 감지 구간'
             f'{" · 빨간 점선 = 알람 한계" if lim else ""}</div></div>')
 
@@ -700,6 +800,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, view_draft())
             elif path == "/pipeline":
                 self._send(200, view_pipeline())
+            elif path.startswith("/answer/"):
+                _, _, key_name, sid = path.split("/", 3)
+                self._send(200, view_answer(key_name, sid))
             elif path == "/api/job":
                 self._json(jobs.state())
             elif path == "/dcs":
@@ -723,18 +826,41 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, page("오류", f'<div class="card"><h2>오류</h2>'
                                         f'<pre class="mono">{esc(exc)}</pre></div>'))
 
-    MAX_BODY = 256 * 1024   # 승인 폼은 코멘트 수십 개라도 수십 KB. 이 이상은 폼이 아니다.
+    MAX_BODY = 256 * 1024           # 승인·리셋 폼. 코멘트 수십 개라도 수십 KB
+    MAX_UPLOAD = 200 * 1024 * 1024  # 생성기 CSV 37MB×2 + 정답지. 폼 상한 256KB 에 막혔던 것(경모님 재현 2026-08-27)
 
     def do_POST(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
-        if length < 0 or length > self.MAX_BODY:
+        ctype = self.headers.get("Content-Type", "")
+        is_upload = ctype.startswith("multipart/form-data")
+        cap = self.MAX_UPLOAD if is_upload else self.MAX_BODY
+        if length < 0 or length > cap:
             self._send(413, page("요청이 너무 큽니다", f'<div class="card"><div class="empty">'
-                                                  f'본문 {length:,}B — 허용 {self.MAX_BODY:,}B</div></div>'))
+                                                  f'본문 {length:,}B — 허용 {cap:,}B</div></div>', active="/pipeline"))
             return
-        form = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
+        raw = self.rfile.read(length)
+        if is_upload:
+            # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
+            import email.parser, email.policy
+            msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
+                b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
+            saved = []
+            try:
+                for part in msg.iter_parts():
+                    fn = part.get_filename()
+                    if fn:
+                        saved.append(jobs.save_upload(fn, part.get_payload(decode=True)).name)
+            except Exception as exc:
+                self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
+                return
+            print("  UPLOAD " + str(saved))
+            jobs.note_upload(saved)
+            self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+            return
+        form = parse_qs(raw.decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
             if path == "/pipeline/run":
@@ -771,6 +897,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(400, page("확인 필요", '<div class="card"><div class="empty">빈 상태 리셋은 확정 이력까지 지웁니다. '
                                                     '화면의 확인 대화상자를 거쳐야 합니다.</div></div>'))
                     return
+                jobs.mark_qa_active()
                 what = db.reset(empty=empty)
                 self.send_response(303)
                 self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
