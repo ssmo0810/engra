@@ -835,7 +835,7 @@ class Handler(BaseHTTPRequestHandler):
                                         f'<pre class="mono">{esc(exc)}</pre></div>'))
 
     MAX_BODY = 256 * 1024           # 승인·리셋 폼. 코멘트 수십 개라도 수십 KB
-    MAX_UPLOAD = 96 * 1024 * 1024   # 생성기 12h CSV 35.8MB(24h 도 72MB). 서버 RAM 955MB·MemoryMax 700MB 에서 본문+파서 복제가 3배라 200MB 는 OOM (Codex 반증 2026-08-27)
+    MAX_UPLOAD = 48 * 1024 * 1024   # 생성기 12h CSV 35.8MB + 정답지 = 근무 하나. 라이브 실측: 37.5MB 업로드에 MemoryPeak 420MB(email 파서 ~11배) — MemoryMax 700MB 라 96MB 면 OOM (Codex 반증 2026-08-27)
 
     def do_POST(self):
         try:
@@ -867,13 +867,18 @@ class Handler(BaseHTTPRequestHandler):
         """업로드 본문을 조각으로 읽는다. 멎은 클라이언트가 upload_lock 을 무기한 잡는 것을 막는다
         (Codex 반증 2026-08-27). 시간 초과면 408 을 보내고 None."""
         import time
-        self.connection.settimeout(self.UPLOAD_STALL_S)
         deadline = time.monotonic() + self.UPLOAD_TOTAL_S
         buf = bytearray()
         try:
             while len(buf) < length:
-                chunk = self.rfile.read(min(1 << 20, length - len(buf)))
-                if not chunk or time.monotonic() > deadline:
+                # read1 = recv 한 번. read(n) 은 n 바이트 찰 때까지 recv 를 반복해 조금씩 흘리는
+                # 클라이언트가 deadline 검사를 영원히 피한다 (Codex 3차 반증).
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    raise TimeoutError
+                self.connection.settimeout(min(self.UPLOAD_STALL_S, left))
+                chunk = self.rfile.read1(min(1 << 20, length - len(buf)))
+                if not chunk:
                     raise TimeoutError
                 buf += chunk
         except (TimeoutError, OSError):
