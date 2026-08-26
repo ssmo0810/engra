@@ -322,6 +322,23 @@ def view_index():
     return page("일지 조회", body, active="/")
 
 
+def _rounds_html(shift_id):
+    """이전 확정 이력. 없으면 빈 문자열, 있으면 'n차 확정' 과 이전 본문 접기."""
+    with db.connect() as conn:
+        rounds = db.handover_rounds(conn, shift_id)
+    if not rounds:
+        return ""
+    cur = len(rounds) + 1
+    parts = [f'<div class="note" style="margin-top:8px"><b>{cur}차 확정</b> — 이전 확정 {len(rounds)}회']
+    for r in rounds:
+        why = f' · 사유: {esc(r["reopened_reason"])}' if r.get("reopened_reason") else ""
+        parts.append(f'<details style="margin-top:4px"><summary>{r["round"]}차 · {esc((r["confirmed_at"] or "")[:16].replace("T"," "))} · '
+                     f'채택 {r["adopted_count"]}/제외 {r["excluded_count"]} · 되돌림 {esc((r["reopened_at"] or "")[:16].replace("T"," "))}{why}</summary>'
+                     f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:6px 0 0">{esc(r["body"] or "")}</pre></details>')
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def _view_confirmed(shift_id, draft, handover, active="/"):
     adopted = [i for i in draft["items"] if i["adopted"] == 1]
     excluded = [i for i in draft["items"] if i["adopted"] == 0]
@@ -361,8 +378,23 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 {esc((draft["generated_at"] or "").replace("T", " "))} · 승인 {esc(handover["confirmed_by"])}
 {esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(draft["items"])}건 중
 <b>{handover["adopted_count"]}건 채택 / {handover["excluded_count"]}건 제외</b></div>
+{_rounds_html(shift_id)}
+<form method="post" action="/reopen" style="margin:10px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"
+      onsubmit="return confirm('이 일지를 재검토 상태로 되돌립니다. 지금 확정본은 이력에 남고, 재확정 전까지는 다음 근무의 과거 조치로 회수되지 않습니다.')">
+<input type="hidden" name="shift_id" value="{esc(shift_id)}">
+<input class="tin" name="reason" placeholder="재검토 사유 (선택) — 예: 3번 항목 코멘트 오기" style="flex:1;min-width:260px">
+<button class="btn" style="background:var(--sub)">재검토</button>
+<span class="muted" style="font-size:11.5px">확정 후 잘못 적은 것을 고칠 때. 채택·코멘트는 그대로 두고 초안 상태로 돌아갑니다</span>
+</form>
 {"".join(ents)}{ex}
 </div>""", active=active)
+
+
+def _sev_select(it):
+    """대기 초안에서 근무자가 중요도를 바꾼다. AI 판정은 기본값일 뿐이다."""
+    cur = it["severity"] or "중"
+    opts = "".join(f'<option value="{s}"{" selected" if s == cur else ""}>중요도 {s}</option>' for s in ("상", "중", "하"))
+    return f'<select name="sev_{it["id"]}" class="pill sevsel" title="중요도를 바꿀 수 있습니다">{opts}</select>'
 
 
 def _spark(w):
@@ -432,13 +464,13 @@ def _view_pending(shift_id, draft, active="/"):
                    f'<button type="button" onclick="use(this,{html.escape(quoted, quote=True)})">'
                    f'코멘트로 사용</button></div>')
         items.append(f"""<div class="item">
-<div class="row1"><input type="checkbox" name="item" value="{it['id']}" checked onchange="tg(this)">
-<div class="ttl">{esc(it['title'])} {_sev_pill(it['severity'])}</div></div>
+<div class="row1"><input type="checkbox" name="item" value="{it['id']}"{"" if it.get("adopted") == 0 else " checked"} onchange="tg(this)">
+<div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
 <div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
 <div class="body">
 {_spark(waves.get(it.get("event_id")))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
 {judged}{sug}
-<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)"></textarea>
+<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
 
     if not items:
@@ -552,6 +584,17 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(self.rfile.read(length).decode("utf-8"))
         try:
             path = urlparse(self.path).path
+            if path == "/reopen":
+                # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.
+                sid = form["shift_id"][0]
+                reason = (form.get("reason", [""])[0] or "").strip() or None
+                with db.connect() as conn:
+                    rnd = db.reopen_handover(conn, sid, reason)
+                print(f"  REOPEN {sid} (이전 {rnd}차 확정 → 이력)")
+                self.send_response(303)
+                self.send_header("Location", f"/shift/{sid}")
+                self.end_headers()
+                return
             if path == "/reset":
                 # QA 용. 확정을 눌러도 되돌릴 수 있어야 마음 놓고 눌러본다.
                 empty = form.get("empty", ["0"])[0] == "1"
@@ -583,6 +626,7 @@ class Handler(BaseHTTPRequestHandler):
                 it["id"]: {
                     "adopted": it["id"] in chosen or it["origin"] == "manual",
                     "comment": (form.get(f"comment_{it['id']}", [""])[0] or "").strip() or None,
+                    "severity": (form.get(f"sev_{it['id']}", [""])[0] or "").strip() or None,
                 }
                 for it in draft["items"]
             }

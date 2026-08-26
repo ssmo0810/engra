@@ -22,13 +22,20 @@ def decide(shift_id, decisions, confirmed_by="근무자"):
             raise ValueError(f"이 초안에 없는 항목입니다: {sorted(unknown)}")
 
         for item_id, d in decisions.items():
-            conn.execute(
-                """UPDATE draft_item
-                   SET adopted = ?, comment = ?, decided_at = ?
-                   WHERE id = ? AND draft_id = ?""",
-                (1 if d.get("adopted") else 0, d.get("comment"), db.now(),
-                 item_id, draft["id"]),
-            )
+            # 근무자가 중요도를 바꿨으면 그 값이 최종이다. AI 판정은 제안이지 결정이 아니다.
+            sev = d.get("severity")
+            if sev in ("상", "중", "하"):
+                conn.execute(
+                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, severity = ?
+                       WHERE id = ? AND draft_id = ?""",
+                    (1 if d.get("adopted") else 0, d.get("comment"), db.now(), sev, item_id, draft["id"]),
+                )
+            else:
+                conn.execute(
+                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?
+                       WHERE id = ? AND draft_id = ?""",
+                    (1 if d.get("adopted") else 0, d.get("comment"), db.now(), item_id, draft["id"]),
+                )
 
         # 손대지 않은 항목은 제외로 본다. 미결정 상태로 확정되면
         # 나중에 "왜 안 적혔는지" 를 알 수 없다.

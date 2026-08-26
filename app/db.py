@@ -134,6 +134,19 @@ CREATE TABLE IF NOT EXISTS draft_item (
 CREATE INDEX IF NOT EXISTS idx_item_draft ON draft_item(draft_id);
 
 -- 6) 확정 일지
+CREATE TABLE IF NOT EXISTS handover_history (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id         TEXT NOT NULL,
+    round            INTEGER NOT NULL,       -- 몇 차 확정이었나
+    confirmed_by     TEXT,
+    confirmed_at     TEXT,
+    adopted_count    INTEGER,
+    excluded_count   INTEGER,
+    body             TEXT,
+    reopened_at      TEXT NOT NULL,          -- 언제 재검토로 되돌렸나
+    reopened_reason  TEXT
+);
+
 CREATE TABLE IF NOT EXISTS handover (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     shift_id       TEXT NOT NULL UNIQUE,
@@ -172,6 +185,34 @@ def _migrate(conn):
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
     if "waveform_json" not in have_ev:
         conn.execute("ALTER TABLE event ADD COLUMN waveform_json TEXT")
+
+
+def reopen_handover(conn, shift_id, reason=None):
+    """확정 일지를 재검토 상태로 되돌린다. 이전 확정본은 이력으로 남긴다 — 지우지 않는다.
+
+    기획서 4-3 "확정 일지는 변경 이력이 남는 구조" 가 이것이다. 채택·코멘트는 그대로 두어
+    근무자가 고칠 것만 고치게 하고, 색인은 뺀다(재확정 전까지 과거 조치로 회수되면 안 된다).
+    """
+    h = conn.execute("SELECT * FROM handover WHERE shift_id = ?", (shift_id,)).fetchone()
+    if h is None:
+        raise ValueError(f"{shift_id} 는 확정된 일지가 아닙니다.")
+    prev = conn.execute("SELECT COALESCE(MAX(round), 0) FROM handover_history WHERE shift_id = ?", (shift_id,)).fetchone()[0]
+    conn.execute(
+        """INSERT INTO handover_history
+           (shift_id, round, confirmed_by, confirmed_at, adopted_count, excluded_count, body, reopened_at, reopened_reason)
+           VALUES (?,?,?,?,?,?,?,?,?)""",
+        (shift_id, prev + 1, h["confirmed_by"], h["confirmed_at"], h["adopted_count"], h["excluded_count"], h["body"], now(), reason),
+    )
+    conn.execute("DELETE FROM handover WHERE shift_id = ?", (shift_id,))
+    conn.execute("DELETE FROM handover_fts WHERE shift_id = ?", (shift_id,))
+    conn.execute("UPDATE draft SET status = 'pending' WHERE shift_id = ?", (shift_id,))
+    return prev + 1
+
+
+def handover_rounds(conn, shift_id):
+    """이전 확정 이력 (최신 먼저)."""
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM handover_history WHERE shift_id = ? ORDER BY round DESC", (shift_id,)).fetchall()]
 
 
 def reset(empty=False):

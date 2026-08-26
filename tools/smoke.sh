@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.." || exit 1
 # 돌고 있으면 그 작업이 "no such table" 로 죽는다 — 2026-08-27 실제로 40분짜리 AI 시드를
 # 스모크 한 번으로 날렸다. 다른 파이썬이 DB 를 쓰고 있으면 멈춘다.
 # pgrep 은 자기 자신(이 셸)도 잡으므로 python 프로세스만 본다 — 처음 넣었을 때 스모크가 스모크를 막았다.
-busy=$(pgrep -fa "python3? .*(tools/seed\.py|cli\.py (run|ingest))" 2>/dev/null | grep -v "pgrep" || true)
+busy=$(ps -eo pid=,args= 2>/dev/null | grep -E "python3? [^ ]*(tools/seed\.py|app/cli\.py (run|ingest)) " | grep -vE "smoke\.sh|grep" || true)
 if [ -n "$busy" ]; then
   echo "✗ 다른 작업이 app/engra.db 를 쓰고 있습니다 (seed/run/ingest). 끝난 뒤 다시 실행하세요."
   echo "$busy" | cut -c1-90
