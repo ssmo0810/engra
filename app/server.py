@@ -128,7 +128,10 @@ function upCheck(f){
 }
 function upLock(on){
   document.body.classList.toggle('uploading', on);
-  document.querySelectorAll('button, input[type=file]').forEach(function(b){b.disabled=on;});
+  document.querySelectorAll('button, input[type=file]').forEach(function(b){
+    if(on){ if(!b.disabled){ b.disabled=true; b.dataset.uplock='1'; } }
+    else if(b.dataset.uplock){ b.disabled=false; delete b.dataset.uplock; }   // 원래 꺼져 있던 버튼(실행 중 생성 등)은 그대로
+  });
   window.onbeforeunload = on ? function(){return '업로드 중입니다';} : null;
   window.__uploading = on;   // 실행 중 5초 새로고침이 업로드를 끊지 않게
 }
@@ -961,6 +964,8 @@ class Handler(BaseHTTPRequestHandler):
         out += d.flush()
         if not d.eof:
             raise ValueError("gzip 스트림이 끝까지 오지 않았습니다 — 업로드가 중간에 끊긴 파일입니다")
+        if d.unused_data:
+            raise ValueError("gzip 뒤에 다른 데이터가 붙어 있습니다 — 파일 하나만 눌러 보내세요")
         if len(out) > cls.MAX_RAW:
             raise ValueError(f"압축을 풀면 {cls.MAX_RAW // 1048576}MB 를 넘습니다 — 근무 하나씩 올리세요")
         return bytes(out)
@@ -1022,15 +1027,18 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/reset":
                 # QA 용. 확정을 눌러도 되돌릴 수 있어야 마음 놓고 눌러본다.
                 empty = form.get("empty", ["0"])[0] == "1"
-                if jobs.state()["running"]:
-                    # 실행 스레드가 DB 파일을 잡고 있는데 파일을 갈아끼우면 그 스레드는 지워진 inode 에 쓴다
-                    self._send(409, page("실행 중", '<div class="card"><div class="empty">③ 파이프라인이 돌고 있습니다. 끝난 뒤 리셋하세요.</div></div>')); return
                 if empty and form.get("sure", ["0"])[0] != "1":
                     self._send(400, page("확인 필요", '<div class="card"><div class="empty">빈 상태 리셋은 확정 이력까지 지웁니다. '
                                                     '화면의 확인 대화상자를 거쳐야 합니다.</div></div>'))
                     return
-                jobs.mark_qa_active()
-                what = db.reset(empty=empty)
+                held = jobs.hold()   # 실행 스레드가 DB 파일을 잡고 있는데 파일을 갈아끼우면 그 스레드는 지워진 inode 에 쓴다 — 락을 잡은 채 교체 (Codex TOCTOU)
+                if held is None:
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">③ 파이프라인이 돌고 있습니다. 끝난 뒤 리셋하세요.</div></div>')); return
+                try:
+                    jobs.mark_qa_active()
+                    what = db.reset(empty=empty)
+                finally:
+                    held.release()
                 self.send_response(303)
                 self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
                 self.end_headers()

@@ -45,6 +45,11 @@ def state():
     return dict(_job)
 
 
+def hold():
+    """리셋처럼 DB 파일을 갈아끼우는 동안 실행이 시작되지 못하게 작업 락을 비차단으로 잡는다. 못 잡으면 None."""
+    return _lock if _lock.acquire(blocking=False) else None
+
+
 def _start(shift_id, step):
     if not _lock.acquire(blocking=False):
         raise RuntimeError("다른 작업이 돌고 있습니다. 끝난 뒤 다시 누르세요.")
