@@ -13,7 +13,12 @@
 파란 칸에 현장 문장이 뜬다. 표에 없는 태그는 중립 문구를 쓴다.
 
 마지막 근무는 승인하지 않고 남긴다. 심사위원이 직접 채택·코멘트·승인해 봐야 하기 때문이다.
+
+**라이브 DB 를 직접 지우지 않는다.** 별도 파일(seed_build.db)에 전부 만든 뒤 마지막에 한 번
+교체한다. 서비스는 그동안 계속 켜져 있다 — 2026-08-27 시드하려고 서비스를 30분 넘게 내렸다가
+공개 URL 이 502 였다. 평가 기준이 "URL 이 안 열리면 구현 완성도를 확인할 수 없다" 다.
 """
+import os
 import argparse
 import re
 import subprocess
@@ -90,8 +95,15 @@ def main(argv):
 
     # 시간순으로 — 파일명이 아니라 첫 timestamp 기준
     files.sort(key=lambda p: shift_id_of(p))
-    for f in (ROOT / "app").glob("engra.db*"):
+
+    # 빌드는 별도 파일에. cli.py 가 ENGRA_DB 를 읽어 그 파일을 쓴다. 라이브(engra.db)는 건드리지 않는다.
+    build = ROOT / "app" / "seed_build.db"
+    for f in (ROOT / "app").glob("seed_build.db*"):
         f.unlink()
+    os.environ["ENGRA_DB"] = str(build)
+    db.DB_PATH = build          # 이 프로세스의 db 모듈도 같은 파일을 보게
+    import config
+    config.DB_PATH = build
     run("init")
 
     for i, f in enumerate(files):
@@ -108,7 +120,23 @@ def main(argv):
 
     with db.connect() as conn:
         pending = [r["id"] for r in db.list_shifts(conn) if db.load_handover(conn, r["id"]) is None]
-    print(f"\n완료. 승인 대기: {pending}")
+    print(f"\n빌드 완료. 승인 대기: {pending}")
+
+    # 교체 — 기준선(seed.db)과 라이브(engra.db)를 한 번에. 서비스는 다음 요청부터 새 파일을 읽는다.
+    import shutil
+    live = ROOT / "app" / "engra.db"
+    seed = ROOT / "app" / "seed.db"
+    shutil.copyfile(build, seed)
+    for suf in ("-wal", "-shm"):
+        p = ROOT / "app" / (live.name + suf)
+        if p.exists():
+            p.unlink()
+    os.replace(build, live)     # 원자적 교체
+    for suf in ("-wal", "-shm"):            # 빌드 부산물 정리
+        p = ROOT / "app" / (build.name + suf)
+        if p.exists():
+            p.unlink()
+    print(f"교체 완료 → {live.name} (기준선 {seed.name} 갱신). 서비스 재시작 불필요 — 다음 요청부터 반영.")
     return 0
 
 

@@ -260,6 +260,11 @@ python3 tools/journal.py     # 04 제작과정 문서 갱신
 python3 app/cli.py serve     # 화면 http://127.0.0.1:8000
 ```
 
+🔴 **공개 앱 서비스를 정지하지 마라.** `systemctl stop engra.service` 는 곧 공개 URL 502 다. 평가 기준이
+"URL 이 안 열리면 구현 완성도를 확인할 수 없다" 고 적고 있고, 경모님이 QA 하다 막혔다(2026-08-27,
+시드하려고 30분 넘게 내림). 시드는 `tools/seed.py` 가 **별도 파일에 빌드해 원자 교체**하므로 서비스를
+내릴 이유가 없다. 코드 배포도 rsync 후 `restart`(수 초) 만. 정지가 꼭 필요하면 **먼저 말하라.**
+
 ⚠ **`제출/` 안에서 `git commit` 을 실행하지 마라.** cwd 가 `제출/` 이면 전역 훅(require-review-evidence,
 HoduApp 용 RN 런타임 증거 요구)이 `..` 를 저장소로 읽고 커밋을 차단한다 — 그리고 **같은 Bash 호출 안의
 다른 명령(파일 생성·수정)까지 전부 무효**가 된다(2026-08-27 실제로 record_demo.js 와 문서 수정을 잃었다).

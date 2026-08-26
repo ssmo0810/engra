@@ -3,13 +3,14 @@
 경로와 근무 구간 규칙만 담는다. 알고리즘 파라미터는 여기 두지 않는다 —
 그건 engine/ 담당이고, ports.py 를 통해 넘어온다.
 """
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = ROOT / "app"
 DOCS_DIR = ROOT / "docs"
 
-DB_PATH = APP_DIR / "engra.db"
+DB_PATH = Path(os.environ["ENGRA_DB"]) if os.environ.get("ENGRA_DB") else APP_DIR / "engra.db"   # 시드 빌드는 별도 파일에
 SEED_DB = APP_DIR / "seed.db"          # 데모 기준선. 리셋 버튼이 이 파일로 되돌린다
 TAG_MASTER = DOCS_DIR / "tag_master.csv"
 
