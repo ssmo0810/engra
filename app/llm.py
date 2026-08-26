@@ -209,10 +209,17 @@ def rewrite(shift, items):
     for start in range(0, len(items), BATCH):
         chunk = items[start:start + BATCH]
         user = _prompt(shift, chunk)
-        out = _call_cli(SYSTEM, user) if m == "cli" else _call_api(SYSTEM, user)
-        got = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
+        # 간헐적으로 빈 응답(output_tokens 0)이 온다 — 서버 첫 시드가 그렇게 죽었다(2026-08-27).
+        # 같은 입력을 다시 보내면 성공했으므로 1회 재시도한다. 두 번 다 비면 그때 멈춘다.
+        got = {}
+        for attempt in (1, 2):
+            out = _call_cli(SYSTEM, user) if m == "cli" else _call_api(SYSTEM, user)
+            got = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
+            if len(got) == len(chunk):
+                break
+            print(f"  ⚠ 배치 {start//BATCH+1}: {len(chunk)}개 중 {len(got)}개 응답 (시도 {attempt}/2)", flush=True)
         if len(got) != len(chunk):
-            raise LLMUnavailable(f"모델이 배치 {start//BATCH+1} 의 {len(chunk)}개 중 {len(got)}개만 돌려줬습니다. 전부 있어야 합니다.")
+            raise LLMUnavailable(f"모델이 배치 {start//BATCH+1} 의 {len(chunk)}개 중 {len(got)}개만 돌려줬습니다 (2회 시도). 전부 있어야 합니다.")
         for local, o in got.items():
             by_idx[start + local] = o
 

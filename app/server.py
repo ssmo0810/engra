@@ -201,7 +201,7 @@ _ASU_TAB_JS = """
 (function(){
   function open(){
     var h=(location.hash||'').replace('#','');
-    var id={ovw:'tabOvw',data:'tabData',scen:'tabScen'}[h];
+    var id={ovw:'tabOvw',data:'tabData',scen:'tabScen',rtdb:'tabRtdb'}[h];
     if(!id) return;
     var el=document.getElementById(id);
     if(el && el.click) el.click();
@@ -243,11 +243,12 @@ def view_dcs():
 
 
 def view_rtdb():
-    return _embed("실시간 데이터베이스 — 태그 상세", "/rtdb", "data",
-                  "DCS 가 감시하는 태그값이 2초 주기로 쌓이는 원본입니다. 태그를 고르면 "
-                  "추이 파형이 그려집니다. 12시간이면 태그당 21,600점, 태그 53점이면 "
-                  "114만 점이라 사람이 훑어 이상을 찾는 것은 불가능합니다 — ENGRA 는 "
-                  "구간이 닫히는 시각에 이 전체를 한 번에 검토합니다.")
+    # 임도영님이 원본에 RTDB 탭을 직접 추가했다(31734e5) — 태그×시각 시간평균 표. 그것을 연다.
+    return _embed("실시간 데이터베이스 — 근무 구간 원본", "/rtdb", "rtdb",
+                  "DCS 가 감시하는 태그값이 2초 주기로 쌓이는 원본 테이블입니다. 가로는 태그, "
+                  "세로는 시각입니다. 12시간이면 태그당 21,600점, 태그 53점이면 114만 점이라 "
+                  "사람이 이 표를 훑어 이상을 찾는 것은 불가능합니다 — ENGRA 는 구간이 닫히는 "
+                  "시각에 이 전체를 한 번에 검토합니다.")
 
 
 def view_draft():
@@ -364,7 +365,45 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 </div>""", active=active)
 
 
+def _spark(w):
+    """이벤트 파형 → 인라인 SVG. 외부 라이브러리 없이 폴리라인 하나. 감지 구간은 음영으로."""
+    if not w or not w.get("v") or len(w["v"]) < 2:
+        return ""
+    v = w["v"]; n = len(v); lo, hi = min(v), max(v)
+    span = (hi - lo) or 1.0
+    W, H, pad = 440, 46, 3
+    pts = " ".join(f"{i*(W/(n-1)):.1f},{H-pad-(x-lo)/span*(H-2*pad):.1f}" for i, x in enumerate(v))
+    try:
+        from datetime import datetime as _d
+        t0, t1 = _d.fromisoformat(w["t0"]).timestamp(), _d.fromisoformat(w["t1"]).timestamp()
+        m0, m1 = _d.fromisoformat(w["mark"][0]).timestamp(), _d.fromisoformat(w["mark"][1]).timestamp()
+        x0 = max(0.0, (m0 - t0) / ((t1 - t0) or 1)) * W; x1 = min(1.0, (m1 - t0) / ((t1 - t0) or 1)) * W
+        band = f'<rect x="{x0:.1f}" y="0" width="{max(2.0, x1-x0):.1f}" height="{H}" fill="var(--accent)" opacity=".10"/>'
+    except Exception:
+        band = ""
+    return (f'<div class="trend"><svg width="100%" height="{H}" viewBox="0 0 {W} {H}" preserveAspectRatio="none" '
+            f'style="display:block;background:var(--bg);border-radius:6px">{band}'
+            f'<polyline points="{pts}" fill="none" stroke="var(--ink)" stroke-width="1.4"/></svg>'
+            f'<div class="muted" style="font-size:11px;margin-top:2px">{esc(w["t0"][11:16])} ~ {esc(w["t1"][11:16])} · '
+            f'최저 {lo:g} · 최고 {hi:g} · 음영 = 감지 구간</div></div>')
+
+
+def _waves(shift_id):
+    """근무의 이벤트 파형을 event_id → 파형 dict 로."""
+    out = {}
+    with db.connect() as conn:
+        for e in db.load_events(conn, shift_id):
+            raw = e["waveform_json"] if "waveform_json" in e.keys() else None
+            if raw:
+                try:
+                    out[e["id"]] = json.loads(raw)
+                except ValueError:
+                    pass
+    return out
+
+
 def _view_pending(shift_id, draft, active="/"):
+    waves = _waves(shift_id)
     items = []
     for it in draft["items"]:
         sug = ""
@@ -397,7 +436,7 @@ def _view_pending(shift_id, draft, active="/"):
 <div class="ttl">{esc(it['title'])} {_sev_pill(it['severity'])}</div></div>
 <div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
 <div class="body">
-<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
+{_spark(waves.get(it.get("event_id")))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
 {judged}{sug}
 <textarea name="comment_{it['id']}" placeholder="코멘트 (선택)"></textarea>
 </div></div>""")

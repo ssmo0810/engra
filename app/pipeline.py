@@ -9,6 +9,31 @@ import db
 import llm
 import ports
 
+WAVE_PAD_SEC = 30 * 60      # 감지 구간 앞뒤 30분
+WAVE_POINTS = 120           # 다운샘플 점 수 — SVG 폴리라인 한 줄이면 충분하다
+
+
+def _waveform(points, start_ts, end_ts):
+    """[(ts, value)] 에서 감지 구간 ±30분을 WAVE_POINTS 개로 줄인다. 그릴 재료만 남긴다."""
+    from datetime import datetime, timedelta
+    if not points or not start_ts or not end_ts:
+        return None
+    try:
+        s = datetime.fromisoformat(start_ts) - timedelta(seconds=WAVE_PAD_SEC)
+        t = datetime.fromisoformat(end_ts) + timedelta(seconds=WAVE_PAD_SEC)
+    except ValueError:
+        return None
+    win = [(ts, v) for ts, v in points if s <= datetime.fromisoformat(ts) <= t]
+    if len(win) < 2:
+        return None
+    step = max(1, len(win) // WAVE_POINTS)
+    samp = win[::step]
+    return {
+        "t0": samp[0][0], "t1": samp[-1][0],
+        "mark": [start_ts, end_ts],
+        "v": [round(v, 4) for _, v in samp],
+    }
+
 
 def run(shift_id, verbose=True, redo=False):
     def say(msg):
@@ -58,6 +83,10 @@ def run(shift_id, verbose=True, redo=False):
 
         # 3) 검출
         events = ports.detect(series, db.load_baselines(conn))
+        # 원본은 3일 뒤 폐기되지만 이벤트는 영구 보존이라, 감지 구간 파형을 지금 떠 둔다.
+        # 기획서 4-3 "이벤트(감지 구간의 지표 및 해당 구간 파형)" 가 이것이다.
+        for e in events:
+            e["waveform"] = _waveform(series.get(e["tag"]) or [], e.get("start_ts"), e.get("end_ts"))
         db.save_events(conn, shift_id, events, ports.engine_source())
         result["events"] = len(events)
         say(f"이벤트 {len(events)}건 검출 ({ports.engine_source()})")

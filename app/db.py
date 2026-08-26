@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS event (
     end_ts       TEXT,
     severity     TEXT,                       -- 상 | 중 | 하
     score        REAL,
+    waveform_json    TEXT,                   -- 감지 구간 ±30분 파형 (다운샘플, 원본이 폐기돼도 남는다)
     metrics_json TEXT,                       -- 판정 근거 수치
     evidence     TEXT,                       -- 사람이 읽는 한 줄
     detector     TEXT,                       -- 누가 찾았나: stub | engine
@@ -168,6 +169,9 @@ def _migrate(conn):
     for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT")):
         if col not in have:
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
+    have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
+    if "waveform_json" not in have_ev:
+        conn.execute("ALTER TABLE event ADD COLUMN waveform_json TEXT")
 
 
 def reset(empty=False):
@@ -337,14 +341,15 @@ def save_events(conn, shift_id, events, detector):
     conn.executemany(
         """INSERT INTO event
            (shift_id, tag, kind, start_ts, end_ts, severity, score,
-            metrics_json, evidence, detector, created_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            metrics_json, evidence, detector, created_at, waveform_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
         [
             (
                 shift_id, e["tag"], e["kind"], e.get("start_ts"), e.get("end_ts"),
                 e.get("severity"), e.get("score"),
                 json.dumps(e.get("metrics", {}), ensure_ascii=False),
                 e.get("evidence"), detector, now(),
+                json.dumps(e.get("waveform"), ensure_ascii=False) if e.get("waveform") else None,
             )
             for e in events
         ],
