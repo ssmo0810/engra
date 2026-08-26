@@ -170,7 +170,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS handover_fts USING fts5(
 
 
 def connect():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)   # 화면 작업과 교대 타이머가 겹칠 수 있다. 잠금을 30초 기다린다
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

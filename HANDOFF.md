@@ -261,6 +261,10 @@ python3 tools/journal.py     # 04 제작과정 문서 갱신
 python3 app/cli.py serve     # 화면 http://127.0.0.1:8000
 ```
 
+✅ **③ 파이프라인 화면** — `/pipeline`. 소스 고르기(정본 8근무 + 업로드) → 「적재+검출+AI 초안」 한 버튼 → `jobs.py`
+스레드 + `/api/job` 폴링 → 「정답지 대조」 (`tools/score.py` 그대로, 라이브). 한 번에 하나만(Lock, 409).
+QA 는 이 화면 기준 — `제출/QA_순서_앙그라쥬.md`. 교대 타이머는 운영용, 검증엔 이 버튼.
+
 ✅ **교대 시각 자동 생성이 돈다** — `engra-shift.timer` 가 06:00·18:00 KST 에 `cli.py run --latest`
 (막 끝난 근무). 예선 4-3 의 스케줄러 약속이 이것이다. `AccuracySec=1s` 를 지켜라 — 30초 밀리면 다음 근무를
 고른다(경계 실측). 실패는 `journalctl -u engra-shift`. 유닛 사본은 `deploy/`.

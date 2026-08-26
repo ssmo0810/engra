@@ -35,8 +35,14 @@ def _waveform(points, start_ts, end_ts):
     }
 
 
-def run(shift_id, verbose=True, redo=False):
+def run(shift_id, verbose=True, redo=False, say=None):
+    """say: 진행 문장을 받을 콜백. 화면(jobs.py)이 넘긴다. 없으면 stdout."""
+    _cb = say
+
     def say(msg):
+        if _cb is not None:
+            _cb(msg)
+            return
         if verbose:
             print(f"  {msg}")
 

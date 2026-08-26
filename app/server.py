@@ -9,11 +9,13 @@
 """
 import html
 import json
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import approve as approve_mod
 import db
+import jobs
 import llm
 import ports
 from config import DOCS_DIR
@@ -36,6 +38,7 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
 .nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .nav a.on small{color:#c9c6c1}
 .frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.sc{border-collapse:collapse;width:100%;font-size:12.5px}.sc th,.sc td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.sc th{color:var(--sub);font-weight:600;font-size:11px}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
 .top .eng{margin-left:auto;font-size:11.5px}
@@ -145,8 +148,9 @@ document.addEventListener('DOMContentLoaded',cnt);
 NAV = (
     ("/dcs", "① DCS", "실시간 감시 · 기존 시스템"),
     ("/rtdb", "② RTDB", "구간 데이터 추출"),
-    ("/draft", "③ ENGRA 초안 검토", "핵심 화면 · 직접 승인해 보세요"),
-    ("/", "④ 일지 조회", "축적 · 검색"),
+    ("/pipeline", "③ 파이프라인", "적재 → 검출 → AI 초안 · 정답지 대조"),
+    ("/draft", "④ 초안 검토", "채택·코멘트·승인"),
+    ("/", "⑤ 일지 조회", "축적 · 검색"),
 )
 
 
@@ -249,6 +253,91 @@ def view_rtdb():
                   "세로는 시각입니다. 12시간이면 태그당 21,600점, 태그 53점이면 114만 점이라 "
                   "사람이 이 표를 훑어 이상을 찾는 것은 불가능합니다 — ENGRA 는 구간이 닫히는 "
                   "시각에 이 전체를 한 번에 검토합니다.")
+
+
+def _score_html():
+    """정답지 대조 패널. DB 에 이벤트가 있는 근무만 채점된다 — 아직 안 돌린 근무는 '—'."""
+    boards = jobs.scoreboard()
+    out = []
+    for b in boards:
+        if b.get("error"):
+            out.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>')
+            continue
+        rows = []
+        for sid, ev, inj, hit, fp in b["per_shift"]:
+            if ev is None:
+                cells = '<td class="muted">—</td><td>' + str(inj) + '</td><td class="muted">—</td><td class="muted">—</td>'
+            else:
+                cells = '<td>' + str(ev) + '</td><td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td>' + str(fp) + '</td>'
+            rows.append('<tr><td class="mono">' + esc(sid) + '</td>' + cells + '</tr>')
+        scored = [x for x in b["per_shift"] if x[1] is not None]
+        if scored:
+            pct = 100 * b["hit"] / b["inj"] if b["inj"] else 0
+            head = ('<b>주입 ' + str(b["hit"]) + '/' + str(b["inj"]) + '건 잡음 (' + f'{pct:.0f}' + '%) · 시나리오 '
+                    + str(len(b["cov_hit"])) + '/' + str(len(b["cov_inj"])) + '종 · 오탐 ' + str(b["fp"]) + '건</b>')
+        else:
+            head = '<span class="muted">아직 돌린 근무가 없습니다</span>'
+        missed = "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
+                         for sid, no, name, tag, s_, e_ in b["missed"])
+        kp = Path(b["key"])
+        label = "기준 2근무" if kp.parent.name == "data" else kp.parent.name
+        html_ = ('<div class="card" style="padding:14px 18px">'
+                 '<h2 style="font-size:15px">정답지 대조 — ' + esc(label) + ' <span class="muted" style="font-weight:400;font-size:12px">' + esc(kp.name) + '</span></h2>'
+                 '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
+                 '<table class="sc"><tr><th>근무</th><th>검출 이벤트</th><th>주입</th><th>탐지</th><th>오탐</th></tr>' + "".join(rows) + '</table>')
+        if b["missed"]:
+            html_ += '<p class="note" style="margin-top:8px"><b>놓친 주입</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">' + missed + '</ul>'
+        html_ += '</div>'
+        out.append(html_)
+    return "".join(out)
+
+
+def view_pipeline():
+    """전체 흐름을 화면에서 돌린다. 적재 → 검출·AI 초안 → (초안 검토로) → 정답지 대조."""
+    st = jobs.state()
+    with db.connect() as conn:
+        have = {r["id"]: (bool(db.load_draft(conn, r["id"])), bool(db.load_handover(conn, r["id"]))) for r in db.list_shifts(conn)}
+    opts = []
+    for src in jobs.SOURCES:
+        d, h = have.get(src["shift_id"], (False, False))
+        tag = "확정" if h else ("초안 있음" if d else ("적재됨" if src["shift_id"] in have else "미적재"))
+        opts.append('<option value="' + esc(src["shift_id"]) + '">' + esc(src["shift_id"]) + ' · ' + esc(src["set"]) + ' · 주입 ' + str(src["injected"]) + '건 · ' + tag + '</option>')
+    log = "\n".join(esc(x) for x in st["lines"][-40:])
+    running = st["running"]
+    err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>') if st.get("error") else ""
+    status = ("실행 중 · " + esc(st["step"] or "")) if running else "대기"
+    link = ""
+    if not running and st.get("result") and st.get("shift_id"):
+        link = ('<p class="note"><a href="/shift/' + esc(st["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(st["shift_id"]) + ')</b></a>'
+                ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
+    hint = '<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 · 이 화면은 5초마다 갱신</span>' if running else ""
+    reload_js = '<script>setTimeout(function(){location.reload();},5000);</script>' if running else ""
+    body = ('<div class="card" style="padding:14px 18px">'
+            '<h2>파이프라인 — 버튼으로 전 구간을 돈다</h2>'
+            '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭(임도영님 생성기)에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
+            '아니면 아래 <b>정본 근무</b>(정답지 있음)를 고른다. 그다음 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인 → 여기 「정답지 대조」가 갱신된다. '
+            '같은 근무를 다시 돌리려면 「다시 만들기」를 켠다.</p>'
+            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
+            '<button class="btn"' + (' disabled' if running else '') + '>적재 + 검출 + AI 초안 생성</button>'
+            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정돼 있어도 다시 만들기</label>'
+            '</form>'
+            '<form method="post" action="/pipeline/upload" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
+            '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
+            '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
+            '<span class="muted" style="font-size:11.5px">CSV(근무) + 정답지 JSON 을 같이. 정답지가 있어야 대조가 된다</span>'
+            '</form>'
+            '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
+            '<span class="pill' + (' on' if running else '') + '">' + status + '</span>'
+            '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
+            '<pre class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
+            + (log or "여기에 진행이 표시됩니다.") + '</pre>' + err + link + '</div>'
+            + _score_html()
+            + '<div class="card" style="padding:12px 18px"><p class="note" style="margin:0"><b>처음부터 다시</b> — ⑤ 일지 조회 상단 「완전 빈 상태로」. '
+              '빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다.</p></div>'
+            + reload_js)
+    return page("파이프라인", body, active="/pipeline")
 
 
 def view_draft():
@@ -399,38 +488,87 @@ def _sev_select(it):
     return f'<select name="sev_{it["id"]}" class="pill sevsel" title="중요도를 바꿀 수 있습니다">{opts}</select>'
 
 
-def _spark(w):
-    """이벤트 파형 → 인라인 SVG. 외부 라이브러리 없이 폴리라인 하나. 감지 구간은 음영으로."""
+def _spark(w, metrics=None, unit=""):
+    """이벤트 파형 → 인라인 SVG 차트.
+
+    경모님 지적(2026-08-27) "trend 가 보기 불편하다, 자리를 더 써도 되니 제대로" — 46px 스트레치
+    폴리라인을 버리고 y 눈금·한계선·시각 눈금·감지 구간 음영이 있는 차트로. 외부 라이브러리 없음.
+    """
     if not w or not w.get("v") or len(w["v"]) < 2:
         return ""
-    v = w["v"]; n = len(v); lo, hi = min(v), max(v)
-    span = (hi - lo) or 1.0
-    W, H, pad = 440, 46, 3
-    pts = " ".join(f"{i*(W/(n-1)):.1f},{H-pad-(x-lo)/span*(H-2*pad):.1f}" for i, x in enumerate(v))
+    v = w["v"]; n = len(v)
+    lo, hi = min(v), max(v)
+    limit = (metrics or {}).get("limit")
+    # y 범위: 데이터 ± 8% 여유, 한계선이 가까우면 포함
+    ylo, yhi = lo, hi
+    if isinstance(limit, (int, float)) and abs(limit - (lo + hi) / 2) < (hi - lo or 1) * 6:
+        ylo, yhi = min(ylo, limit), max(yhi, limit)
+    pad_y = (yhi - ylo or 1.0) * 0.08
+    ylo -= pad_y; yhi += pad_y
+    span = (yhi - ylo) or 1.0
+    W, H = 720, 150
+    L, R, T, B = 56, 12, 10, 26            # 축 여백
+    pw, ph = W - L - R, H - T - B
+    def X(i): return L + i * (pw / (n - 1))
+    def Y(x): return T + ph - (x - ylo) / span * ph
+    pts = " ".join(f"{X(i):.1f},{Y(x):.1f}" for i, x in enumerate(v))
+    area = f"{L:.1f},{T+ph:.1f} " + pts + f" {X(n-1):.1f},{T+ph:.1f}"
+    # 감지 구간 음영
+    band = ""
     try:
         from datetime import datetime as _d
         t0, t1 = _d.fromisoformat(w["t0"]).timestamp(), _d.fromisoformat(w["t1"]).timestamp()
         m0, m1 = _d.fromisoformat(w["mark"][0]).timestamp(), _d.fromisoformat(w["mark"][1]).timestamp()
-        x0 = max(0.0, (m0 - t0) / ((t1 - t0) or 1)) * W; x1 = min(1.0, (m1 - t0) / ((t1 - t0) or 1)) * W
-        band = f'<rect x="{x0:.1f}" y="0" width="{max(2.0, x1-x0):.1f}" height="{H}" fill="var(--accent)" opacity=".10"/>'
+        f0 = max(0.0, (m0 - t0) / ((t1 - t0) or 1)); f1 = min(1.0, (m1 - t0) / ((t1 - t0) or 1))
+        band = (f'<rect x="{L + f0*pw:.1f}" y="{T}" width="{max(3.0, (f1-f0)*pw):.1f}" height="{ph}" '
+                f'fill="var(--accent)" opacity=".12"/>')
+        # 시각 눈금 5개
+        ticks = []
+        for k in range(5):
+            ts = t0 + (t1 - t0) * k / 4
+            hhmm = _d.fromtimestamp(ts).strftime("%H:%M")
+            x = L + pw * k / 4
+            ticks.append(f'<line x1="{x:.1f}" y1="{T+ph}" x2="{x:.1f}" y2="{T+ph+4}" stroke="var(--line)"/>'
+                         f'<text x="{x:.1f}" y="{H-8}" font-size="10" text-anchor="middle" fill="var(--sub)">{hhmm}</text>')
+        xt = "".join(ticks)
     except Exception:
-        band = ""
-    return (f'<div class="trend"><svg width="100%" height="{H}" viewBox="0 0 {W} {H}" preserveAspectRatio="none" '
-            f'style="display:block;background:var(--bg);border-radius:6px">{band}'
-            f'<polyline points="{pts}" fill="none" stroke="var(--ink)" stroke-width="1.4"/></svg>'
-            f'<div class="muted" style="font-size:11px;margin-top:2px">{esc(w["t0"][11:16])} ~ {esc(w["t1"][11:16])} · '
-            f'최저 {lo:g} · 최고 {hi:g} · 음영 = 감지 구간</div></div>')
+        xt = ""
+    # y 눈금 4단 + 격자
+    yt = []
+    for k in range(4):
+        val = ylo + span * k / 3
+        y = Y(val)
+        yt.append(f'<line x1="{L}" y1="{y:.1f}" x2="{W-R}" y2="{y:.1f}" stroke="var(--line)" stroke-dasharray="2 3"/>'
+                  f'<text x="{L-6}" y="{y+3.5:.1f}" font-size="10" text-anchor="end" fill="var(--sub)">{val:.4g}</text>')
+    # 한계선
+    lim = ""
+    if isinstance(limit, (int, float)) and ylo <= limit <= yhi:
+        y = Y(limit)
+        lim = (f'<line x1="{L}" y1="{y:.1f}" x2="{W-R}" y2="{y:.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
+               f'<text x="{W-R}" y="{y-4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {limit:g}{esc(unit)}</text>')
+    # 마지막 점 강조
+    end = f'<circle cx="{X(n-1):.1f}" cy="{Y(v[-1]):.1f}" r="3" fill="var(--ink)"/>'
+    return (f'<div class="trend"><svg viewBox="0 0 {W} {H}" style="display:block;width:100%;height:auto;background:var(--card);'
+            f'border:1px solid var(--line);border-radius:8px">'
+            f'{"".join(yt)}{band}<polygon points="{area}" fill="var(--ink)" opacity=".05"/>'
+            f'<polyline points="{pts}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>'
+            f'{lim}{end}{xt}'
+            f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T+ph}" stroke="var(--line)"/>'
+            f'<line x1="{L}" y1="{T+ph}" x2="{W-R}" y2="{T+ph}" stroke="var(--line)"/></svg>'
+            f'<div class="muted" style="font-size:11px;margin-top:3px">감지 구간 ±30분 · 최저 {lo:g} · 최고 {hi:g}{(" " + esc(unit)) if unit else ""} · 음영 = 감지 구간'
+            f'{" · 빨간 점선 = 알람 한계" if lim else ""}</div></div>')
 
 
 def _waves(shift_id):
-    """근무의 이벤트 파형을 event_id → 파형 dict 로."""
+    """근무의 이벤트 파형·지표를 event_id → (파형, metrics) 로."""
     out = {}
     with db.connect() as conn:
         for e in db.load_events(conn, shift_id):
             raw = e["waveform_json"] if "waveform_json" in e.keys() else None
             if raw:
                 try:
-                    out[e["id"]] = json.loads(raw)
+                    m = json.loads(e["metrics_json"] or "{}") if "metrics_json" in e.keys() else {}
+                    out[e["id"]] = (json.loads(raw), m)
                 except ValueError:
                     pass
     return out
@@ -470,7 +608,7 @@ def _view_pending(shift_id, draft, active="/"):
 <div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
 <div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
 <div class="body">
-{_spark(waves.get(it.get("event_id")))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
+{_spark(*(waves.get(it.get("event_id")) or (None, {})), unit=((waves.get(it.get("event_id")) or (None, {}))[1] or {}).get("unit", ""))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
 {judged}{sug}
 <textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
@@ -560,6 +698,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, view_index())
             elif path == "/draft":
                 self._send(200, view_draft())
+            elif path == "/pipeline":
+                self._send(200, view_pipeline())
+            elif path == "/api/job":
+                self._json(jobs.state())
             elif path == "/dcs":
                 self._send(200, view_dcs())
             elif path == "/rtdb":
@@ -595,6 +737,20 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
+            if path == "/pipeline/run":
+                sid = form["shift_id"][0]
+                redo = form.get("redo", ["0"])[0] == "1"
+                src = next((x for x in jobs.SOURCES if x["shift_id"] == sid), None)
+                if not src:
+                    self._send(400, page("없음", '<div class="card"><div class="empty">모르는 근무입니다.</div></div>', active="/pipeline")); return
+                with db.connect() as conn:
+                    already = conn.execute("SELECT 1 FROM shift WHERE id = ?", (sid,)).fetchone()
+                try:
+                    jobs.run_async(sid, csv_path=None if already else src["csv"], redo=redo)
+                except RuntimeError as exc:
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
+                self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+                return
             if path == "/reopen":
                 # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.
                 sid = form["shift_id"][0]
