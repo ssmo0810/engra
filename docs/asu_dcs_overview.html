@@ -78,6 +78,30 @@
   .apLbl{font-size:8px;fill:#8a8a84;letter-spacing:.08em;font-weight:700}
   .apEv{font-size:10.5px;fill:#0b3d91;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
   .apAl{font-size:10.5px;fill:#EA002C;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+
+  /* ── RTDB 화면 ── */
+  #viewRtdb{background:#eceded;border:1px solid #b4b5b0;padding:9px}
+  .rbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:11.5px;color:var(--sub)}
+  .rbtn{font-size:11px;font-weight:700;padding:3px 11px;border:1px solid #8f9089;border-radius:3px;background:linear-gradient(#fdfdfd,#dedfda);color:#3a3a3a;cursor:pointer}
+  .rbtn.on{background:linear-gradient(#3a63c0,#1c3f8f);border-color:#16337a;color:#fff}
+  .rsplit{display:grid;grid-template-columns:1fr 330px;gap:9px;align-items:start}
+  @media(max-width:1000px){.rsplit{grid-template-columns:1fr}}
+  .rtwrap{max-height:600px;overflow:auto;background:#fff;border:1px solid #c8c9c4;border-radius:4px}
+  table.rt{border-collapse:separate;border-spacing:0;font-size:9.5px;font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
+  table.rt th{position:sticky;top:0;z-index:3;background:#1c3f8f;color:#fff;font-weight:700;padding:4px 6px;font-size:9px;text-align:right}
+  table.rt th.tg0{position:sticky;left:0;z-index:4;text-align:left}
+  table.rt td{padding:2px 6px;text-align:right;border-bottom:1px solid #f0efe9;color:#333}
+  table.rt td.tg0{position:sticky;left:0;z-index:2;background:#fff;text-align:left;border-right:1px solid #d8d9d3;cursor:pointer}
+  table.rt td.tg0 b{color:#0b3d91;font-size:10px}
+  table.rt td.tg0 span{color:#8a8a84;font-size:8.5px}
+  table.rt td.mt{color:#c8c9c4;text-align:center}
+  table.rt td.cH{background:#fdf0d8;color:#8a5a00;font-weight:700}
+  table.rt td.cHH{background:#ffd9d4;color:#c0392b;font-weight:700}
+  table.rt tr.grp td{background:#e8ecf5;color:#1c3f8f;font-weight:700;font-size:9px;padding:3px 6px;letter-spacing:.05em}
+  table.rt tr.sel td{background:#fff6d8}
+  table.rt tr.sel td.tg0{background:#fff6d8}
+  table.rt tr:hover td{background:#f4f6fb}
+  table.rt tr:hover td.tg0{background:#f4f6fb}
   .barfil{fill:#0b3d91}
 
   /* ── Transmitter : 취출점 + 스템 + ISA 밸룬 ── */
@@ -177,6 +201,7 @@
         <div id="tabOvw">OVERVIEW PAGE</div>
         <div id="tabData" class="off">DATA DETAIL</div>
         <div id="tabScen" class="off">SCENARIO INJECT</div>
+        <div id="tabRtdb" class="off">RTDB</div>
       </div>
       <div class="hmibar">
         <span>ASU-100 &nbsp;AIR SEPARATION UNIT</span>
@@ -515,6 +540,22 @@
           <h4>과거 기록 <span id="sHistCnt" style="color:#6b7280;font-weight:400"></span></h4>
           <div id="sHist"></div>
           <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 그 이전 근무는 같은 seed 로 처음부터 다시 돌리면 동일한 데이터가 재생성됩니다.</p>
+        </div>
+      </div>
+
+      <div id="viewRtdb" hidden>
+        <div class="rbar">
+          <b style="color:var(--ink)">근무 선택</b>
+          <span id="rShifts"></span>
+          <span style="margin-left:auto">셀 = 그 시각 1시간 평균 (2초 원시값 1,800점) · 색 = 그 시각에 한계 초과 순간 존재 (<b style="color:#8a5a00">주황 H/L</b> · <b style="color:#c0392b">빨강 HH/LL</b>) · 태그를 누르면 우측에 12시간 트렌드</span>
+        </div>
+        <div class="rsplit">
+          <div class="rtwrap" id="rTbl"></div>
+          <div class="dside">
+            <h4 id="rTag">태그를 선택하세요</h4>
+            <svg id="rChart" viewBox="0 0 300 150"></svg>
+            <p id="rNote" style="margin-top:6px">왼쪽 표에서 태그를 누르면 선택한 근무 12시간의 트렌드(1분 평균 720점)를 여기서 봅니다. 초록 밴드가 정상 범위, 점선이 알람 한계입니다.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1483,6 +1524,7 @@
       saveRun();
       renderShift(entry);
       renderHist();
+      rtdbSync();
       smsg('완료 — '+lab.date+' '+lab.ko+' ('+entry.injected.length+'건 주입, seed '+seed+')'
            +(overlaps.length?' · 동시 발생 '+overlaps.length+'건':''), true);
     },30);
@@ -1709,7 +1751,7 @@
     $('sTbl').innerHTML=''; var sv=$('sTl'); while(sv.firstChild) sv.removeChild(sv.firstChild);
     ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=true; });
     paintOverview(null);
-    renderHist(); smsg('초기화했습니다.',true);
+    renderHist(); rtdbSync(); smsg('초기화했습니다.',true);
   };
   function dumpCsv(c){
     var defect=$('sDef').value, rate=parseFloat($('sDefR').value)||0;
@@ -1731,19 +1773,202 @@
   $('mClose').onclick=function(){ $('sModal').hidden=true; };
   $('sModal').onclick=function(ev){ if(ev.target===$('sModal')) $('sModal').hidden=true; };
 
+  /* ══════════════════════════════════════════════════════════
+     RTDB — 방금 생성한 근무 데이터의 시간평균 조회
+     ══════════════════════════════════════════════════════════
+     CACHE(최근 3근무)의 원시 데이터를 시간별 평균으로 접어 태그×시각
+     표로 보여준다. 가로축은 00~24시 고정이라 주간은 06~17시 칸에,
+     야간은 18~23·00~05시 칸에 값이 찬다. 원시 데이터가 브라우저
+     메모리에만 있으므로 새로고침 후에는 근무를 다시 생성해야 한다. */
+  var rSel = null, rTag = null, rCache = {};
+
+  function rp2(x){ return x < 10 ? '0' + x : '' + x; }
+
+  function rtdbBuild(c){
+    // 셀에는 시간 평균을 쓰되, 색 판정은 그 시간의 최대·최소로 한다.
+    // 40분짜리 과온 같은 짧은 이벤트는 평균으로 접으면 한계 아래로 희석되어
+    // 색이 사라진다 — "그 시각에 한계를 넘는 순간이 있었는가" 가 근무자의 질문이다.
+    var per = Math.round(3600 / STEP), avg = {}, hmax = {}, hmin = {};
+    c.ids.forEach(function(id){
+      var a = c.D[id], oA = new Array(12), oX = new Array(12), oN = new Array(12);
+      for (var h = 0; h < 12; h++){
+        var s = h * per, sum = 0, mx = -Infinity, mn = Infinity;
+        for (var i = s; i < s + per; i++){
+          var v = a[i]; sum += v;
+          if (v > mx) mx = v;
+          if (v < mn) mn = v;
+        }
+        oA[h] = sum / per; oX[h] = mx; oN[h] = mn;
+      }
+      avg[id] = oA; hmax[id] = oX; hmin[id] = oN;
+    });
+    return { startH: new Date(c.shiftMs).getHours(), avg: avg, hmax: hmax, hmin: hmin, c: c };
+  }
+  function rtdbGet(idx){
+    if (rCache[idx] === undefined){
+      var c = CACHE.filter(function(x){ return x.idx === idx; })[0];
+      rCache[idx] = c ? rtdbBuild(c) : null;
+    }
+    return rCache[idx];
+  }
+
+  function rtFmt(v, id){
+    var dc = decimals(id);
+    if (Math.abs(v) >= 1000) dc = 0;
+    return v.toFixed(dc);
+  }
+  function rtCls(id, mx, mn){
+    var d = state[id];
+    if (d.HH !== '' && mx > +d.HH) return 'cHH';
+    if (d.LL !== '' && mn < +d.LL) return 'cHH';
+    if (d.H  !== '' && mx > +d.H)  return 'cH';
+    if (d.L  !== '' && mn < +d.L)  return 'cH';
+    return '';
+  }
+
+  function rtdbRender(){
+    // 근무 선택 버튼
+    var sh = '';
+    CACHE.forEach(function(c){
+      sh += '<button class="rbtn' + (c.idx === rSel ? ' on' : '') + '" data-rsel="' + c.idx + '">'
+          + c.entry.from.slice(5, 10) + ' ' + c.entry.kind_ko + '</button> ';
+    });
+    $('rShifts').innerHTML = sh || '<span style="color:#b45309">아직 없습니다</span>';
+
+    var R = (rSel !== null) ? rtdbGet(rSel) : null;
+    if (!R){
+      $('rTbl').innerHTML = '<p class="note" style="padding:12px">SCENARIO INJECT 탭에서 근무를 생성하면 여기에 표시됩니다.'
+        + (RUN.hist.length ? '<br>과거 기록은 있지만 원시 데이터는 브라우저 메모리에만 있어, 새로고침 후에는 다시 생성해야 합니다.' : '') + '</p>';
+      $('rTag').textContent = '태그를 선택하세요';
+      var cv = $('rChart'); while (cv.firstChild) cv.removeChild(cv.firstChild);
+      return;
+    }
+
+    var h = '<table class="rt"><thead><tr><th class="tg0">태그</th>';
+    for (var col = 0; col < 24; col++) h += '<th>' + rp2(col) + '시</th>';
+    h += '</tr></thead><tbody>';
+    DEFAULTS.forEach(function(r){
+      if (r[0].charAt(0) === '#'){ h += '<tr class="grp"><td colspan="25">' + r[1] + '</td></tr>'; return; }
+      var id = r[0], a = R.avg[id];
+      if (!a) return;
+      h += '<tr data-rt="' + id + '"' + (id === rTag ? ' class="sel"' : '') + '>'
+         + '<td class="tg0"><b>' + id + '</b> <span>' + state[id].unit + '</span></td>';
+      for (var c2 = 0; c2 < 24; c2++){
+        var k = (c2 - R.startH + 24) % 24;          // 이 시각 칸에 놓일 근무 시간 인덱스
+        if (k < 12){
+          h += '<td class="' + rtCls(id, R.hmax[id][k], R.hmin[id][k]) + '">' + rtFmt(a[k], id) + '</td>';
+        } else {
+          h += '<td class="mt">·</td>';
+        }
+      }
+      h += '</tr>';
+    });
+    $('rTbl').innerHTML = h + '</tbody></table>';
+    if (rTag) rtdbTrend(rTag);
+  }
+
+  function rtdbTrend(id){
+    rTag = id;
+    Array.prototype.forEach.call($('rTbl').querySelectorAll('tr[data-rt]'), function(tr){
+      tr.classList.toggle('sel', tr.getAttribute('data-rt') === id);
+    });
+    var R = rtdbGet(rSel); if (!R) return;
+    var d = state[id];
+    $('rTag').textContent = id + '  ·  ' + d.desc + '  (' + d.unit + ')  ·  ' + R.c.entry.shift_id;
+
+    // 1분 평균 720점으로 접기
+    var per = Math.round(60 / STEP), n = Math.floor(N / per), a = R.c.D[id];
+    var y = new Array(n);
+    for (var m = 0; m < n; m++){
+      var s = m * per, sum = 0;
+      for (var i = s; i < s + per; i++) sum += a[i];
+      y[m] = sum / per;
+    }
+
+    var svg = $('rChart'); while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var mn = Math.min.apply(null, y), mx = Math.max.apply(null, y);
+    var lo = +d.lo, hi = +d.hi;
+    if (!isNaN(lo)) mn = Math.min(mn, lo);
+    if (!isNaN(hi)) mx = Math.max(mx, hi);
+    var pad = (mx - mn) * 0.12 || 1; mn -= pad; mx += pad;
+
+    var W = 300, H = 150, L = 42, Rm = 6, T = 8, B = 16;
+    function px(i){ return L + (W - L - Rm) * i / (n - 1); }
+    function py(v){ return T + (H - T - B) * (1 - (v - mn) / (mx - mn)); }
+    function add(t2, at){ var e = document.createElementNS(NS, t2); for (var k2 in at) e.setAttribute(k2, at[k2]); svg.appendChild(e); return e; }
+    function lb(x, yy, s2, col2, an){ var e = document.createElementNS(NS, 'text');
+      e.setAttribute('x', x); e.setAttribute('y', yy); e.setAttribute('font-size', '7');
+      e.setAttribute('fill', col2); e.setAttribute('font-family', 'ui-monospace,Menlo,Consolas,monospace');
+      if (an) e.setAttribute('text-anchor', an); e.textContent = s2; svg.appendChild(e); }
+
+    if (!isNaN(lo) && !isNaN(hi)){
+      add('rect', {x:L, y:py(hi), width:W-L-Rm, height:Math.abs(py(lo)-py(hi)), fill:'#e8f0e6'});
+      add('line', {x1:L, y1:py(hi), x2:W-Rm, y2:py(hi), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      add('line', {x1:L, y1:py(lo), x2:W-Rm, y2:py(lo), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      lb(L-3, py(hi)+2.5, rtFmt(hi, id), '#5f7f5f', 'end');
+      lb(L-3, py(lo)+2.5, rtFmt(lo, id), '#5f7f5f', 'end');
+    }
+    [['H','#b45309'],['HH','#EA002C'],['L','#b45309'],['LL','#EA002C']].forEach(function(al){
+      var v = parseFloat(d[al[0]]);
+      if (isNaN(v) || v < mn || v > mx) return;
+      add('line', {x1:L, y1:py(v), x2:W-Rm, y2:py(v), stroke:al[1], 'stroke-width':.7, 'stroke-dasharray':'1 2'});
+      lb(W-Rm, py(v)-2, al[0], al[1], 'end');
+    });
+    var pth = '';
+    for (var i2 = 0; i2 < n; i2++) pth += (i2 ? 'L' : 'M') + px(i2).toFixed(1) + ',' + py(y[i2]).toFixed(1);
+    add('path', {d:pth, fill:'none', stroke:'#0b3d91', 'stroke-width':1.1});
+    add('line', {x1:L, y1:H-B, x2:W-Rm, y2:H-B, stroke:'#c8c9c4', 'stroke-width':.8});
+    var h0 = R.startH;
+    lb(L, H-5, rp2(h0)+':00', '#8a8a84');
+    lb((L+W-Rm)/2, H-5, rp2((h0+6)%24)+':00', '#8a8a84', 'middle');
+    lb(W-Rm, H-5, rp2((h0+12)%24)+':00', '#8a8a84', 'end');
+
+    var mn2 = Math.min.apply(null, y), mx2 = Math.max.apply(null, y);
+    $('rNote').innerHTML = '이 근무 범위 <b>' + rtFmt(mn2, id) + ' ~ ' + rtFmt(mx2, id) + '</b> ' + d.unit
+      + ' · 1분 평균 ' + n + '점<br>초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
+  }
+
+  /* 생성·초기화 뒤 호출 — 캐시에서 밀려난 근무를 정리하고 최신을 선택 */
+  function rtdbSync(){
+    var alive = {}; CACHE.forEach(function(c){ alive[c.idx] = 1; });
+    Object.keys(rCache).forEach(function(k){ if (!alive[k]) delete rCache[k]; });
+    if (rSel === null || !alive[rSel]){
+      rSel = CACHE.length ? CACHE[CACHE.length - 1].idx : null;
+      rTag = null;
+    }
+    if (!$('viewRtdb').hidden) rtdbRender();
+  }
+
+  $('rShifts').addEventListener('click', function(ev){
+    var b = ev.target.getAttribute('data-rsel');
+    if (b === null || b === undefined) return;
+    rSel = +b; rtdbRender();
+  });
+  $('rTbl').addEventListener('click', function(ev){
+    var tr = ev.target.closest ? ev.target.closest('tr[data-rt]') : null;
+    if (tr) rtdbTrend(tr.getAttribute('data-rt'));
+  });
+
   /* ── 페이지 탭 ── */
   function tab(which){
     $('viewOverview').hidden = which!=='ovw';
     $('viewData').hidden     = which!=='data';
     $('viewScen').hidden     = which!=='scen';
+    $('viewRtdb').hidden     = which!=='rtdb';
     $('tabOvw').classList.toggle('off',  which!=='ovw');
     $('tabData').classList.toggle('off', which!=='data');
     $('tabScen').classList.toggle('off', which!=='scen');
+    $('tabRtdb').classList.toggle('off', which!=='rtdb');
     if (which==='data' && !sel) select('TI-101');
+    if (which==='rtdb'){ rtdbSync(); rtdbRender(); }
   }
   $('tabOvw').onclick  = function(){ tab('ovw'); };
   $('tabData').onclick = function(){ tab('data'); };
   $('tabScen').onclick = function(){ tab('scen'); };
+  $('tabRtdb').onclick = function(){ tab('rtdb'); };
+  // 배포 앱의 iframe 딥링크용 — 기존 #ovw/#data/#scen 은 서버 스크립트가 처리하므로 #rtdb 만 여기서
+  if ((location.hash || '') === '#rtdb') tab('rtdb');
+  window.addEventListener('hashchange', function(){ if ((location.hash || '') === '#rtdb') tab('rtdb'); });
 })();
 </script>
 </body>
