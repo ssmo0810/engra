@@ -23,6 +23,8 @@ def decide(shift_id, decisions, confirmed_by="근무자"):
 
         for item_id, d in decisions.items():
             # 근무자가 중요도를 바꿨으면 그 값이 최종이다. AI 판정은 제안이지 결정이 아니다.
+            if d.get("comment"):
+                d["comment"] = str(d["comment"])[:1000]     # 공개 폼. 무제한이면 디스크 증식 경로
             sev = d.get("severity")
             if sev in ("상", "중", "하"):
                 conn.execute(

@@ -206,6 +206,11 @@ def reopen_handover(conn, shift_id, reason=None):
     conn.execute("DELETE FROM handover WHERE shift_id = ?", (shift_id,))
     conn.execute("DELETE FROM handover_fts WHERE shift_id = ?", (shift_id,))
     conn.execute("UPDATE draft SET status = 'pending' WHERE shift_id = ?", (shift_id,))
+    # 공개 데모라 승인↔재검토를 무한 반복할 수 있다. 근무당 이력 20회까지만 남긴다.
+    conn.execute(
+        """DELETE FROM handover_history WHERE shift_id = ? AND id NOT IN
+           (SELECT id FROM handover_history WHERE shift_id = ? ORDER BY round DESC LIMIT 20)""",
+        (shift_id, shift_id))
     return prev + 1
 
 

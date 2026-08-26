@@ -312,7 +312,9 @@ def view_index():
     reset_bar = ('<form method="post" action="/reset" style="display:flex;gap:8px;align-items:center;margin:0 0 12px">'
                  '<span class="muted" style="font-size:12px">데모 상태 되돌리기 —</span>'
                  '<button class="btn" style="padding:6px 12px;font-size:12px">기준선으로 (팀 정본 8근무)</button>'
-                 '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)">완전 빈 상태로</button>'
+                 '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)" '
+                 "onclick=\"if(!confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.confirm.value='1'\">완전 빈 상태로</button>"
+                 '<input type="hidden" name="confirm" value="0">'
                  '<span class="muted" style="font-size:11.5px">· 매시 정각에도 자동으로 기준선으로 돌아갑니다</span></form>')
     body = (reset_bar + f'<div class="card" style="padding:14px 18px">'
             f'<h2>근무 일지</h2>'
@@ -579,15 +581,26 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, page("오류", f'<div class="card"><h2>오류</h2>'
                                         f'<pre class="mono">{esc(exc)}</pre></div>'))
 
+    MAX_BODY = 256 * 1024   # 승인 폼은 코멘트 수십 개라도 수십 KB. 이 이상은 폼이 아니다.
+
     def do_POST(self):
-        length = int(self.headers.get("Content-Length") or 0)
-        form = parse_qs(self.rfile.read(length).decode("utf-8"))
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0 or length > self.MAX_BODY:
+            self._send(413, page("요청이 너무 큽니다", f'<div class="card"><div class="empty">'
+                                                  f'본문 {length:,}B — 허용 {self.MAX_BODY:,}B</div></div>'))
+            return
+        form = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
             if path == "/reopen":
                 # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.
                 sid = form["shift_id"][0]
-                reason = (form.get("reason", [""])[0] or "").strip() or None
+                reason = ((form.get("reason", [""])[0] or "").strip() or None)
+                if reason:
+                    reason = reason[:200]
                 with db.connect() as conn:
                     rnd = db.reopen_handover(conn, sid, reason)
                 print(f"  REOPEN {sid} (이전 {rnd}차 확정 → 이력)")
@@ -598,6 +611,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/reset":
                 # QA 용. 확정을 눌러도 되돌릴 수 있어야 마음 놓고 눌러본다.
                 empty = form.get("empty", ["0"])[0] == "1"
+                if empty and form.get("confirm", ["0"])[0] != "1":
+                    self._send(400, page("확인 필요", '<div class="card"><div class="empty">빈 상태 리셋은 확정 이력까지 지웁니다. '
+                                                    '화면의 확인 대화상자를 거쳐야 합니다.</div></div>'))
+                    return
                 what = db.reset(empty=empty)
                 self.send_response(303)
                 self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
