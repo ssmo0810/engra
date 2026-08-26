@@ -360,6 +360,15 @@ def _view_pending(shift_id, draft, active="/"):
     items = []
     for it in draft["items"]:
         sug = ""
+        # AI 중요도 판정 — 왜 그 등급인지, 규칙과 다르면 그 사실을 보인다. 사람이 뒤집을 수 있어야 한다.
+        judged = ""
+        reason = it.get("severity_reason") if isinstance(it, dict) or hasattr(it, "keys") else None
+        if reason:
+            rule = it.get("severity_rule")
+            diff = f' <span class="muted">(통계 기준 {esc(rule)} → AI 판정 {esc(it["severity"])})</span>' if rule and rule != it["severity"] else ""
+            worthy = it.get("handover_worthy")
+            flag = "" if worthy in (None, 1, True) else ' <span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span>'
+            judged = f'<div class="note" style="margin:6px 0 4px"><b>중요도 판단</b> — {esc(reason)}{diff}{flag}</div>'
         if it["suggested_action"]:
             quoted = json.dumps(it["suggested_action"], ensure_ascii=False)
             n = len(it["precedents"]) or 1
@@ -373,7 +382,7 @@ def _view_pending(shift_id, draft, active="/"):
 <div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
 <div class="body">
 <div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
-{sug}
+{judged}{sug}
 <textarea name="comment_{it['id']}" placeholder="코멘트 (선택)"></textarea>
 </div></div>""")
 

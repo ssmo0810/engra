@@ -28,7 +28,8 @@ import urllib.request
 
 MODEL = os.environ.get("ENGRA_LLM_MODEL", "claude-opus-5")
 API_URL = "https://api.anthropic.com/v1/messages"
-TIMEOUT_SEC = 120
+TIMEOUT_SEC = 300
+BATCH = 5          # 한 호출에 넣는 항목 수. 16개 한 번에 넣으면 120초를 넘겼다 (실측). 5개면 ~40초
 
 # 모델이 채울 수 있는 것은 이 세 필드뿐이다. 숫자 필드는 없다.
 ITEM_SCHEMA = {
@@ -43,8 +44,12 @@ ITEM_SCHEMA = {
                     "title": {"type": "string", "description": "한 줄 제목. 태그와 현상"},
                     "body": {"type": "string", "description": "인수인계 문장 2~4개. 근거의 숫자를 그대로 인용"},
                     "suggested_action": {"type": "string", "description": "다음 근무자에게 권하는 조치 한 문장. 과거 사례가 있으면 그것을 근거로"},
+                    "severity": {"type": "string", "enum": ["상", "중", "하"],
+                                 "description": "인수인계 관점의 중요도. 통계 크기가 아니라 '놓치면 무엇이 일어나는가'로 판단"},
+                    "severity_reason": {"type": "string", "description": "그 중요도로 판단한 이유 한 문장. 근무자가 읽고 동의할 수 있어야 한다"},
+                    "handover_worthy": {"type": "boolean", "description": "다음 근무자에게 실제로 전달할 가치가 있는가. 외기 변동처럼 정상 운전의 일부면 false"},
                 },
-                "required": ["idx", "title", "body", "suggested_action"],
+                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy"],
                 "additionalProperties": False,
             },
         }
@@ -63,7 +68,20 @@ SYSTEM = """당신은 24시간 연속 공정(공기분리장치, ASU) 교대 근
 - 문장은 현장 근무자가 쓰는 말투로 짧게. 존칭 없이 "~됨", "~확인 필요" 형태.
 - 과거 사례가 있으면 그 조치를 참고해 suggested_action 을 쓴다. 없으면 관찰·확인 위주로.
 - 태그명은 그대로 쓴다 (예: TI-205). 설명은 괄호로 붙인다.
-- 알람이 아직 울리지 않았지만 추세가 한계로 향하는 경우, 그 점을 반드시 명시한다 — 이것이 인수인계의 핵심이다."""
+- 알람이 아직 울리지 않았지만 추세가 한계로 향하는 경우, 그 점을 반드시 명시한다 — 이것이 인수인계의 핵심이다.
+
+중요도(severity)는 통계 검출기가 매긴 값을 참고만 하고 **다시 판단**한다. 기준은 통계 크기가 아니라
+"놓치면 무엇이 일어나는가" 다. 현장이 정한 기준을 따른다:
+- 상: 품질·안전·설비에 직결. 예) 순도 헌팅(제품 품질), 흡착탑 수분 파과(콜드박스 결빙), 압축기 서지 전조,
+  밸브 고착(레벨 추세로만 판별), 상관 붕괴(고장 공통 신호), 베어링 이상 전조, 다음 근무에 한계 도달하는 드리프트
+- 중: 손실·비효율이지만 즉시 위험은 아님. 예) 반복 헌팅으로 벤트 손실, 분석기 순간 이상값(계측 신뢰도),
+  필터 차압 상승, 단시간 급증 후 원복(교대 시점엔 정상이라 적지 않으면 다음 근무자가 모름)
+- 하: 알람 없이 지나갔고 후속 영향이 작음. 예) 임계 근접 후 복귀
+
+handover_worthy 는 엄격하게 판단한다. **대기 온습도(TI-101, MI-102) 의 하루 주기 변동과 그에 따라 함께
+움직인 하류 태그의 완만한 변화는 정상 운전의 일부**라 false 다. 단, 그 태그가 한계에 접근하거나
+다른 이상과 겹치면 true. 판단이 갈리면 true 로 두고 severity_reason 에 의심을 적는다 —
+놓치는 것이 과잉 표시보다 비싸다."""
 
 
 class LLMUnavailable(RuntimeError):
@@ -167,21 +185,32 @@ def rewrite(shift, items):
     if not items:
         return items, status()
 
-    user = _prompt(shift, items)
-    out = _call_cli(SYSTEM, user) if m == "cli" else _call_api(SYSTEM, user)
-
-    by_idx = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
-    if len(by_idx) != len(items):
-        raise LLMUnavailable(f"모델이 {len(items)}개 중 {len(by_idx)}개만 돌려줬습니다. 전부 있어야 합니다.")
+    # 배치로 나눠 부른다. 한 번에 다 넣으면 응답이 길어져 타임아웃에 걸린다.
+    # 배치 안 idx 는 0부터 다시 매기고, 합칠 때 원래 순번으로 되돌린다.
+    by_idx = {}
+    for start in range(0, len(items), BATCH):
+        chunk = items[start:start + BATCH]
+        user = _prompt(shift, chunk)
+        out = _call_cli(SYSTEM, user) if m == "cli" else _call_api(SYSTEM, user)
+        got = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
+        if len(got) != len(chunk):
+            raise LLMUnavailable(f"모델이 배치 {start//BATCH+1} 의 {len(chunk)}개 중 {len(got)}개만 돌려줬습니다. 전부 있어야 합니다.")
+        for local, o in got.items():
+            by_idx[start + local] = o
 
     rewritten = []
     for i, it in enumerate(items):
         o = by_idx.get(i)
         if o is None:
             raise LLMUnavailable(f"항목 {i} 의 응답이 없습니다.")
-        new = dict(it)                          # tag·severity·evidence·precedents·event_id 등 원본 유지
+        new = dict(it)                          # tag·evidence·precedents·event_id 등 원본 유지
         new["title"] = o["title"].strip() or it["title"]
         new["body"] = o["body"].strip() or it["body"]
         new["suggested_action"] = o["suggested_action"].strip() or it.get("suggested_action")
+        # 중요도는 AI 가 다시 판단한다. 규칙이 매긴 값은 severity_rule 로 남겨 대비할 수 있게 한다.
+        new["severity_rule"] = it.get("severity")
+        new["severity"] = o["severity"] if o.get("severity") in ("상", "중", "하") else it.get("severity")
+        new["severity_reason"] = o.get("severity_reason", "").strip()
+        new["handover_worthy"] = bool(o.get("handover_worthy", True))
         rewritten.append(new)
     return rewritten, status()
