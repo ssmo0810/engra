@@ -315,7 +315,7 @@ def _score_html():
         html_ = ('<div class="card" style="padding:14px 18px">'
                  '<h2 style="font-size:15px">정답지 대조 — ' + esc(label) + ' <span class="muted" style="font-weight:400;font-size:12px">' + esc(kp.name) + '</span></h2>'
                  '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
-                 '<table class="sc"><tr><th>근무</th><th>검출 이벤트</th><th>주입</th><th>탐지</th><th>오탐</th></tr>' + "".join(rows) + '</table>')
+                 '<table class="sc"><tr><th>근무</th><th>총 검출 수</th><th>주입한 Event</th><th>탐지 성공</th><th>오탐</th></tr>' + "".join(rows) + '</table>')
         if b["missed"]:
             html_ += '<p class="note" style="margin-top:8px"><b>놓친 주입</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">' + missed + '</ul>'
         html_ += '</div>'
