@@ -1,0 +1,27 @@
+# ENGRA — AI 교대 인수인계 프로토타입 (본선 제출용 데모)
+# cs-study-lms.service 의 하드닝 패턴을 그대로 따른다.
+[Unit]
+Description=ENGRA shift handover prototype
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=engra
+Group=engra
+WorkingDirectory=/opt/engra
+EnvironmentFile=-/opt/engra/.env
+ExecStart=/usr/bin/python3 /opt/engra/app/cli.py serve --host 127.0.0.1 --port 4320
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/engra/app
+CapabilityBoundingSet=
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

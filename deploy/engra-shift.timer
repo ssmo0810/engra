@@ -1,0 +1,9 @@
+[Unit]
+Description=ENGRA — run at shift close 06:00 and 18:00 KST
+[Timer]
+OnCalendar=*-*-* 06:00:00 Asia/Seoul
+OnCalendar=*-*-* 18:00:00 Asia/Seoul
+AccuracySec=1s
+Persistent=false
+[Install]
+WantedBy=timers.target

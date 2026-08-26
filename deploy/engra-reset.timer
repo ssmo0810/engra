@@ -1,0 +1,9 @@
+[Unit]
+Description=Restore ENGRA demo seed state hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

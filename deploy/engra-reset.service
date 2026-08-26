@@ -1,0 +1,14 @@
+# 데모 상태를 시드 스냅샷으로 되돌린다.
+# 공개 데모라 방문자가 승인을 누르면 대기 초안이 사라진다. 다음 방문자도
+# 같은 흐름을 볼 수 있어야 하므로 주기적으로 초기 상태로 복원한다.
+[Unit]
+Description=Restore ENGRA demo seed state
+After=engra.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl stop engra.service
+ExecStart=/bin/cp /opt/engra/app/seed.db /opt/engra/app/engra.db
+ExecStart=/bin/rm -f /opt/engra/app/engra.db-wal /opt/engra/app/engra.db-shm
+ExecStart=/bin/chown engra:engra /opt/engra/app/engra.db
+ExecStart=/bin/systemctl start engra.service

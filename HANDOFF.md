@@ -260,6 +260,10 @@ python3 tools/journal.py     # 04 제작과정 문서 갱신
 python3 app/cli.py serve     # 화면 http://127.0.0.1:8000
 ```
 
+✅ **교대 시각 자동 생성이 돈다** — `engra-shift.timer` 가 06:00·18:00 KST 에 `cli.py run --latest`
+(막 끝난 근무). 예선 4-3 의 스케줄러 약속이 이것이다. `AccuracySec=1s` 를 지켜라 — 30초 밀리면 다음 근무를
+고른다(경계 실측). 실패는 `journalctl -u engra-shift`. 유닛 사본은 `deploy/`.
+
 🔴 **공개 앱 서비스를 정지하지 마라.** `systemctl stop engra.service` 는 곧 공개 URL 502 다. 평가 기준이
 "URL 이 안 열리면 구현 완성도를 확인할 수 없다" 고 적고 있고, 경모님이 QA 하다 막혔다(2026-08-27,
 시드하려고 30분 넘게 내림). 시드는 `tools/seed.py` 가 **별도 파일에 빌드해 원자 교체**하므로 서비스를
