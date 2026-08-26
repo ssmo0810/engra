@@ -120,6 +120,13 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
 # 트렌드 호버. 목업(demo/index.html)의 move()/out() 을 서버 차트 좌표계로 옮겼다.
 # viewBox 720×150 을 width:100% 로 그리므로 x 축 배율만 계산하면 된다(세로 비율 유지).
 TREND_JS = """
+function upCheck(f){
+  var max=+f.dataset.max, tot=0, fs=f.querySelector('input[type=file]').files, m=f.querySelector('.upmsg');
+  for(var i=0;i<fs.length;i++) tot+=fs[i].size;
+  if(!fs.length){m.textContent='파일을 고르세요'; return false;}
+  if(tot>max){m.textContent='합계 '+(tot/1048576).toFixed(1)+'MB — 한 번에 '+(max/1048576)+'MB 까지. 근무 하나씩 올리세요'; return false;}
+  m.textContent='올리는 중… '+(tot/1048576).toFixed(1)+'MB'; f.querySelector('button').disabled=true; return true;
+}
 document.querySelectorAll('.trend[data-trend]').forEach(function(box){
   var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
   var svg=box.querySelector('svg'), cur=svg.querySelector('.cur'), dot=svg.querySelector('.dot'), tip=box.querySelector('.tip');
@@ -414,11 +421,12 @@ def view_pipeline():
             '<button class="btn"' + (' disabled' if running else '') + '>적재 + 검출 + AI 초안 생성</button>'
             '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정돼 있어도 다시 만들기</label>'
             '</form>'
-            '<form method="post" action="/pipeline/upload" enctype="multipart/form-data" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
             '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
             '<span class="muted" style="font-size:11.5px">CSV(근무) + 정답지 JSON 을 같이. 정답지가 있어야 대조가 된다</span>'
+            '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span>'
             '</form>' + up_html
             + '<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>'
             '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
@@ -845,9 +853,37 @@ class Handler(BaseHTTPRequestHandler):
             # 한 번에 하나만 — 본문을 읽기 전에 줄을 서므로 두 번째 업로드는 메모리를 안 먹고 기다린다.
             # (409 로 거절하면 브라우저가 본문을 다 보내기 전에 끊겨 "연결 재설정"만 본다 — 실측)
             with jobs.upload_lock:
-                self._handle_upload(ctype, self.rfile.read(length))
+                raw = self._read_body(length)
+                if raw is None:
+                    return
+                self._handle_upload(ctype, raw)
             return
         self._handle_form(self.rfile.read(length))
+
+    UPLOAD_STALL_S = 30      # recv 한 번이 이만큼 멎으면 끊는다
+    UPLOAD_TOTAL_S = 300     # 96MB 를 이 안에 못 보내면 끊는다 (1MB/s 면 96s)
+
+    def _read_body(self, length):
+        """업로드 본문을 조각으로 읽는다. 멎은 클라이언트가 upload_lock 을 무기한 잡는 것을 막는다
+        (Codex 반증 2026-08-27). 시간 초과면 408 을 보내고 None."""
+        import time
+        self.connection.settimeout(self.UPLOAD_STALL_S)
+        deadline = time.monotonic() + self.UPLOAD_TOTAL_S
+        buf = bytearray()
+        try:
+            while len(buf) < length:
+                chunk = self.rfile.read(min(1 << 20, length - len(buf)))
+                if not chunk or time.monotonic() > deadline:
+                    raise TimeoutError
+                buf += chunk
+        except (TimeoutError, OSError):
+            print(f"  UPLOAD 시간 초과 {len(buf):,}/{length:,}B")
+            try:
+                self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>', active="/pipeline"))
+            except OSError:
+                pass
+            return None
+        return bytes(buf)
 
     def _handle_upload(self, ctype, raw):
         # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
