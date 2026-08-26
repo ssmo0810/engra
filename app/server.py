@@ -38,6 +38,7 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
 .nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .nav a.on small{color:#c9c6c1}
 .frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.uploading .nav a{pointer-events:none;opacity:.45}
 .sc{border-collapse:collapse;width:100%;font-size:12.5px}.sc th,.sc td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.sc th{color:var(--sub);font-weight:600;font-size:11px}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
@@ -121,11 +122,41 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
 # viewBox 720×150 을 width:100% 로 그리므로 x 축 배율만 계산하면 된다(세로 비율 유지).
 TREND_JS = """
 function upCheck(f){
-  var max=+f.dataset.max, tot=0, fs=f.querySelector('input[type=file]').files, m=f.querySelector('.upmsg');
-  for(var i=0;i<fs.length;i++) tot+=fs[i].size;
+  var fs=f.querySelector('input[type=file]').files, m=f.querySelector('.upmsg');
   if(!fs.length){m.textContent='파일을 고르세요'; return false;}
-  if(tot>max){m.textContent='합계 '+(tot/1048576).toFixed(1)+'MB — 한 번에 '+(max/1048576)+'MB 까지. 근무 하나씩 올리세요'; return false;}
-  m.textContent='올리는 중… '+(tot/1048576).toFixed(1)+'MB'; f.querySelector('button').disabled=true; return true;
+  upSend(f, fs, m); return false;   // 폼 제출 대신 XHR — 진행률을 보이고, 끝날 때까지 화면 이동을 막는다
+}
+function upLock(on){
+  document.body.classList.toggle('uploading', on);
+  document.querySelectorAll('button, input[type=file]').forEach(function(b){b.disabled=on;});
+  window.onbeforeunload = on ? function(){return '업로드 중입니다';} : null;
+  window.__uploading = on;   // 실행 중 5초 새로고침이 업로드를 끊지 않게
+}
+async function upSend(f, fs, m){
+  var max=+f.dataset.max, mb=function(n){return (n/1048576).toFixed(1)+'MB';};
+  upLock(true);
+  try{
+    var fd=new FormData(), tot=0, raw=0, gz=(typeof CompressionStream!=='undefined');
+    for(var i=0;i<fs.length;i++){
+      var file=fs[i]; raw+=file.size;
+      if(gz && file.size>1048576){
+        m.textContent='압축 중… '+file.name+' ('+mb(file.size)+')';
+        var blob=await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+        fd.append('files', blob, file.name+'.gz'); tot+=blob.size;
+      }else{ fd.append('files', file, file.name); tot+=file.size; }
+    }
+    if(tot>max){ m.textContent='압축해도 '+mb(tot)+' — 한 번에 '+mb(max)+' 까지. 근무 하나씩 올리세요'; upLock(false); return; }
+    var xhr=new XMLHttpRequest(); xhr.open('POST','/pipeline/upload');
+    xhr.upload.onprogress=function(e){ if(e.lengthComputable) m.textContent='올리는 중 '+Math.round(100*e.loaded/e.total)+'% ('+mb(e.loaded)+'/'+mb(e.total)+(gz?' · 원본 '+mb(raw):'')+')'; };
+    xhr.upload.onload=function(){ m.textContent='서버에서 푸는 중… (원본 '+mb(raw)+')'; };
+    xhr.onload=function(){
+      if(xhr.status<400){ window.onbeforeunload=null; location.replace('/pipeline'); return; }
+      var d=new DOMParser().parseFromString(xhr.responseText,'text/html'), t=d.querySelector('.empty');
+      m.textContent='실패 '+xhr.status+' — '+(t?t.textContent:''); upLock(false);
+    };
+    xhr.onerror=function(){ m.textContent='연결이 끊겼습니다. 다시 올려 주세요'; upLock(false); };
+    xhr.send(fd);
+  }catch(e){ m.textContent='실패 — '+e; upLock(false); }
 }
 document.querySelectorAll('.trend[data-trend]').forEach(function(box){
   var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
@@ -287,40 +318,57 @@ def view_rtdb():
 
 
 def _score_html():
-    """정답지 대조 패널. DB 에 이벤트가 있는 근무만 채점된다 — 아직 안 돌린 근무는 '—'."""
+    """정답지 대조 — 정답지 파일이 여러 개라도 표는 하나. 경모님 지적(2026-08-27): "왜 기준/sim 이 나눠져 있고,
+    검출이벤트·탐지·주입·오탐이 무슨 뜻인지 모르겠고 합이 안 맞는다". 합이 맞게 보이는 두 축으로 나눈다:
+      정답 쪽: 심은 이상 = 잡음 + 놓침 / 엔진 쪽: 낸 이벤트 = 정답 맞춤 + 오탐.
+    한 이상을 여러 이벤트가 잡을 수 있어 '잡음'(이상 수) 과 '정답 맞춤'(이벤트 수) 은 다른 숫자다."""
     boards = jobs.scoreboard()
-    out = []
+    rows, errs = [], []
+    T = {"inj": 0, "hit": 0, "ev": 0, "fp": 0}
+    cov_inj, cov_hit, missed = set(), set(), []
+    src_of = {s["shift_id"]: s["set"] for s in jobs.SOURCES}
     for b in boards:
         if b.get("error"):
-            out.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>')
+            errs.append('<div class="note">채점 실패 — ' + esc(Path(b["key"]).name) + ': ' + esc(b["error"]) + '</div>')
             continue
-        rows = []
+        kn = Path(b["key"]).name
+        cov_inj.update(b["cov_inj"]); cov_hit.update(b["cov_hit"]); missed.extend(b["missed"])
         for sid, ev, inj, hit, fp in b["per_shift"]:
+            link = '<a href="/answer/' + esc(kn) + '/' + esc(sid) + '">' + esc(sid) + '</a>'
+            src = esc(src_of.get(sid, ""))
             if ev is None:
-                cells = '<td class="muted">—</td><td>' + str(inj) + '</td><td class="muted">—</td><td class="muted">—</td>'
-            else:
-                cells = '<td>' + str(ev) + '</td><td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td>' + str(fp) + '</td>'
-            rows.append('<tr><td class="mono"><a href="/answer/' + esc(Path(b["key"]).name) + '/' + esc(sid) + '">' + esc(sid) + '</a></td>' + cells + '</tr>')
-        scored = [x for x in b["per_shift"] if x[1] is not None]
-        if scored:
-            pct = 100 * b["hit"] / b["inj"] if b["inj"] else 0
-            head = ('<b>주입 ' + str(b["hit"]) + '/' + str(b["inj"]) + '건 잡음 (' + f'{pct:.0f}' + '%) · 시나리오 '
-                    + str(len(b["cov_hit"])) + '/' + str(len(b["cov_inj"])) + '종 · 오탐 ' + str(b["fp"]) + '건</b>')
-        else:
-            head = '<span class="muted">아직 돌린 근무가 없습니다</span>'
-        missed = "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
-                         for sid, no, name, tag, s_, e_ in b["missed"])
-        kp = Path(b["key"])
-        label = "기준 2근무" if kp.parent.name == "data" else kp.parent.name
-        html_ = ('<div class="card" style="padding:14px 18px">'
-                 '<h2 style="font-size:15px">정답지 대조 — ' + esc(label) + ' <span class="muted" style="font-weight:400;font-size:12px">' + esc(kp.name) + '</span></h2>'
-                 '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
-                 '<table class="sc"><tr><th>근무</th><th>총 검출 수</th><th>주입한 Event</th><th>탐지 성공</th><th>오탐</th></tr>' + "".join(rows) + '</table>')
-        if b["missed"]:
-            html_ += '<p class="note" style="margin-top:8px"><b>놓친 주입</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">' + missed + '</ul>'
-        html_ += '</div>'
-        out.append(html_)
-    return "".join(out)
+                rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted">' + src + '</td><td>' + str(inj) + '</td>'
+                             '<td class="muted" colspan="5">아직 안 돌림 — ③에서 실행하면 채점</td></tr>'))
+                continue
+            T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
+            miss = inj - hit
+            rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted">' + src + '</td>'
+                         '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td>'
+                         '<td>' + str(ev) + '</td><td>' + str(ev - fp) + '</td><td' + (' style="color:var(--bad)"' if fp else '') + '>' + str(fp) + '</td></tr>'))
+    rows.sort(key=lambda r: r[0])
+    if T["inj"]:
+        pct = 100 * T["hit"] / T["inj"]
+        head = ('<b>주입한 이상 ' + str(T["inj"]) + '건 중 ' + str(T["hit"]) + '건 탐지 성공 (' + f'{pct:.0f}' + '%) · 시나리오 '
+                + str(len(cov_hit)) + '/' + str(len(cov_inj)) + '종 · 오탐 ' + str(T["fp"]) + '건</b>')
+        total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
+                 + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
+    else:
+        head = '<span class="muted">아직 돌린 근무가 없습니다 — ③에서 한 근무를 실행하면 여기서 바로 채점됩니다</span>'; total = ''
+    legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
+              '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
+              '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 낸 이벤트 수 = <b>정답 맞춤</b>(어떤 이상에든 겹친 이벤트) + <b>오탐</b>(어느 이상과도 안 겹친 이벤트). '
+              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 정답 맞춤(이벤트 수)은 다른 숫자다. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
+    missed_html = ''
+    if missed:
+        missed_html = ('<p class="note" style="margin-top:8px"><b>놓친 이상</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">'
+                       + "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
+                                 for sid, no, name, tag, s_, e_ in sorted(missed)) + '</ul>')
+    return ('<div class="card" style="padding:14px 18px">'
+            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">정답지가 있는 근무 전부 · 출처 = 기준(임도영 2근무) / sim(6근무) / 업로드</span></h2>'
+            '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
+            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">출처</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
+            '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>정답 맞춤</th><th>오탐</th></tr>'
+            + "".join(r for _, r in rows) + total + '</table></div>' + legend + missed_html + "".join(errs) + '</div>')
 
 
 def view_answer(key_name, shift_id):
@@ -389,10 +437,12 @@ def view_pipeline():
     with db.connect() as conn:
         have = {r["id"]: (bool(db.load_draft(conn, r["id"])), bool(db.load_handover(conn, r["id"]))) for r in db.list_shifts(conn)}
     opts = []
+    up0 = jobs.last_upload()
+    cur = st.get("shift_id") or (up0["added"][-1] if up0["added"] else None)   # 새로고침마다 1번으로 돌아가던 것 (경모님 QA)
     for src in jobs.SOURCES:
         d, h = have.get(src["shift_id"], (False, False))
         tag = "확정" if h else ("초안 있음" if d else ("적재됨" if src["shift_id"] in have else "미적재"))
-        opts.append('<option value="' + esc(src["shift_id"]) + '">' + esc(src["shift_id"]) + ' · ' + esc(src["set"]) + ' · 주입 ' + str(src["injected"]) + '건 · ' + tag + '</option>')
+        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + esc(src["set"]) + ' · 주입 ' + str(src["injected"]) + '건 · ' + tag + '</option>')
     up = jobs.last_upload()
     up_html = ""
     if up["files"]:
@@ -410,7 +460,7 @@ def view_pipeline():
         link = ('<p class="note"><a href="/shift/' + esc(st["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(st["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
     hint = '<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 · 이 화면은 5초마다 갱신</span>' if running else ""
-    reload_js = '<script>setTimeout(function(){location.reload();},5000);</script>' if running else ""
+    reload_js = '<script>setTimeout(function(){if(!window.__uploading)location.reload();},5000);</script>' if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
             '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
@@ -418,7 +468,7 @@ def view_pipeline():
             '같은 근무를 다시 돌리려면 「다시 만들기」를 켠다.</p>'
             '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
-            '<button class="btn"' + (' disabled' if running else '') + '>적재 + 검출 + AI 초안 생성</button>'
+            '<button class="btn"' + (' disabled' if running else '') + ' onclick="var o=this.form.shift_id.selectedOptions[0].text; if(o.indexOf(\'초안 있음\')>=0 && !window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\')) return false;">적재 + 검출 + AI 초안 생성</button>'
             '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
             '</form>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
@@ -503,8 +553,8 @@ def view_index():
                  '<span class="muted" style="font-size:12px">데모 상태 되돌리기 —</span>'
                  '<button class="btn" style="padding:6px 12px;font-size:12px">기준선으로 (팀 정본 8근무)</button>'
                  '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)" '
-                 "onclick=\"if(!confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.confirm.value='1'\">완전 빈 상태로</button>"
-                 '<input type="hidden" name="confirm" value="0">'
+                 "onclick=\"if(!window.confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.sure.value='1'\">완전 빈 상태로</button>"
+                 '<input type="hidden" name="sure" value="0">'
                  '<span class="muted" style="font-size:11.5px">· 매시 정각에도 자동으로 기준선으로 돌아갑니다</span></form>')
     body = (reset_bar + f'<div class="card" style="padding:14px 18px">'
             f'<h2>근무 일지</h2>'
@@ -892,6 +942,29 @@ class Handler(BaseHTTPRequestHandler):
         self.connection.settimeout(self.UPLOAD_STALL_S)
         return bytes(buf)
 
+    MAX_RAW = 64 * 1024 * 1024   # .gz 를 풀었을 때 파일 하나 상한 — 압축 폭탄이 메모리를 채우지 않게
+
+    @classmethod
+    def _gunzip(cls, data):
+        """스트리밍으로 풀며 상한을 넘으면 즉시 멈춘다. gzip.decompress 는 다 풀고 나서야 크기를 알 수 있다."""
+        import zlib
+        d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        out = bytearray()
+        chunk = data
+        while True:
+            out += d.decompress(chunk, cls.MAX_RAW + 1 - len(out))
+            if len(out) > cls.MAX_RAW:
+                raise ValueError(f"압축을 풀면 {cls.MAX_RAW // 1048576}MB 를 넘습니다 — 근무 하나씩 올리세요")
+            chunk = d.unconsumed_tail
+            if not chunk:
+                break
+        out += d.flush()
+        if not d.eof:
+            raise ValueError("gzip 스트림이 끝까지 오지 않았습니다 — 업로드가 중간에 끊긴 파일입니다")
+        if len(out) > cls.MAX_RAW:
+            raise ValueError(f"압축을 풀면 {cls.MAX_RAW // 1048576}MB 를 넘습니다 — 근무 하나씩 올리세요")
+        return bytes(out)
+
     def _handle_upload(self, ctype, raw):
         # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
         import email.parser, email.policy
@@ -902,7 +975,11 @@ class Handler(BaseHTTPRequestHandler):
             for part in msg.iter_parts():
                 fn = part.get_filename()
                 if fn:
-                    saved.append(jobs.save_upload(fn, part.get_payload(decode=True)).name)
+                    data = part.get_payload(decode=True)
+                    if fn.endswith(".gz"):
+                        # 브라우저가 CompressionStream 으로 눌러 보낸 것 — 37MB CSV 가 수 MB 로 줄어 업로드가 수 초
+                        data, fn = self._gunzip(data), fn[:-3]
+                    saved.append(jobs.save_upload(fn, data).name)
         except Exception as exc:
             self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
             return
@@ -945,7 +1022,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/reset":
                 # QA 용. 확정을 눌러도 되돌릴 수 있어야 마음 놓고 눌러본다.
                 empty = form.get("empty", ["0"])[0] == "1"
-                if empty and form.get("confirm", ["0"])[0] != "1":
+                if jobs.state()["running"]:
+                    # 실행 스레드가 DB 파일을 잡고 있는데 파일을 갈아끼우면 그 스레드는 지워진 inode 에 쓴다
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">③ 파이프라인이 돌고 있습니다. 끝난 뒤 리셋하세요.</div></div>')); return
+                if empty and form.get("sure", ["0"])[0] != "1":
                     self._send(400, page("확인 필요", '<div class="card"><div class="empty">빈 상태 리셋은 확정 이력까지 지웁니다. '
                                                     '화면의 확인 대화상자를 거쳐야 합니다.</div></div>'))
                     return

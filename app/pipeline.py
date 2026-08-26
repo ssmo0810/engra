@@ -113,6 +113,7 @@ def run(shift_id, verbose=True, redo=False, say=None):
         by_event = {e["id"]: (e.get("metrics") or {}) for e in stored}
         for it in items:
             it["metrics"] = by_event.get(it.get("event_id"), {})
+        conn.commit()   # 여기까지의 쓰기를 확정하고 잠금을 놓는다 — AI 가 수 분 걸리는 동안 승인 화면이 "database is locked" 로 막혔다 (경모님 QA 2026-08-27)
         items, ai_status = llm.rewrite(shift, items)
         for it in items:
             it.pop("metrics", None)             # 저장 스키마엔 없는 임시 필드
