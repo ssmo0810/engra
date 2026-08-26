@@ -49,8 +49,14 @@ def cmd_sample(args):
 
 def cmd_ingest(args):
     db.init()
-    source = collect.source_for(args.csv)   # 파일 경로 또는 URL (#12)
+    bad = collect.BadRows() if args.skip_bad_rows else None
+    source = collect.source_for(args.csv, bad)   # 파일 경로 또는 URL (#12)
     counts = collect.ingest(source)
+    if bad and bad.count:
+        # 건너뛴 것을 숨기지 않는다. 몇 행을 왜 버렸는지가 검증 기록이다.
+        print(f"⚠ 깨진 행 {bad.count:,}개 건너뜀 ({bad.count/bad.total:.2%}). 예:")
+        for s_ in bad.samples:
+            print(f"    {s_}")
     if not counts:
         print("적재된 데이터가 없습니다.")
         return
@@ -158,6 +164,8 @@ def build_parser():
 
     s = sub.add_parser("ingest", help="CSV 적재")
     s.add_argument("csv", help="CSV 파일 경로 또는 http(s) URL")
+    s.add_argument("--skip-bad-rows", action="store_true",
+                   help="형식이 깨진 행을 건너뛴다 (건수·예시를 보고, 1%% 초과면 거부). 기본은 첫 오류에서 멈춤")
     s.set_defaults(fn=cmd_ingest)
 
     sub.add_parser("shifts", help="근무 구간 목록").set_defaults(fn=cmd_shifts)

@@ -46,11 +46,29 @@ def shift_id_for(ts):
 
 # --- 데이터 소스 ------------------------------------------------------
 
-def _rows(fh, label):
+MAX_BAD_RATIO = 0.01   # 이 이상 깨졌으면 노이즈가 아니라 파일이 잘못된 것이다
+
+
+class BadRows:
+    """건너뛴 행의 집계. ingest 가 끝나면 크게 보고한다 — 조용히 넘기지 않는다."""
+
+    def __init__(self):
+        self.count = 0
+        self.total = 0
+        self.samples = []
+
+    def add(self, lineno, raw, exc):
+        self.count += 1
+        if len(self.samples) < 5:
+            self.samples.append(f"{lineno}: {raw!r} — {exc}")
+
+
+def _rows(fh, label, bad=None):
     """열린 텍스트 스트림 -> (ts, tag, value). CsvSource·UrlSource 가 같이 쓴다.
 
-    형식 오류는 삼키지 않고 줄 번호와 함께 올린다. 03 검증 항목에 "형식이 어긋난 값이
-    섞였을 때" 가 있어서, 어디서 어떻게 깨졌는지가 곧 검증 기록이 된다.
+    기본은 첫 형식 오류에서 줄 번호와 함께 멈춘다 — 어디서 어떻게 깨졌는지가 곧 검증 기록이다.
+    `bad` 를 넘기면 깨진 행을 건너뛰고 세어 둔다(--skip-bad-rows). 단 1% 를 넘으면 멈춘다:
+    그건 노이즈가 아니라 잘못된 파일이고, 그런 파일로 만든 초안은 신뢰할 수 없다.
     """
     reader = csv.DictReader(fh)
     missing = {"timestamp", "tag", "value"} - set(reader.fieldnames or [])
@@ -60,24 +78,34 @@ def _rows(fh, label):
             f"연결 규약은 timestamp,tag,value 입니다. 실제 열: {reader.fieldnames}"
         )
     for lineno, row in enumerate(reader, start=2):
+        if bad is not None:
+            bad.total += 1
         try:
             ts = datetime.fromisoformat(row["timestamp"])
             value = float(row["value"])
         except (ValueError, TypeError) as exc:
-            raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
+            if bad is None:
+                raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
+            bad.add(lineno, (row.get("timestamp"), row.get("tag"), row.get("value")), exc)
+            if bad.total >= 1000 and bad.count / bad.total > MAX_BAD_RATIO:
+                raise ValueError(
+                    f"{label}: {bad.total}행 중 {bad.count}행이 깨졌습니다 ({bad.count/bad.total:.1%}). "
+                    f"1% 를 넘어 노이즈가 아니라 잘못된 파일로 봅니다. 예: {bad.samples[0]}")
+            continue
         yield ts, row["tag"].strip(), value
 
 
 class CsvSource:
     """`timestamp,tag,value` 형식 CSV. app/README.md 연결 규약 ①."""
 
-    def __init__(self, path):
+    def __init__(self, path, bad=None):
         self.path = path
         self.name = f"csv:{path.name}"
+        self.bad = bad
 
     def read(self):
         with open(self.path, encoding="utf-8-sig", newline="") as f:
-            yield from _rows(f, self.path.name)
+            yield from _rows(f, self.path.name, self.bad)
 
 
 class UrlSource:
@@ -89,9 +117,10 @@ class UrlSource:
     같은 URL 을 여러 번 적재할 일이 드물고, 두면 "어느 버전을 읽었나" 가 흐려진다.
     """
 
-    def __init__(self, url):
+    def __init__(self, url, bad=None):
         self.url = url
         self.name = f"url:{url.rsplit('/', 1)[-1]}"
+        self.bad = bad
 
     def read(self):
         req = urllib.request.Request(self.url, headers={"User-Agent": "engra-collect/1.0"})
@@ -99,15 +128,15 @@ class UrlSource:
             if r.status != 200:
                 raise ValueError(f"{self.url}: HTTP {r.status}")
             with io.TextIOWrapper(r, encoding="utf-8-sig", newline="") as f:
-                yield from _rows(f, self.name)
+                yield from _rows(f, self.name, self.bad)
 
 
-def source_for(arg):
-    """ingest 인자 -> Source. http(s) 면 URL, 아니면 파일 경로."""
+def source_for(arg, bad=None):
+    """ingest 인자 -> Source. http(s) 면 URL, 아니면 파일 경로. bad 를 주면 깨진 행을 건너뛴다."""
     from pathlib import Path
     if str(arg).startswith(("http://", "https://")):
-        return UrlSource(str(arg))
-    return CsvSource(Path(arg))
+        return UrlSource(str(arg), bad)
+    return CsvSource(Path(arg), bad)
 
 
 class RtdbSource:
