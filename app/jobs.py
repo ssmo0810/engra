@@ -100,7 +100,7 @@ def scoreboard():
     out = []
     for k in keys:
         try:
-            r = score_mod.score(k)
+            r = score_mod.score(k, only={s["shift_id"] for s in SOURCES if s["key"] == k})
             r["key"] = k
             out.append(r)
         except Exception as exc:

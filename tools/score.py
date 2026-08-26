@@ -36,9 +36,12 @@ def _overlap(a0, a1, b0, b1):
     return not (a1 < b0 or b1 < a0)
 
 
-def score(answer_path):
+def score(answer_path, only=None):
     key = json.loads(Path(answer_path).read_text(encoding="utf-8"))
     shifts = key["shift_list"]
+    if only is not None:
+        # 화면 채점용 — 업로드가 정본의 일부 근무를 교체하면 그 근무는 정본 표에서 빼야 두 표에 겹치지 않는다 (Codex 반증)
+        shifts = [sh for sh in shifts if sh["shift_id"] in only]
 
     per_shift = []
     hit_ids, inj_ids = set(), set()
