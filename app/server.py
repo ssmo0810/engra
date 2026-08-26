@@ -369,6 +369,12 @@ def _view_pending(shift_id, draft, active="/"):
             worthy = it.get("handover_worthy")
             flag = "" if worthy in (None, 1, True) else ' <span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span>'
             judged = f'<div class="note" style="margin:6px 0 4px"><b>중요도 판단</b> — {esc(reason)}{diff}{flag}</div>'
+        rel = it.get("related_tags_ai") if hasattr(it, "keys") else None
+        if rel:
+            judged += (f'<div class="note" style="margin:4px 0"><b>함께 봐야 할 항목</b> — '
+                       f'{", ".join(esc(t) for t in rel)}'
+                       + (f' <span class="muted">— {esc(it.get("related_note") or "")}</span>' if it.get("related_note") else "")
+                       + '</div>')
         if it["suggested_action"]:
             quoted = json.dumps(it["suggested_action"], ensure_ascii=False)
             n = len(it["precedents"]) or 1

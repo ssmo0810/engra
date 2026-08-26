@@ -51,8 +51,11 @@ ITEM_SCHEMA = {
                     "precedent_fit": {"type": "array", "items": {"type": "integer"},
                                       "description": "제시된 과거 조치 중 이번 증상에 실제로 맞는 것의 번호(0부터). 태그만 같고 증상·조치가 다르면 넣지 않는다. 없으면 빈 배열"},
                     "precedent_note": {"type": "string", "description": "과거 조치를 채택/기각한 이유 한 문장. 사례가 없었으면 빈 문자열"},
+                    "related_idx": {"type": "array", "items": {"type": "integer"},
+                                    "description": "이 배치 안에서 같은 사건의 다른 얼굴이라고 판단되는 항목 번호. 태그 마스터 연결이 없어도 공정 지식으로 판단. 없으면 빈 배열"},
+                    "related_note": {"type": "string", "description": "왜 같은 사건으로 보는지 한 문장. related_idx 가 비면 빈 문자열"},
                 },
-                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy", "precedent_fit", "precedent_note"],
+                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy", "precedent_fit", "precedent_note", "related_idx", "related_note"],
                 "additionalProperties": False,
             },
         }
@@ -90,7 +93,13 @@ handover_worthy 는 엄격하게 판단한다. **대기 온습도(TI-101, MI-102
 증상이 다르거나 조치가 이번 현상과 무관하면 채택하지 않는다. 예) 대기 습도 드리프트에
 "LP 컬럼 리플럭스 조정" 은 맞지 않는다 — 다른 항목의 조치가 같은 근무 일지에 섞여 들어온 것이다.
 맞는 사례만 precedent_fit 에 번호로 적고, suggested_action 은 그 사례에 근거해 쓴다.
-맞는 사례가 없으면 precedent_fit 은 빈 배열, suggested_action 은 관찰·확인 위주로 새로 쓴다."""
+맞는 사례가 없으면 precedent_fit 은 빈 배열, suggested_action 은 관찰·확인 위주로 새로 쓴다.
+
+항목들은 통계 검출기가 시간 겹침과 태그 마스터의 연결(links)로 이미 한 번 묶은 것이다. 그 묶음이
+놓치는 것을 공정 지식으로 찾아라 — 예) A탑·B탑 후단 수분이 동시에 오르면 공통 원인(재생 가스·
+전환 밸브), 토출압 상승 + 유량 감소 + 전력 증가면 서지 전조 하나, 순도 하강과 Cold end 온도
+상승은 콜드박스 열밸런스 한 사건. 같은 사건의 다른 얼굴이면 related_idx 로 서로 가리키고
+related_note 에 이유를 적는다. 근거 없이 묶지 않는다 — 확신 없으면 빈 배열."""
 
 
 class LLMUnavailable(RuntimeError):
@@ -227,5 +236,19 @@ def rewrite(shift, items):
         new["precedents_all"] = pre
         new["precedents"] = [pre[k] for k in fit]
         new["precedent_note"] = (o.get("precedent_note") or "").strip()
+        new["_related_local"] = [k for k in (o.get("related_idx") or []) if isinstance(k, int)]
+        new["related_note"] = (o.get("related_note") or "").strip()
         rewritten.append(new)
+    # 의미 묶음: 배치 안 로컬 번호 → 태그 목록. 자기 자신·범위 밖은 버린다.
+    for i, new in enumerate(rewritten):
+        base = (i // BATCH) * BATCH
+        loc = new.pop("_related_local", [])
+        tags = []
+        for k in loc:
+            j = base + k
+            if 0 <= j < len(rewritten) and j != i:
+                tags.append(rewritten[j]["tag"])
+        new["related_tags_ai"] = sorted(set(tags))
+        if not tags:
+            new["related_note"] = ""
     return rewritten, status()
