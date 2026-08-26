@@ -883,11 +883,13 @@ class Handler(BaseHTTPRequestHandler):
                 buf += chunk
         except (TimeoutError, OSError):
             print(f"  UPLOAD 시간 초과 {len(buf):,}/{length:,}B")
+            self.connection.settimeout(self.UPLOAD_STALL_S)   # 마지막 반복의 극소 timeout 이 응답 전송까지 남지 않게 (Codex 4차)
             try:
                 self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>', active="/pipeline"))
             except OSError:
                 pass
             return None
+        self.connection.settimeout(self.UPLOAD_STALL_S)
         return bytes(buf)
 
     def _handle_upload(self, ctype, raw):

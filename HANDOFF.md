@@ -262,7 +262,7 @@ python3 app/cli.py serve     # 화면 http://127.0.0.1:8000
 ```
 
 ✅ **정답지 뷰** `/answer/<정답지파일>/<근무ID>` — 주입 시나리오별 잡음/놓침 + 매칭 이벤트 + 오탐 + 동시 발생. `tools/score.py` 가 `detail` 을 돌려준다.
-✅ **업로드** multipart 200MB(폼 256KB 와 분리 — 37MB CSV 가 413 났던 것). 정답지 JSON 이 근무·CSV 를 등록. 정시 리셋은 `.qa_active` 2h 이내면 건너뜀(`tools/reset_if_idle.sh`).
+✅ **업로드** multipart **48MB**(근무 하나 = 12h CSV 35.8MB + 정답지; 폼 256KB 와 분리 — 37MB CSV 가 413 났던 것). email 파서가 본문의 ~11배 메모리를 써서(라이브 실측 420MB) MemoryMax 700MB 아래 유지하려면 이 상한. 업로드는 락으로 한 번에 하나, 수신은 read1 + 30s/300s 타임아웃(408) — Codex 4라운드 산물. 브라우저 가드가 보내기 전에 크기를 본다. 정답지 JSON 이 근무·CSV 를 등록(csv_file 은 basename 만). 정시 리셋은 `.qa_active` 2h 이내면 건너뜀(`tools/reset_if_idle.sh`).
 ✅ **③ 파이프라인 화면** — `/pipeline`. 소스 고르기(정본 8근무 + 업로드) → 「적재+검출+AI 초안」 한 버튼 → `jobs.py`
 스레드 + `/api/job` 폴링 → 「정답지 대조」 (`tools/score.py` 그대로, 라이브). 한 번에 하나만(Lock, 409).
 QA 는 이 화면 기준 — `제출/QA_순서_앙그라쥬.md`. 교대 타이머는 운영용, 검증엔 이 버튼.
