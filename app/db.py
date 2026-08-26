@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS draft_item (
     severity_rule    TEXT,                   -- 통계 검출기가 매긴 중요도 (AI 판정과 대비용)
     severity_reason  TEXT,                   -- AI 가 중요도를 그렇게 판단한 이유
     handover_worthy  INTEGER,                -- AI 판단: 다음 근무에 전달할 가치 (1/0, 미판정 NULL)
+    precedent_note   TEXT,                   -- AI 가 과거 사례를 채택/기각한 이유
     precedent_json   TEXT,                   -- 근거로 삼은 과거 일지
     adopted          INTEGER,                -- NULL 미결정 / 1 채택 / 0 제외
     comment          TEXT,
@@ -162,7 +163,7 @@ def connect():
 def _migrate(conn):
     """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게."""
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT")):
         if col not in have:
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
 
@@ -353,8 +354,8 @@ def save_draft(conn, shift_id, items, generator, model=None):
     conn.executemany(
         """INSERT INTO draft_item
            (draft_id, event_id, seq, origin, tag, title, body, evidence,
-            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_json, adopted)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
+            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, precedent_json, adopted)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
         [
             (
                 draft_id, it.get("event_id"), i, it.get("origin", "detected"),
@@ -362,6 +363,7 @@ def save_draft(conn, shift_id, items, generator, model=None):
                 it.get("severity"), it.get("suggested_action"),
                 it.get("severity_rule"), it.get("severity_reason"),
                 (None if it.get("handover_worthy") is None else int(bool(it["handover_worthy"]))),
+                it.get("precedent_note"),
                 json.dumps(it.get("precedents", []), ensure_ascii=False),
             )
             for i, it in enumerate(items, start=1)

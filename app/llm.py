@@ -48,8 +48,11 @@ ITEM_SCHEMA = {
                                  "description": "인수인계 관점의 중요도. 통계 크기가 아니라 '놓치면 무엇이 일어나는가'로 판단"},
                     "severity_reason": {"type": "string", "description": "그 중요도로 판단한 이유 한 문장. 근무자가 읽고 동의할 수 있어야 한다"},
                     "handover_worthy": {"type": "boolean", "description": "다음 근무자에게 실제로 전달할 가치가 있는가. 외기 변동처럼 정상 운전의 일부면 false"},
+                    "precedent_fit": {"type": "array", "items": {"type": "integer"},
+                                      "description": "제시된 과거 조치 중 이번 증상에 실제로 맞는 것의 번호(0부터). 태그만 같고 증상·조치가 다르면 넣지 않는다. 없으면 빈 배열"},
+                    "precedent_note": {"type": "string", "description": "과거 조치를 채택/기각한 이유 한 문장. 사례가 없었으면 빈 문자열"},
                 },
-                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy"],
+                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy", "precedent_fit", "precedent_note"],
                 "additionalProperties": False,
             },
         }
@@ -81,7 +84,13 @@ SYSTEM = """당신은 24시간 연속 공정(공기분리장치, ASU) 교대 근
 handover_worthy 는 엄격하게 판단한다. **대기 온습도(TI-101, MI-102) 의 하루 주기 변동과 그에 따라 함께
 움직인 하류 태그의 완만한 변화는 정상 운전의 일부**라 false 다. 단, 그 태그가 한계에 접근하거나
 다른 이상과 겹치면 true. 판단이 갈리면 true 로 두고 severity_reason 에 의심을 적는다 —
-놓치는 것이 과잉 표시보다 비싸다."""
+놓치는 것이 과잉 표시보다 비싸다.
+
+과거 조치(precedents)는 **같은 태그의 최근 확정 일지**를 기계적으로 가져온 것이다. 태그가 같아도
+증상이 다르거나 조치가 이번 현상과 무관하면 채택하지 않는다. 예) 대기 습도 드리프트에
+"LP 컬럼 리플럭스 조정" 은 맞지 않는다 — 다른 항목의 조치가 같은 근무 일지에 섞여 들어온 것이다.
+맞는 사례만 precedent_fit 에 번호로 적고, suggested_action 은 그 사례에 근거해 쓴다.
+맞는 사례가 없으면 precedent_fit 은 빈 배열, suggested_action 은 관찰·확인 위주로 새로 쓴다."""
 
 
 class LLMUnavailable(RuntimeError):
@@ -119,9 +128,9 @@ def _prompt(shift, items):
                 lines.append(f"    수치: {json.dumps(keep, ensure_ascii=False)}")
         pre = it.get("precedents") or []
         if pre:
-            lines.append("    과거 조치:")
-            for p in pre[:3]:
-                lines.append(f"      - {p.get('shift_id', '')}: {str(p.get('text', ''))[:160]}")
+            lines.append("    과거 조치 (번호로 판정):")
+            for k, p in enumerate(pre[:3]):
+                lines.append(f"      [{k}] {p.get('shift_id', '')}: {str(p.get('text', ''))[:200]}")
         lines.append("")
     return "\n".join(lines)
 
@@ -212,5 +221,11 @@ def rewrite(shift, items):
         new["severity"] = o["severity"] if o.get("severity") in ("상", "중", "하") else it.get("severity")
         new["severity_reason"] = o.get("severity_reason", "").strip()
         new["handover_worthy"] = bool(o.get("handover_worthy", True))
+        # 사례 적합성 — 태그만 같은 사례는 걷어낸다. 원본 목록은 precedents_all 에 남겨 감사할 수 있게.
+        pre = it.get("precedents") or []
+        fit = [k for k in (o.get("precedent_fit") or []) if isinstance(k, int) and 0 <= k < min(len(pre), 3)]
+        new["precedents_all"] = pre
+        new["precedents"] = [pre[k] for k in fit]
+        new["precedent_note"] = (o.get("precedent_note") or "").strip()
         rewritten.append(new)
     return rewritten, status()

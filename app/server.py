@@ -372,7 +372,9 @@ def _view_pending(shift_id, draft, active="/"):
         if it["suggested_action"]:
             quoted = json.dumps(it["suggested_action"], ensure_ascii=False)
             n = len(it["precedents"]) or 1
-            sug = (f'<div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 {n}건</span>'
+            pnote = it.get("precedent_note") if hasattr(it, "keys") else None
+            note_html = f' <span class="muted">— {esc(pnote)}</span>' if pnote else ""
+            sug = (f'<div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 {n}건{note_html}</span>'
                    f'{esc(it["suggested_action"])}'
                    f'<button type="button" onclick="use(this,{html.escape(quoted, quote=True)})">'
                    f'코멘트로 사용</button></div>')
