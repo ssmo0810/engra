@@ -412,14 +412,14 @@ def view_pipeline():
     hint = '<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 · 이 화면은 5초마다 갱신</span>' if running else ""
     reload_js = '<script>setTimeout(function(){location.reload();},5000);</script>' if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
-            '<h2>파이프라인 — 버튼으로 전 구간을 돈다</h2>'
-            '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭(임도영님 생성기)에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
-            '아니면 아래 <b>정본 근무</b>(정답지 있음)를 고른다. 그다음 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인 → 여기 「정답지 대조」가 갱신된다. '
+            '<h2>파이프라인 — ENGRA Simulation</h2>'
+            '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
+            '그다음 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인 → 「정답지 대조」 Page 갱신. '
             '같은 근무를 다시 돌리려면 「다시 만들기」를 켠다.</p>'
             '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
             '<button class="btn"' + (' disabled' if running else '') + '>적재 + 검출 + AI 초안 생성</button>'
-            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정돼 있어도 다시 만들기</label>'
+            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
             '</form>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
