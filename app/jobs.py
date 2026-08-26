@@ -157,7 +157,8 @@ def _register_key(p):
                 cand = [c for c in UPLOAD_DIR.glob("*.csv") if sh["shift_id"] in c.name]   # 이름이 달라도 근무 ID 로 붙인다
                 if cand:
                     csv = cand[0]
-            SOURCES[:] = [s for s in SOURCES if not (s["set"] == "업로드" and s["shift_id"] == sh["shift_id"])]
+            # 같은 근무 ID 는 세트 불문 교체 — 실행이 shift_id 로 소스를 찾으므로 정본이 남아 있으면 업로드 CSV 가 안 돈다 (Codex 반증)
+            SOURCES[:] = [s for s in SOURCES if s["shift_id"] != sh["shift_id"]]
             SOURCES.append({"shift_id": sh["shift_id"], "csv": str(csv), "key": str(p),
                             "injected": len(sh["injected"]), "set": "업로드"})
         SOURCES.sort(key=lambda s: s["shift_id"])
@@ -166,10 +167,15 @@ def _register_key(p):
 def _reload_uploads():
     """서버 시작 시 이전에 올라온 정답지를 다시 등록한다 — 재시작(배포·타이머) 뒤 업로드 근무가 목록에서
     사라지던 것(라이브 실측 2026-08-27). 깨진 JSON 하나가 공개 서비스 기동을 막지 않게 건너뛰고 크게 남긴다."""
-    for j in sorted(UPLOAD_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime):
+    try:
+        files = sorted(UPLOAD_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime)
+    except OSError as exc:
+        print(f"  !! uploads/ 를 읽지 못함 — 업로드 근무 없이 시작: {exc}", file=sys.stderr)
+        return
+    for j in files:
         try:
             _register_key(j)
-        except (ValueError, KeyError, TypeError) as exc:
+        except (ValueError, KeyError, TypeError, OSError) as exc:
             print(f"  !! 업로드 정답지 {j.name} 등록 실패 — 건너뜀: {exc}", file=sys.stderr)
 
 
