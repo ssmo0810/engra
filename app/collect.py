@@ -160,7 +160,9 @@ def _rows(fh, label, bad=None):
             if bad is None:
                 raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
             bad.add(lineno, (row.get("timestamp"), row.get("tag"), row.get("value")), exc)
-            if bad.max_ratio is not None and bad.total >= 1000 and bad.scattered() / bad.total > bad.max_ratio:
+            # 산발 행이 300행(한 태그 10분 분량)은 돼야 비율을 따진다 — 근무 시작 직후부터 끊긴 태그가 300행이 쌓여 '오래 끊긴 태그' 로
+            # 분류되기 전에 1% 를 넘어 거부되는 것을 막는다 (Codex). 300행이 되는 순간 그 태그는 dominant 로 빠져 산발이 0 이 된다.
+            if bad.max_ratio is not None and bad.total >= 1000 and bad.scattered() >= RUN_MIN_ROWS and bad.scattered() / bad.total > bad.max_ratio:
                 # 한 태그가 오래 끊긴 것(계측·통신 장애)은 파일이 잘못된 게 아니다 — 한 태그는 전체 행의 1/53 이라 150분만
                 # 끊겨도 누적 1% 를 넘는다(실측). 그래서 상한은 '산발' 행(오래 끊긴 태그의 행을 뺀 나머지)에만 건다.
                 # 연속 결측은 통과해 결측 구간으로 남고, 그 뒤에 산발 오류가 섞이면 여전히 잡힌다 (Codex).
