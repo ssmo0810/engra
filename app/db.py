@@ -465,8 +465,8 @@ def save_draft(conn, shift_id, items, generator, model=None):
     conn.executemany(
         """INSERT INTO draft_item
            (draft_id, event_id, seq, origin, tag, title, body, evidence,
-            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, adopted)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
+            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, precedents_all_json, adopted)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
         [
             (
                 draft_id, it.get("event_id"), i, it.get("origin", "detected"),
@@ -477,6 +477,7 @@ def save_draft(conn, shift_id, items, generator, model=None):
                 it.get("precedent_note"),
                 json.dumps(it.get("related_tags_ai") or [], ensure_ascii=False), it.get("related_note"),
                 json.dumps(it.get("precedents", []), ensure_ascii=False),
+                json.dumps(it.get("precedents_all", []), ensure_ascii=False),   # 기각한 사례도 남긴다 — 라벨이 "없음" 과 "맞지 않음" 을 구분 (Codex)
             )
             for i, it in enumerate(items, start=1)
         ],
@@ -495,6 +496,7 @@ def load_draft(conn, shift_id):
     ):
         it = dict(r)
         it["precedents"] = json.loads(it.pop("precedent_json") or "[]")
+        it["precedents_all"] = json.loads(it.pop("precedents_all_json", None) or "[]")
         try:
             it["related_tags_ai"] = json.loads(it.get("related_tags_ai") or "[]")
         except (TypeError, ValueError):
