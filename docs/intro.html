@@ -12,9 +12,9 @@
 
   · 스크롤·클릭 조작이 없다. 이 화면을 띄워두고 말로 40초를 채운다.
     브라우저 F11(전체화면)로 주소창을 감추고 녹화하면 된다.
-  · 화면에는 「구조와 숫자」만 둔다. 문제 제기·부연 설명은 말로 한다 —
-    화면 글자와 내레이션이 같은 말을 하면 보는 사람이 읽느라 안 듣는다.
-  · 한 사실은 한 자리에만. (초안 시점은 순환도에만, 회수는 효과에만)
+  · 본문은 전부 가운데 정렬. 상단 로고(좌)·팀명(우)만 모서리에 둔다.
+  · 세로 배치는 space-between — 제목+순환(위) / 왜 만들었나(가운데 아래) /
+    효과 3칸(아래). 세로 가운데로 모으면 위아래가 붕 뜬다.
   · 1920×1080 기준으로 글자 크기를 잡았고, 창이 작아지면 vh 비율로 함께
     줄어든다. 어떤 크기에서도 스크롤은 생기지 않는다(overflow:hidden).
   · 배경 파형은 소개페이지(index.html) 히어로에서 그대로 가져왔다.
@@ -23,16 +23,19 @@
     (없으면 "근무자가" 가 "근무 / 자가" 로 갈라진다 — 실제로 겪었다.)
 
   ── 내레이션 대본 (약 215자 · 40초) ──────────────────────────────
-  (0~11초)  24시간 돌아가는 공정은 12시간 2교대로 운전됩니다.
+  화면에 이미 적힌 문장을 그대로 읽지 않는다. 화면은 눈으로 읽히게 두고,
+  말로는 배경과 숫자를 더한다.
+
+  (0~12초)  24시간 돌아가는 공정은 12시간 2교대로 운전됩니다.
             제어시스템은 태그 수백 개를 초 단위로 기록하지만, 다음 조에게
-            넘어가는 건 근무자의 기억에 의존한 몇 줄입니다.
-            알람에 걸리지 않은 느린 변화는 그대로 사라집니다.
-  (11~24초) ENGRA 는 12시간 운전 데이터를 읽어 교대 1시간 전에 인수인계
+            넘어가는 건 근무자가 기억한 몇 줄입니다. 알람에 걸리지 않은
+            느린 변화는 아무 기록도 남지 않습니다.
+  (12~26초) ENGRA 는 12시간 운전 데이터를 읽어 교대 1시간 전에 인수인계
             초안을 대신 씁니다. 근무자가 확인하고 승인하면, 그 일지가
             다음 근무 초안의 과거 조치로 돌아옵니다.
-  (24~34초) 독립 데이터 6근무에서 심어둔 이상 48건 중 47건을 잡았고,
+  (26~35초) 독립 데이터 6근무에서 심어둔 이상 48건 중 47건을 잡았고,
             잘못 잡은 것은 근무당 2.2건이었습니다.
-  (34~40초) 지금부터 실제 화면으로 보여드리겠습니다.
+  (35~40초) 지금부터 실제 화면으로 보여드리겠습니다.
   ══════════════════════════════════════════════════════════════════
 -->
 <style>
@@ -50,56 +53,70 @@
   .stage {
     position:relative; height:100vh; width:100%; overflow:hidden;
     display:flex; flex-direction:column;
-    padding:clamp(20px,3.4vh,48px) clamp(26px,4.6vw,96px) clamp(18px,2.6vh,38px);
+    padding:clamp(18px,3vh,42px) clamp(26px,4.2vw,88px) clamp(16px,2.3vh,32px);
   }
   .bg { position:absolute; inset:0; opacity:.5; pointer-events:none; }
   .bg svg { width:100%; height:100%; display:block; }
   .veil { position:absolute; inset:0; pointer-events:none;
-    background:radial-gradient(ellipse at 38% 48%, rgba(15,15,16,.05) 0%, rgba(15,15,16,.84) 56%, #0f0f10 100%); }
+    background:radial-gradient(ellipse at 50% 46%, rgba(15,15,16,.04) 0%, rgba(15,15,16,.84) 58%, #0f0f10 100%); }
 
+  /* ── 상단: 로고(좌) · 팀명(우) ── */
   .top { position:relative; display:flex; align-items:center; justify-content:space-between; gap:20px; }
-  .logo { display:flex; align-items:center; gap:clamp(8px,.9vw,13px); }
-  .dot { width:clamp(6px,.62vh,9px); aspect-ratio:1; border-radius:50%; background:#EA002C; display:block;
+  .logo { display:flex; align-items:center; gap:clamp(9px,1vw,16px); }
+  .dot { width:clamp(8px,.8vh,12px); aspect-ratio:1; border-radius:50%; background:#EA002C; display:block;
          animation:pulse 2.8s ease-in-out infinite; }
-  .wordmark { font-size:clamp(24px,3.1vh,40px); font-weight:800; letter-spacing:-.045em; color:#fff; line-height:1; }
-  .badge { font-size:clamp(9px,1.15vh,13px); letter-spacing:.2em; color:#6d6d75; text-align:right; }
+  .wordmark { font-size:clamp(31px,4.03vh,52px); font-weight:800; letter-spacing:-.045em; color:#fff; line-height:1; }
+  /* 가상 데이터 표기는 본문이 아니라 메타 정보다. 화면 아래에 두면 효과 3칸의
+     가운데 칸에 딸린 설명처럼 붙어 보여서 상단 메타 영역으로 올렸다. */
+  .badge { font-size:clamp(9px,1.15vh,13px); letter-spacing:.2em; color:#6d6d75; text-align:right; line-height:1.85; }
+  .badge i { font-style:normal; color:#4e4e57; }
 
-  /* 본문 — 제목(위) · 순환(가운데) · 결과(아래)를 화면에 고르게 편다.
-     세로 가운데로 모으면 위아래가 붕 뜬다. */
-  .mid { position:relative; flex:1 1 auto; display:flex; flex-direction:column;
-         justify-content:space-between; gap:clamp(20px,3vh,42px);
-         padding:clamp(16px,3.4vh,52px) 0 clamp(8px,1.4vh,22px); }
-  /* 제목과 순환은 한 묶음 — 떨어뜨리면 순환도가 화면 중앙에 외롭게 뜬다 */
-  .lead { display:flex; flex-direction:column; gap:clamp(20px,3.6vh,50px); }
+  /* ── 본문: 전부 가운데 정렬 ── */
+  .mid { position:relative; flex:1 1 auto; display:flex; flex-direction:column; align-items:center;
+         justify-content:space-between; text-align:center;
+         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 0; }
 
-  h1 { margin:0; font-size:clamp(34px,7.6vh,96px); font-weight:300; line-height:1.2;
-       letter-spacing:-.043em; color:#fff; }
+  .lead { display:flex; flex-direction:column; align-items:center; gap:clamp(18px,3.2vh,44px); }
+  h1 { margin:0; font-size:clamp(44px,9.9vh,125px); font-weight:300; line-height:1.18;
+       letter-spacing:-.045em; color:#fff; }
   h1 strong { font-weight:800; }
   h1 .hl { font-weight:800; color:#EA002C; }
 
   /* 순환 — ENGRA 의 정의. 3스텝. */
-  .flow { display:flex; align-items:center; flex-wrap:wrap; gap:clamp(7px,1vw,18px);
-          font-size:clamp(12px,1.95vh,24px); }
-  .step { padding:clamp(6px,1.05vh,14px) clamp(11px,1.3vw,24px); border:1px solid #35353c; border-radius:999px;
+  .flow { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:clamp(7px,1vw,18px);
+          font-size:clamp(12px,1.9vh,23px); }
+  .step { padding:clamp(6px,1vh,13px) clamp(11px,1.3vw,24px); border:1px solid #35353c; border-radius:999px;
           color:#d7d7dc; white-space:nowrap; }
   .step.key { border-color:#EA002C; color:#fff; background:rgba(234,0,44,.12); font-weight:700; }
   .arw { color:#5a5a63; }
   .loop { color:#EA002C; font-weight:700; white-space:nowrap; }
 
-  /* 효과 — 가로 3칸. 한 눈에 훑히고 화면 폭을 꽉 쓴다. */
-  .res { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(18px,3vw,72px);
-         border-top:1px solid #24242a; padding-top:clamp(14px,2.6vh,34px); }
-  .res > div { display:flex; flex-direction:column; gap:clamp(5px,.9vh,12px); }
-  .res b { font-size:clamp(15px,2.5vh,32px); font-weight:800; letter-spacing:-.028em; color:#fff; }
-  .res span { font-size:clamp(12px,1.85vh,23px); line-height:1.5; color:#9a9aa2; letter-spacing:-.012em; }
+  /* ── 왜 만들었나 + 문제 ── */
+  .why { display:flex; flex-direction:column; align-items:center; gap:clamp(12px,2vh,26px);
+         max-width:clamp(560px,80vw,1180px); }
+  .label { font-size:clamp(9px,1.05vh,12px); letter-spacing:.26em; color:#EA002C; font-weight:600; margin:0; }
+  /* 폭을 좁히면 "남지 / 않았습니다" 처럼 문장이 어중간하게 갈린다 — 문장 단위로 끊기게 넉넉히 */
+  .motive { margin:0; font-size:clamp(14px,2.15vh,27px); line-height:1.62; color:#e4e4e8; max-width:56ch; }
+  .motive b { color:#fff; font-weight:700; }
+  .pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:clamp(14px,2.6vw,60px);
+          border-top:1px solid #24242a; padding-top:clamp(11px,2vh,24px); width:100%; }
+  .pair b { display:block; font-size:clamp(13px,1.95vh,24px); font-weight:700; letter-spacing:-.02em; color:#f4f4f5; }
+  .pair span { display:block; margin-top:clamp(3px,.6vh,8px); font-size:clamp(11px,1.55vh,19px);
+               line-height:1.5; color:#82828b; }
+
+  /* ── 효과 3칸 ── */
+  .res { align-self:stretch; display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+         gap:clamp(16px,2.6vw,64px); border-top:1px solid #24242a; padding-top:clamp(12px,2.2vh,30px); }
+  .res > div { display:flex; flex-direction:column; align-items:center; gap:clamp(4px,.8vh,10px); }
+  .res b { font-size:clamp(14px,2.35vh,30px); font-weight:800; letter-spacing:-.028em; color:#fff; }
+  .res span { font-size:clamp(11px,1.75vh,22px); line-height:1.45; color:#9a9aa2; letter-spacing:-.012em; }
   .res em { font-style:normal; color:#EA002C; font-weight:700; }
 
-  .foot { position:relative; margin:clamp(10px,1.7vh,22px) 0 0; text-align:right;
-          font-size:clamp(9px,1.2vh,13px); color:#4e4e57; letter-spacing:.06em; }
-
+  /* 좁거나 눌린 창에서도 한 화면을 지킨다 */
+  @media (max-height: 640px) { .pair { display:none; } }
   @media (max-width: 860px) {
-    .mid { gap:clamp(18px,3vh,30px); }
-    .res { grid-template-columns:minmax(0,1fr); gap:clamp(10px,1.8vh,16px); }
+    .mid { gap:clamp(14px,2.2vh,24px); }
+    .pair, .res { grid-template-columns:minmax(0,1fr); gap:clamp(9px,1.6vh,15px); }
   }
 </style>
 </head>
@@ -127,10 +144,11 @@
       <span class="dot"></span>
       <span class="wordmark">engra</span>
     </div>
-    <div class="badge mono">SK AI 해커톤 2026 · 앙그라쥬</div>
+    <div class="badge mono">SK AI 해커톤 2026 · 앙그라쥬<br><i>화면의 모든 값은 가상 데이터</i></div>
   </div>
 
   <div class="mid">
+
     <div class="lead">
       <h1>교대 인수인계를,<br><strong>데이터가 <span class="hl">먼저 쓴다.</span></strong></h1>
 
@@ -140,6 +158,22 @@
         <span class="step key">AI 초안 · 교대 1시간 전</span>
         <span class="arw">→</span>
         <span class="loop">↻ 다음 근무 초안으로</span>
+      </div>
+    </div>
+
+    <div class="why">
+      <p class="label mono">WHY WE BUILT IT</p>
+      <p class="motive">같은 현상이 조마다 다른 문장으로 남거나, <b>아예 남지 않았습니다.</b><br>
+         그래서 데이터가 먼저 쓰게 했습니다.</p>
+      <div class="pair">
+        <div>
+          <b>기억에 의존한다</b>
+          <span>12시간 · 태그 수백 점이 기록되지만, 넘어가는 건 기억한 몇 줄</span>
+        </div>
+        <div>
+          <b>알람 밖은 사라진다</b>
+          <span>한계선에 닿지 않은 느린 변화는 기록이 없어 다음 조가 모른다</span>
+        </div>
       </div>
     </div>
 
@@ -157,9 +191,8 @@
         <span>승인한 일지가 <em>다음 근무 초안으로</em></span>
       </div>
     </div>
-  </div>
 
-  <p class="foot mono">화면의 모든 값은 가상 데이터</p>
+  </div>
 
 </div>
 
