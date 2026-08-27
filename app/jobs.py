@@ -83,8 +83,7 @@ def drain():
         paths = _pending[:]
         _pending.clear()
         _begin(None, "ingest")
-    _run_ingest(paths)
-    return True
+    return _run_ingest(paths)
 
 
 def release_hold(lock):
@@ -98,6 +97,7 @@ def _spawn(work, requeue=None):
     락을 놓고 오류를 남기고, 옮겨 둔 CSV 는 큐에 되돌린다."""
     try:
         threading.Thread(target=work, daemon=True).start()
+        return True
     except Exception as exc:
         if requeue:
             with _qlock:
@@ -105,6 +105,7 @@ def _spawn(work, requeue=None):
         _say(f"✗ 작업 스레드를 시작하지 못함 — {type(exc).__name__}: {exc}")
         # 여기서 drain 하면 같은 실패를 무한 반복한다(실측). 큐는 다음 업로드/작업 종료 때 다시 시도된다.
         _finish(err=f"작업 스레드를 시작하지 못함: {type(exc).__name__}: {exc}", drain_after=False)
+        return False
 
 
 def _say(msg):
@@ -164,8 +165,7 @@ def _run_ingest(paths):
         except Exception as exc:
             _say(f"✗ {type(exc).__name__}: {exc}")
             _finish(err=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-600:]}")
-    _spawn(work, requeue=paths)
-    return True
+    return _spawn(work, requeue=paths)   # 스레드가 안 떴으면 False → 화면이 "시작됐다" 고 오보하지 않는다 (Codex)
 
 
 def run_async(shift_id, csv_path=None, redo=False, reingest=False, why=None):
