@@ -76,7 +76,11 @@
      없으면 화면 맨 밑에 붙어 보인다. */
   .mid { position:relative; flex:1 1 auto; display:flex; flex-direction:column; align-items:center;
          justify-content:space-between; text-align:center;
-         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 clamp(6px,1vh,14px); }
+         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 clamp(20px,3.4vh,44px); }
+  /* 마지막 덩이 = 바로가기 + 효과 3칸. 둘을 한 묶음으로 두면 .mid 의 자식이 셋으로
+     유지돼(제목묶음 / 왜만들었나 / 이 묶음) 원래 화면 비율이 흐트러지지 않는다.
+     바로가기를 .mid 밖 맨 아래에 붙였더니 전체가 위로 밀려 비율이 깨졌다. */
+  .tail { align-self:stretch; display:flex; flex-direction:column; gap:clamp(10px,1.8vh,24px); }
 
   .lead { display:flex; flex-direction:column; align-items:center; gap:clamp(18px,3.2vh,44px); }
   h1 { margin:0; font-size:clamp(44px,9.9vh,125px); font-weight:300; line-height:1.18;
@@ -117,9 +121,10 @@
   /* ── 우측 하단: AI ENGRA 표기 + 라이브 앱 바로가기 ──
      영상에서 이 버튼을 눌러 실제 화면 시연으로 넘어간다.
      position:absolute 로 뒀더니 효과 3칸의 세 번째 칸과 겹쳤다(실측 확인).
-     흐름 안에 두고 align-self 로 우측에 붙인다 — 겹칠 수가 없다. */
+     흐름 안에 두고 align-self 로 우측에 붙인다 — 겹칠 수가 없다.
+     자리는 효과 3칸 「바로 위 공란」이다 (임도영 지시). */
   .corner { position:relative; align-self:flex-end; display:flex; align-items:center;
-            gap:clamp(10px,1.4vw,24px); margin-top:clamp(10px,1.6vh,22px); z-index:2; }
+            gap:clamp(10px,1.4vw,24px); z-index:2; }
   .mark { display:flex; align-items:center; gap:clamp(6px,.7vw,10px);
           font-size:clamp(13px,1.9vh,23px); font-weight:800; letter-spacing:-.02em; color:#fff; }
   .mark s { width:clamp(5px,.55vh,8px); aspect-ratio:1; border-radius:50%; background:#EA002C;
@@ -198,7 +203,16 @@
       </div>
     </div>
 
-    <div class="res">
+    <div class="tail">
+
+      <div class="corner">
+        <div class="mark"><s></s>AI ENGRA</div>
+        <a class="go" href="https://engra.64-176-227-85.sslip.io/pipeline" target="_blank" rel="noopener">
+          파이프라인 열기 <u>→</u>
+        </a>
+      </div>
+
+      <div class="res">
       <div>
         <b>놓치지 않는다</b>
         <span>심어둔 이상 <em>97.9% 검출</em></span>
@@ -211,16 +225,11 @@
         <b>경험이 쌓인다</b>
         <span>승인한 일지가 <em>다음 근무 초안으로</em></span>
       </div>
-    </div>
+      </div><!-- /res -->
 
-  </div>
+    </div><!-- /tail -->
 
-  <div class="corner">
-    <div class="mark"><s></s>AI ENGRA</div>
-    <a class="go" href="https://engra.64-176-227-85.sslip.io/pipeline" target="_blank" rel="noopener">
-      파이프라인 열기 <u>→</u>
-    </a>
-  </div>
+  </div><!-- /mid -->
 
 </div>
 
