@@ -122,12 +122,16 @@ def _call(system, user):
     if m == "auto":
         try:
             return _call_cli(system, user)
-        except LLMUnavailable as exc:
+        except Exception as exc:   # TimeoutExpired·JSONDecodeError·OSError 도 "CLI 실패" 다 — LLMUnavailable 만 잡으면 전환이 안 됐다 (Codex)
             if not os.environ.get("ANTHROPIC_API_KEY"):
-                raise LLMUnavailable(f"CLI 실패({exc}) — API 키가 없어 전환할 곳이 없습니다") from exc
-            print(f"  ⚠ CLI 실패 → API 로 전환: {exc}", flush=True)
+                raise LLMUnavailable(f"CLI 실패({type(exc).__name__}: {exc}) — API 키가 없어 전환할 곳이 없습니다") from exc
+            print(f"  ⚠ CLI 실패 → API 로 전환: {type(exc).__name__}: {exc}", flush=True)
             return _call_api(system, user)
     raise LLMUnavailable(f"모르는 ENGRA_LLM 모드: {m}")
+
+
+import threading as _threading
+_check_lock = _threading.Lock()   # 「AI 연결 점검」 동시 클릭 방지 — 한 번에 하나만 (Codex)
 
 
 def check():
@@ -136,12 +140,16 @@ def check():
     if m == "off":
         return False, "ENGRA_LLM=off — AI 미연결(시험용 설정). 초안 생성이 거부됩니다."
     import time
+    if not _check_lock.acquire(blocking=False):
+        return False, "점검이 이미 진행 중입니다 — 잠시 뒤 새로고침"
     t0 = time.time()
     try:
         out = _call("답은 JSON {\"items\": []} 만.", "연결 점검. items 는 빈 배열로.")
         return True, f"{status()} · 응답 {time.time() - t0:.1f}s · {type(out).__name__}"
-    except LLMUnavailable as exc:
-        return False, f"{status()} · 실패 {time.time() - t0:.1f}s — {exc}"
+    except Exception as exc:   # 점검은 절대 500 을 내지 않는다 — 실패 사유를 문장으로
+        return False, f"{status()} · 실패 {time.time() - t0:.1f}s — {type(exc).__name__}: {exc}"
+    finally:
+        _check_lock.release()
 
 
 def status():

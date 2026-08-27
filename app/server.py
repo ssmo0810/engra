@@ -1100,7 +1100,8 @@ class Handler(BaseHTTPRequestHandler):
                 global _ai_check
                 import time as _t
                 ok, msg = llm.check()
-                _ai_check = (ok, _t.strftime("%H:%M:%S ") + msg)
+                if "이미 진행 중" not in msg:   # 진행 중 안내는 앞선 결과를 덮지 않는다
+                    _ai_check = (ok, _t.strftime("%H:%M:%S ") + msg)
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/pipeline/ingest_skip":
                 try:
