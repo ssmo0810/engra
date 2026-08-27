@@ -1383,7 +1383,7 @@
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
       if(x<600) f=x/600; else if(x<7800) f=1; else f=Math.max(0,1-(x-7800)/2400);
       D['ZI-805'][i] += 29*f; } },
-    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-806'][i]<40) D['LI-806'][i]=40; }},
+    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-806'][i]<40) D['LI-806'][i]=40+(D['LI-806'][i]-40)*0.15; }},
 
    {id:22, nm:'LOX 탱크 출하', tag:'LI-802', tags:['ZI-801','LI-802'], dur:9000, op:true,
     desc:'LV-801 개도 45 → 69% 로 열어 1.5시간 출하 — LOX 레벨 약 22%p 하강 후 재충전',
@@ -1392,7 +1392,10 @@
       D['ZI-801'][i] += 24*f; } },
     // 하한 30 = 정상범위 하단. 32 로 뒀더니 베이스라인이 낮은 시각(+7h)에서 하강폭이
     // 19.6%p 로 잘려 「20%p 이상」 규칙에 미달했다. L(25)까지 여유 5%p 는 남긴다.
-    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-802'][i]<30) D['LI-802'][i]=30; }}
+    // 딱 잘라내면(v=30) 값이 정확히 30.000 으로 최대 11.6분 고정돼 노이즈가 0 인 평평한
+    // 구간이 생긴다 — 실제 계기 신호로는 부자연스럽고 엔진 통계에도 분산 0 구간을 준다.
+    // 그래서 초과분의 15% 만 남겨 파형 결을 유지한다 (최저 ≈ 29.5, L 25 여유 4.5).
+    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-802'][i]<30) D['LI-802'][i]=30+(D['LI-802'][i]-30)*0.15; }}
   ];
 
   function scenById(id){ for(var i=0;i<SCEN.length;i++) if(SCEN[i].id===id) return SCEN[i]; return null; }
@@ -1449,6 +1452,9 @@
     return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
   }
   function hhmm(ms){ var d=new Date(ms); function p(x){return x<10?'0'+x:''+x;} return p(d.getHours())+':'+p(d.getMinutes()); }
+  /* 지속시간 표기. #14(20초)처럼 1분 미만인 시나리오가 「0분」으로 보였다.
+     정답지의 duration_sec·minutes 필드는 그대로 두고 화면 표기만 초 단위로 내린다. */
+  function durTxt(w){ var sec=w.duration_sec; return sec<60 ? sec+'초' : w.minutes+'분'; }
 
   /* ── 근무 1개 생성 ─────────────────────────────────────── */
   function nextShift(){
@@ -1688,7 +1694,7 @@
       var ov=E.overlaps.filter(function(o){ return o.a===w.scenario_id||o.b===w.scenario_id; });
       if(ov.length) note.push('동시발생 #'+ov.map(function(o){ return o.a===w.scenario_id?o.b:o.a; }).join(',#'));
       h2+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
-        + '<td>'+w.affected_tags.join(', ')+'</td><td>'+w.minutes+'분</td>'
+        + '<td>'+w.affected_tags.join(', ')+'</td><td>'+durTxt(w)+'</td>'
         + '<td'+(w.dcs_alarm==='미발생'?'':' style="color:#EA002C;font-weight:700"')+'>'+w.dcs_alarm+'</td>'
         + '<td class="nm" style="color:#6b7280">'+note.join(' · ')+'</td></tr>';
     });
@@ -1720,7 +1726,7 @@
     var h='<table class="st"><thead><tr><th>시각</th><th>#</th><th>시나리오</th><th>태그</th><th>지속</th><th>알람</th></tr></thead><tbody>';
     E.injected.forEach(function(w){
       h+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
-       + '<td>'+w.affected_tags.join(', ')+'</td><td>'+w.minutes+'분</td><td>'+w.dcs_alarm+'</td></tr>';
+       + '<td>'+w.affected_tags.join(', ')+'</td><td>'+durTxt(w)+'</td><td>'+w.dcs_alarm+'</td></tr>';
     });
     h+='</tbody></table>';
     if(E.overlaps.length){
