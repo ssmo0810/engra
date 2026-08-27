@@ -76,7 +76,7 @@
      없으면 화면 맨 밑에 붙어 보인다. */
   .mid { position:relative; flex:1 1 auto; display:flex; flex-direction:column; align-items:center;
          justify-content:space-between; text-align:center;
-         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 clamp(20px,3.4vh,44px); }
+         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 clamp(6px,1vh,14px); }
 
   .lead { display:flex; flex-direction:column; align-items:center; gap:clamp(18px,3.2vh,44px); }
   h1 { margin:0; font-size:clamp(44px,9.9vh,125px); font-weight:300; line-height:1.18;
@@ -113,6 +113,25 @@
   .res b { font-size:clamp(14px,2.35vh,30px); font-weight:800; letter-spacing:-.028em; color:#fff; }
   .res span { font-size:clamp(11px,1.75vh,22px); line-height:1.45; color:#9a9aa2; letter-spacing:-.012em; }
   .res em { font-style:normal; color:#EA002C; font-weight:700; }
+
+  /* ── 우측 하단: AI ENGRA 표기 + 라이브 앱 바로가기 ──
+     영상에서 이 버튼을 눌러 실제 화면 시연으로 넘어간다.
+     position:absolute 로 뒀더니 효과 3칸의 세 번째 칸과 겹쳤다(실측 확인).
+     흐름 안에 두고 align-self 로 우측에 붙인다 — 겹칠 수가 없다. */
+  .corner { position:relative; align-self:flex-end; display:flex; align-items:center;
+            gap:clamp(10px,1.4vw,24px); margin-top:clamp(10px,1.6vh,22px); z-index:2; }
+  .mark { display:flex; align-items:center; gap:clamp(6px,.7vw,10px);
+          font-size:clamp(13px,1.9vh,23px); font-weight:800; letter-spacing:-.02em; color:#fff; }
+  .mark s { width:clamp(5px,.55vh,8px); aspect-ratio:1; border-radius:50%; background:#EA002C;
+            display:block; text-decoration:none; animation:pulse 2.8s ease-in-out infinite; }
+  .go { display:inline-flex; align-items:center; gap:clamp(6px,.7vw,10px);
+        padding:clamp(7px,1.15vh,14px) clamp(13px,1.5vw,26px); border-radius:999px;
+        border:1px solid #EA002C; background:rgba(234,0,44,.14); color:#fff; text-decoration:none;
+        font-size:clamp(11px,1.6vh,19px); font-weight:700; letter-spacing:-.01em;
+        transition:background .18s ease, transform .18s ease; white-space:nowrap; }
+  .go:hover { background:#EA002C; transform:translateY(-1px); }
+  .go u { text-decoration:none; color:#EA002C; font-weight:800; }
+  .go:hover u { color:#fff; }
 
   /* 좁거나 눌린 창에서도 한 화면을 지킨다 */
   @media (max-height: 640px) { .pair { display:none; } }
@@ -194,6 +213,13 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="corner">
+    <div class="mark"><s></s>AI ENGRA</div>
+    <a class="go" href="https://engra.64-176-227-85.sslip.io/pipeline" target="_blank" rel="noopener">
+      파이프라인 열기 <u>→</u>
+    </a>
   </div>
 
 </div>
