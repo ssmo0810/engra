@@ -49,7 +49,8 @@ def score_shifts(shifts):
     per_shift = []
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0
-    lead_times, missed, false_pos = [], [], []
+    lead_times, missed, false_pos, tracking = [], [], [], []
+    per_shift_trk = {}   # shift_id -> 추적 중 건수
     detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
 
     with db.connect() as conn:
@@ -64,9 +65,9 @@ def score_shifts(shifts):
             hits = 0
             dshift = {"injected": [], "fp": [], "overlaps": sh.get("overlaps") or []}
             detail[sid] = dshift
+            trk = 0
             for inj in sh["injected"]:
                 inj_ids.add(inj["scenario_id"])
-                total_inj += 1
                 a0, a1 = _ts(inj["start"]), _ts(inj["end"])
                 tags = set(inj["affected_tags"]) | {inj["trigger_tag"]}
                 found = [
@@ -74,7 +75,12 @@ def score_shifts(shifts):
                     if e["tag"] in tags and e.get("start_ts") and e.get("end_ts")
                     and _overlap(a0, a1, _ts(e["start_ts"]), _ts(e["end_ts"]))
                 ]
-                dshift["injected"].append({**inj, "hit": bool(found),
+                # 근무 끝까지 이어지는 주입(continues_next)을 이 근무에서 못 잡았으면 '놓침' 이 아니라 '추적 중' —
+                # 다음 근무의 carried_in 항목에서 판정된다 (경모님 2026-08-27: "실제로 검출 못 해도 놓침이라 뜨면 오답").
+                status = "hit" if found else ("tracking" if inj.get("continues_next") else "miss")
+                if status != "tracking":
+                    total_inj += 1
+                dshift["injected"].append({**inj, "hit": bool(found), "status": status,
                                            "matched": [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"],
                                                         "start": e["start_ts"][11:16], "end": e["end_ts"][11:16],
                                                         "evidence": e.get("evidence")} for _, e in found]})
@@ -88,6 +94,10 @@ def score_shifts(shifts):
                         if alarm_hits:
                             alarm_at = min(_ts(e["start_ts"]) for e in alarm_hits)
                             lead_times.append((inj["scenario_id"], (alarm_at - first).total_seconds() / 60))
+                elif status == "tracking":
+                    trk += 1
+                    tracking.append((sid, inj["scenario_id"], inj["name"], inj["trigger_tag"],
+                                     inj["start"][11:16], inj["end"][11:16]))
                 else:
                     missed.append((sid, inj["scenario_id"], inj["name"], inj["trigger_tag"],
                                    inj["start"][11:16], inj["end"][11:16]))
@@ -97,10 +107,11 @@ def score_shifts(shifts):
                             "end": e["end_ts"][11:16], "evidence": e.get("evidence")} for e in fp]
             total_fp += len(fp)
             false_pos.extend((sid, e["tag"], e["kind"], e["start_ts"][11:16], e["end_ts"][11:16]) for e in fp)
-            per_shift.append((sid, len(events), len(sh["injected"]), hits, len(fp)))
+            per_shift_trk[sid] = trk
+            per_shift.append((sid, len(events), len(sh["injected"]) - trk, hits, len(fp)))
 
     return {
-        "per_shift": per_shift, "inj": total_inj, "hit": total_hit,
+        "per_shift": per_shift, "inj": total_inj, "hit": total_hit, "tracking": tracking, "per_shift_trk": per_shift_trk,
         "cov_inj": sorted(inj_ids), "cov_hit": sorted(hit_ids),
         "events": total_events, "fp": total_fp,
         "missed": missed, "false_pos": false_pos, "lead": lead_times, "shifts": len(shifts),
@@ -134,6 +145,10 @@ def main(argv):
         early = [m for _, m in r["lead"] if m > 0]
         print(f"알람 선행 검출    {len(early)}/{len(r['lead'])} 건이 알람선 도달보다 먼저 잡힘"
               + (f"  (최대 +{max(early):.0f}분)" if early else ""))
+    if r.get("tracking"):
+        print(f"추적 중 {len(r['tracking'])}건 (근무 끝까지 이어지는 주입 — 다음 근무에서 판정, 포함률 분모에서 제외)")
+        for sid, no, name, tag, s_, e_ in r["tracking"]:
+            print(f"  {sid}  #{no} {name:<18} {tag:<8} {s_}~{e_}")
     if r["missed"]:
         print(f"\n놓친 주입 {len(r['missed'])}건")
         for sid, n, name, tag, s, e in r["missed"]:

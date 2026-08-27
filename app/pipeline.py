@@ -120,7 +120,7 @@ def run(shift_id, verbose=True, redo=False, say=None):
         result["ai"] = ai_status
         say(f"서술 작성 — {ai_status}")
 
-        db.save_draft(conn, shift_id, items, ports.engine_source())
+        db.save_draft(conn, shift_id, items, ports.engine_source(), model=(llm.MODEL if llm.mode() != "off" else None))
         result["items"] = len(items)
         say(f"초안 {len(items)}개 항목 생성 — 승인 대기")
 

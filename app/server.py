@@ -332,9 +332,9 @@ def _score_html():
     T = {"inj": 0, "hit": 0, "ev": 0, "fp": 0}
     cov_inj, cov_hit, missed = set(), set(), []
     if b is None:
-        b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": []}
+        b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": [], "per_shift_trk": {}}
     if b.get("error"):
-        errs.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>'); b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": []}
+        errs.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>'); b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": [], "per_shift_trk": {}}
     cov_inj.update(b["cov_inj"]); cov_hit.update(b["cov_hit"]); missed.extend(b["missed"])
     # 사후 대조 — 정답지 파일이 그 근무의 초안 생성 시각보다 뒤에 올라왔으면 "검출·초안이 정답지를 볼 수 없었다" 는 근거가 된다
     from datetime import datetime
@@ -358,12 +358,13 @@ def _score_html():
         src = esc(jobs.KEYS.get(sid, {}).get("key_file", ""))
         if ev is None:
             rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>' + when(sid) + '<td>' + str(inj) + '</td>'
-                         '<td class="muted" colspan="5">아직 안 돌림 — ③에서 CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
+                         '<td class="muted" colspan="6">아직 안 돌림 — ③에서 CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
             continue
         T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
         miss = inj - hit
+        trk = (b.get("per_shift_trk") or {}).get(sid, 0); T["trk"] = T.get("trk", 0) + trk
         rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>' + when(sid) +
-                     '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td>'
+                     '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td><td class="muted">' + (str(trk) if trk else '') + '</td>'
                      '<td>' + str(ev) + '</td><td>' + str(ev - fp) + '</td><td' + (' style="color:var(--bad)"' if fp else '') + '>' + str(fp) + '</td></tr>'))
     rows.sort(key=lambda r: r[0])
     if T["inj"]:
@@ -371,12 +372,12 @@ def _score_html():
         head = ('<b>주입한 이상 ' + str(T["inj"]) + '건 중 ' + str(T["hit"]) + '건 탐지 성공 (' + f'{pct:.0f}' + '%) · 시나리오 '
                 + str(len(cov_hit)) + '/' + str(len(cov_inj)) + '종 · 잘못 잡음(오탐) ' + str(T["fp"]) + '건</b>')
         total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
-                 + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
+                 + str(T["inj"] - T["hit"]) + '</td><td class="muted">' + (str(T.get("trk", 0)) or '') + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
         head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
-              '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
+              '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>추적 중</b>: 근무 끝까지 이어지는 이상을 이 근무에서 못 잡은 것 — 다음 근무(이어받은 항목)에서 판정하므로 놓침도 주입 수에도 넣지 않는다. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
               '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. <b>대조 시점</b>: 정답지 파일이 초안 생성 뒤에 올라왔으면 「사후 ✓」 — 검출·초안이 정답지를 볼 수 없었다는 순서 근거. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
     missed_html = ''
     if missed:
@@ -386,8 +387,8 @@ def _score_html():
     return ('<div class="card" style="padding:14px 18px">'
             '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px"><b>검출·초안 생성은 정답지를 읽지 않습니다</b> — 정답지는 여기 채점에만 쓰입니다</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
-            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th rowspan="2" title="정답지가 초안 생성 뒤에 올라왔으면 사후">대조 시점</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
-            '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
+            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th rowspan="2" title="정답지가 초안 생성 뒤에 올라왔으면 사후">대조 시점</th><th colspan="4" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
+            '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th title="근무 끝까지 이어지는 이상 — 다음 근무에서 판정">추적 중</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
             + "".join(r for _, r in rows) + total + '</table></div>' + legend + missed_html + "".join(errs) + '</div>')
 
 
@@ -468,7 +469,9 @@ def view_answer(shift_id):
     rows = []
     items = d["injected"] if d else [{**i, "hit": None, "matched": []} for i in sh["injected"]]
     for inj in items:
-        st = ('<span class="pill on">잡음</span>' if inj["hit"] else ('<span class="pill red">놓침</span>' if inj["hit"] is False else '<span class="pill">미실행</span>'))
+        st = ('<span class="pill on">잡음</span>' if inj["hit"] else
+              ('<span class="pill amber" title="근무 끝까지 이어지는 이상 — 다음 근무에서 판정">추적 중 — 다음 근무로</span>' if inj.get("status") == "tracking" else
+               ('<span class="pill red">놓침</span>' if inj["hit"] is False else '<span class="pill">미실행</span>')))
         alarm = esc(str(inj.get("dcs_alarm", "")))
         flags = []
         if inj.get("carried_in"): flags.append("앞 근무에서 이어짐")
@@ -815,12 +818,23 @@ def _view_pending(shift_id, draft, active="/"):
                        + (f' <span class="muted">— {esc(it.get("related_note") or "")}</span>' if it.get("related_note") else "")
                        + '</div>')
         if it["suggested_action"]:
+            # 출처를 그대로 보인다 — 경모님(2026-08-27): "과거 조치 유사 사례가 정답지에서 온 건지 AI 가 지어낸 건지".
+            # precedents = 같은 태그의 확정 일지에서 실제로 찾은 것(AI 가 적합하다고 남긴 것만). 없으면 문장은 AI 제안이다.
             quoted = json.dumps(it["suggested_action"], ensure_ascii=False)
-            n = len(it["precedents"]) or 1
+            pre = it["precedents"] or []
+            pall = it.get("precedents_all") or []
             pnote = it.get("precedent_note") if hasattr(it, "keys") else None
             note_html = f' <span class="muted">— {esc(pnote)}</span>' if pnote else ""
-            sug = (f'<div class="sug"><span class="lb">과거 조치 추천 — 유사 사례 {n}건{note_html}</span>'
-                   f'{esc(it["suggested_action"])}'
+            if pre:
+                srcs = "".join('<li>' + esc(str(p.get("shift_id") or p.get("shift") or "")) + ' ' + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(str(p.get("text") or ""))[:120] + '</li>' for p in pre[:3])
+                label = f'과거 조치 — 확정 일지 {len(pre)}건에 근거' + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중)</span>' if pall and len(pall) > len(pre) else '')
+                src_html = f'<ul class="muted" style="margin:4px 0 0 16px;font-size:11.5px">{srcs}</ul>'
+            else:
+                label = ('AI 제안 조치 — 과거 확정 일지 없음, 참고용' if not pall
+                         else f'AI 제안 조치 — 같은 태그 확정 일지 {len(pall)}건이 있었지만 이 사건에 맞지 않다고 판단')
+                src_html = ""
+            sug = (f'<div class="sug"><span class="lb">{label}{note_html}</span>'
+                   f'{esc(it["suggested_action"])}{src_html}'
                    f'<button type="button" onclick="use(this,{html.escape(quoted, quote=True)})">'
                    f'코멘트로 사용</button></div>')
         items.append(f"""<div class="item">
