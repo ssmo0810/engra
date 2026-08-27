@@ -35,6 +35,41 @@ def _waveform(points, start_ts, end_ts):
     }
 
 
+def quality_summary(q):
+    """품질 기록 → (제목 조각, 본문). 깨진 행(태그 귀속)과 시각 깨진 행(미귀속)이 각각 있을 때/없을 때 문구가 다르다 (Codex).
+    화면 배너와 초안 항목이 같은 문장을 쓴다."""
+    if not q or not (q.get("bad_rows") or q.get("unattributed_rows")):
+        return None
+    by_tag = q.get("by_tag") or {}
+    parts = []
+    if q.get("bad_rows"):
+        parts.append(f"{', '.join(list(by_tag)[:3])} 등 {q['bad_rows']}행" if by_tag else f"{q['bad_rows']}행")
+    if q.get("unattributed_rows"):
+        parts.append(f"시각 깨진 행 {q['unattributed_rows']}행")
+    head = " + ".join(parts) + (" (사용자가 건너뛰기를 택함)" if q.get("skipped_by_user") else "")
+    body = "적재 시 값이 비었거나 형식이 깨진 행을 건너뜀"
+    if q.get("ratio_file"):
+        body += f" (파일 전체의 {q['ratio_file']:.1%})"
+    if by_tag:
+        body += ". 태그별: " + ", ".join(f"{t} {n}행" for t, n in by_tag.items()) + " — 이 태그들의 검출 결과는 결측 구간을 반영하지 않으므로 신뢰도가 낮다"
+    if q.get("unattributed_rows"):
+        body += f". 시각이 깨져 어느 근무인지 알 수 없는 행 {q['unattributed_rows']}행은 이 파일의 모든 근무에 걸쳐 있을 수 있다"
+    return head, body + "."
+
+
+def quality_item(q):
+    """초안 맨 앞에 들어가는 '원본 데이터 품질' 항목. 기록이 없으면 None."""
+    qs = quality_summary(q)
+    if not qs:
+        return None
+    head, body = qs
+    top = list((q.get("by_tag") or {}))[:1]
+    return {"origin": "quality", "tag": top[0] if top else "-", "event_id": None,
+            "title": f"원본 데이터 결측/형식 오류 — {head}", "body": body,
+            "evidence": ("예: " + " / ".join(q.get("samples") or [])) if q.get("samples") else "적재 로그 참조",
+            "severity": "중", "suggested_action": None, "precedents": []}
+
+
 def run(shift_id, verbose=True, redo=False, say=None):
     """say: 진행 문장을 받을 콜백. 화면(jobs.py)이 넘긴다. 없으면 stdout."""
     _cb = say
@@ -108,20 +143,11 @@ def run(shift_id, verbose=True, redo=False, say=None):
         ).fetchone())
         items = ports.compose(shift, stored, find_precedents)
         quality = db.load_quality(conn, shift_id)
-        if quality and (quality.get("bad_rows") or quality.get("unattributed_rows")):
+        qi = quality_item(quality)
+        if qi:
             # 원본이 깨진 근무는 그 사실 자체가 인수인계 대상이다 — 그 태그의 검출은 결측을 모른 채 나온 것이라 신뢰도가 낮다.
-            top = list(quality.get("by_tag") or {})[:3]
-            items.insert(0, {
-                "origin": "quality", "tag": top[0] if top else "-", "event_id": None,
-                "title": f"원본 데이터 결측/형식 오류 — " + (f"{', '.join(top)} 등 {quality['bad_rows']}행" if quality.get("bad_rows") else "") + (f"{' + ' if quality.get('bad_rows') else ''}시각 깨진 행 {quality['unattributed_rows']}행" if quality.get("unattributed_rows") else "") + (" (사용자가 건너뛰기를 택함)" if quality.get("skipped_by_user") else ""),
-                "body": f"적재 시 값이 비었거나 형식이 깨진 행 {quality['bad_rows']}행을 건너뜀" + (f" (파일 전체의 {quality['ratio_file']:.1%})" if quality.get("ratio_file") else "")
-                        + (". 태그별: " + ", ".join(f"{t} {n}행" for t, n in (quality.get("by_tag") or {}).items()) if quality.get("by_tag") else "")
-                        + (f". 시각이 깨져 어느 근무인지 알 수 없는 행 {quality['unattributed_rows']}행은 이 파일의 모든 근무에 걸쳐 있을 수 있다" if quality.get("unattributed_rows") else "")
-                        + ". 해당 태그의 검출 결과는 결측 구간을 반영하지 않으므로 신뢰도가 낮다.",
-                "evidence": "예: " + " / ".join(quality.get("samples") or []),
-                "severity": "중", "suggested_action": None, "precedents": [],
-            })
-            say(f"원본 품질 항목 추가 — 깨진 행 {quality['bad_rows']}행 ({', '.join(top)})")
+            items.insert(0, qi)
+            say(f"원본 품질 항목 추가 — {qi['title']}")
         shift["quality"] = quality
 
         # 4-1) AI 서술 — 문장만 다시 쓴다. 근거·숫자는 이벤트 metrics 로 넘기고 출력에서는 뺀다.

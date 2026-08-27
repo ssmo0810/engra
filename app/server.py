@@ -816,10 +816,9 @@ def _view_pending(shift_id, draft, active="/"):
     with db.connect() as conn:
         quality = db.load_quality(conn, shift_id)
     qbanner = ""
-    if quality and (quality.get("bad_rows") or quality.get("unattributed_rows")):
-        qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — 적재 때 깨진 행 '
-                   + str(quality.get("bad_rows", 0)) + '행' + (f' + 시각 깨진 행 {quality["unattributed_rows"]}행' if quality.get("unattributed_rows") else '') + '을 건너뜀' + (' (사용자가 건너뛰기를 택함)' if quality.get("skipped_by_user") else '') + ' · 태그별 '
-                   + esc(", ".join(f"{t} {n}" for t, n in (quality.get("by_tag") or {}).items())) + '. 해당 태그의 검출은 결측 구간을 반영하지 않는다.</div>')
+    qs = pipeline.quality_summary(quality)
+    if qs:
+        qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — ' + esc(qs[0]) + ' · ' + esc(qs[1]) + '</div>')
     for it in draft["items"]:
         sug = ""
         # AI 중요도 판정 — 왜 그 등급인지, 규칙과 다르면 그 사실을 보인다. 사람이 뒤집을 수 있어야 한다.
