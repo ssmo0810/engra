@@ -375,6 +375,22 @@ def _reload_uploads():
             print(f"  !! 업로드 정답지 {j.name} 등록 실패 — 건너뜀: {exc}", file=sys.stderr)
 
 
+def clear_runtime(wipe_uploads):
+    """「완전 빈 상태로」 는 DB 만 아니라 메모리 상태와 올린 파일까지 비운다 — 아니면 정답지 대조표·마지막 실행 링크가 이전
+    DB 를 가리키고, 재시작 때 reconcile_uploads 가 남은 CSV 를 다시 적재해 빈 상태가 깨진다 (홀리스틱 Codex 2026-08-28).
+    작업 락을 잡은 채 부른다(리셋 핸들러)."""
+    global _seen
+    KEYS.clear(); _last_run.clear(); _last_upload.update({"files": [], "added": [], "warn": [], "info": []})
+    with _qlock:
+        _pending.clear()
+    _job.update({"can_skip": [], "advice": None, "result": None, "shift_id": None, "lines": [], "error": None})
+    if wipe_uploads and UPLOAD_DIR.exists():
+        for p in UPLOAD_DIR.iterdir():
+            if p.is_file():
+                p.unlink()
+        _seen = {}
+
+
 def reconcile_uploads():
     """서버 시작 시: uploads/ 에 있는데 DB(shift.source)에 없는 CSV 를 적재한다 — 정답지 등록 실패로 목록에 못 오른
     파일(경모님 라이브 3근무, 2026-08-27)과 적재 도중 재시작된 경우를 살린다. 서버(serve)만 부른다."""

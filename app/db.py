@@ -299,6 +299,10 @@ def find_gaps(conn, shift_id, min_minutes=GAP_MIN_MINUTES):
     limit = min_minutes * 60
     gaps = []
     tags = [r[0] for r in conn.execute("SELECT DISTINCT tag FROM raw_sample WHERE ts >= ? AND ts < ?", (row["window_start"], row["window_end"]))]
+    # 지난 근무들에 있었는데 이 근무엔 한 점도 없는 태그 — 계측이 통째로 빠진 것. 갭 탐색은 있는 태그만 돌아 조용히 지나갔다 (홀리스틱 Codex).
+    expected = {r[0] for r in conn.execute("SELECT DISTINCT tag FROM shift_summary WHERE shift_id != ?", (shift_id,))}
+    for tag in sorted(expected - set(tags)):
+        gaps.append({"tag": tag, "start": row["window_start"], "end": row["window_end"], "minutes": round((we - ws).total_seconds() / 60), "whole": True})
     for tag in tags:
         prev = None
         for (ts,) in conn.execute("SELECT ts FROM raw_sample WHERE tag = ? AND ts >= ? AND ts < ? ORDER BY ts", (tag, row["window_start"], row["window_end"])):
@@ -313,6 +317,18 @@ def find_gaps(conn, shift_id, min_minutes=GAP_MIN_MINUTES):
             gaps.append({"tag": tag, "start": prev.isoformat(timespec="seconds"), "end": row["window_end"], "minutes": round((we - prev).total_seconds() / 60)})
     gaps.sort(key=lambda g: -g["minutes"])
     return gaps
+
+
+def quality_bad_pairs(conn):
+    """품질 기록이 있는 (근무, 태그) — 깨진 행이 있었거나 결측 구간이 있는 태그. 기준선 입력에서 뺀다 (홀리스틱 Codex)."""
+    pairs = set()
+    for r in conn.execute("SELECT id, quality_json FROM shift WHERE quality_json IS NOT NULL"):
+        q = json.loads(r["quality_json"])
+        for t in (q.get("by_tag") or {}):
+            pairs.add((r["id"], t))
+        for g in (q.get("gaps") or []):
+            pairs.add((r["id"], g["tag"]))
+    return pairs
 
 
 def set_quality(conn, shift_id, quality):

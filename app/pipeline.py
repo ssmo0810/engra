@@ -141,6 +141,19 @@ def run(shift_id, verbose=True, redo=False, say=None):
             past = db.load_summaries(conn)
             provisional = True
             say("지난 근무가 없어 이번 구간으로 임시 기준선을 만듭니다 (잠정)")
+        # 원본이 깨졌던 (근무, 태그) 의 요약은 기준선 재료로 쓰지 않는다 — 결측을 모른 채 낸 통계가 '평소' 를 왜곡한다 (홀리스틱 Codex)
+        bad = db.quality_bad_pairs(conn)
+        if bad:
+            dropped = 0
+            for tag in list(past):
+                keep = [s for s in past[tag] if (s["shift_id"], tag) not in bad]
+                dropped += len(past[tag]) - len(keep)
+                if keep:
+                    past[tag] = keep
+                else:
+                    del past[tag]
+            if dropped:
+                say(f"기준선 재료에서 품질 나쁜 요약 {dropped}건 제외")
         baselines = ports.build_baseline(past)
         db.save_baselines(conn, baselines)
         result["baseline_tags"] = len(baselines)

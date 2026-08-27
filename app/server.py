@@ -1132,7 +1132,8 @@ class Handler(BaseHTTPRequestHandler):
                 key = form.get("key", [""])[0]
                 self.send_response(303); self.send_header("Location", "/admin")
                 if _admin_key() and key == _admin_key():
-                    self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200")
+                    secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""   # Caddy 뒤에서만 — 로컬 http 시험은 그대로
+                    self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200{secure}")
                 self.end_headers(); return
             if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
                 if not _admin_ok(self):
@@ -1207,6 +1208,8 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     jobs.mark_qa_active()
                     what = db.reset(empty=empty)
+                    if empty:
+                        jobs.clear_runtime(wipe_uploads=True)   # 정답지·올린 파일·마지막 실행·대기 큐까지 — 진짜 빈 상태
                 finally:
                     jobs.release_hold(held)
                 self.send_response(303)

@@ -246,6 +246,10 @@ def ingest(source):
             sid, kind, start, end = shift_id_for(ts)
             if sid not in shifts:
                 shifts[sid] = (kind, start, end)
+                # 같은 근무를 다시 올리면 병합이 아니라 교체 — 옛 원본(다른 시각·다른 값)이 섞여 남지 않게 (홀리스틱 Codex).
+                # 이 파일의 이 근무 행은 아직 DB 에 없다(buf 에 있음)므로 지워지지 않는다.
+                _flush(conn, buf)
+                db.forget_raw(conn, sid)
             counts[sid] = counts.get(sid, 0) + 1
             buf.append((tag, ts.isoformat(timespec="seconds"), value))
             if len(buf) >= BATCH:
