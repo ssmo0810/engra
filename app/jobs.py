@@ -280,7 +280,7 @@ def _register_key(p):
         raise ValueError(f"{p.name}: 정답지 형식이 아닙니다 (shift_id·injected 또는 shift_list 가 없음)")
     sids = []
     for sh in shifts:
-        KEYS[sh["shift_id"]] = {**sh, "key_file": p.name}
+        KEYS[sh["shift_id"]] = {**sh, "key_file": p.name, "uploaded_at": p.stat().st_mtime}   # 사후 대조 판정용(초안 생성 시각과 비교)
         sids.append(sh["shift_id"])
     return sids
 

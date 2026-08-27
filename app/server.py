@@ -39,6 +39,7 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
 .nav a.on small{color:#c9c6c1}
 .frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 .uploading .nav a{pointer-events:none;opacity:.45}
+.nav a.admin{margin-left:auto;border:1px dashed var(--line);opacity:.75}.nav a.admin.on{opacity:1}
 .sc{border-collapse:collapse;width:100%;font-size:12.5px}.sc th,.sc td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.sc th{color:var(--sub);font-weight:600;font-size:11px}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
@@ -153,7 +154,7 @@ async function upSend(f, fs, m){
     xhr.upload.onprogress=function(e){ if(e.lengthComputable) m.textContent='올리는 중 '+Math.round(100*e.loaded/e.total)+'% ('+mb(e.loaded)+'/'+mb(e.total)+(gz?' · 원본 '+mb(raw):'')+')'; };
     xhr.upload.onload=function(){ m.textContent='서버에서 푸는 중… (원본 '+mb(raw)+')'; };
     xhr.onload=function(){
-      if(xhr.status<400){ window.onbeforeunload=null; location.replace('/pipeline'); return; }
+      if(xhr.status<400){ window.onbeforeunload=null; location.replace(f.dataset.back||'/pipeline'); return; }
       var d=new DOMParser().parseFromString(xhr.responseText,'text/html'), t=d.querySelector('.empty');
       m.textContent='실패 '+xhr.status+' — '+(t?t.textContent:''); upLock(false);
     };
@@ -213,7 +214,7 @@ document.addEventListener('DOMContentLoaded',cnt);
 NAV = (
     ("/dcs", "① DCS", "실시간 감시 · 기존 시스템"),
     ("/rtdb", "② RTDB", "구간 데이터 추출"),
-    ("/pipeline", "③ 파이프라인", "적재 → 검출 → AI 초안 · 정답지 대조"),
+    ("/pipeline", "③ 파이프라인", "적재 → 검출 → AI 초안"),
     ("/draft", "④ 초안 검토", "채택·코멘트·승인"),
     ("/", "⑤ 일지 조회", "축적 · 검색"),
 )
@@ -225,6 +226,7 @@ def _nav(active):
     for href, label, sub in NAV:
         on = " on" if href == active else ""
         out.append(f'<a class="{on.strip() or ""}" href="{href}">{label}<small>{sub}</small></a>')
+    out.append(f'<a class="admin{" on" if active == "/admin" else ""}" href="/admin">관리<small>검증·리셋 · 시연용</small></a>')
     return f'<div class="nav">{"".join(out)}</div>'
 
 
@@ -334,16 +336,33 @@ def _score_html():
     if b.get("error"):
         errs.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>'); b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": []}
     cov_inj.update(b["cov_inj"]); cov_hit.update(b["cov_hit"]); missed.extend(b["missed"])
+    # 사후 대조 — 정답지 파일이 그 근무의 초안 생성 시각보다 뒤에 올라왔으면 "검출·초안이 정답지를 볼 수 없었다" 는 근거가 된다
+    from datetime import datetime
+    gen_at = {}
+    with db.connect() as conn:
+        for sid in jobs.KEYS:
+            d0 = db.load_draft(conn, sid)
+            if d0 and d0.get("generated_at"):
+                try:
+                    gen_at[sid] = datetime.fromisoformat(d0["generated_at"]).timestamp()
+                except ValueError:
+                    pass
+    def when(sid):
+        k = jobs.KEYS.get(sid, {})
+        if sid not in gen_at or not k.get("uploaded_at"):
+            return '<td class="muted">—</td>'
+        return ('<td style="color:var(--ok, #2a7)">사후 ✓</td>' if k["uploaded_at"] > gen_at[sid]
+                else '<td class="muted" title="초안 전에 올라온 정답지 — 검출은 정답지를 읽지 않지만, 순서로는 증명되지 않는다">사전</td>')
     for sid, ev, inj, hit, fp in b["per_shift"]:
         link = '<a href="/answer/' + esc(sid) + '">' + esc(sid) + '</a>'
         src = esc(jobs.KEYS.get(sid, {}).get("key_file", ""))
         if ev is None:
-            rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td><td>' + str(inj) + '</td>'
-                         '<td class="muted" colspan="5">아직 안 돌림 — CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
+            rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>' + when(sid) + '<td>' + str(inj) + '</td>'
+                         '<td class="muted" colspan="5">아직 안 돌림 — ③에서 CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
             continue
         T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
         miss = inj - hit
-        rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>'
+        rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>' + when(sid) +
                      '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td>'
                      '<td>' + str(ev) + '</td><td>' + str(ev - fp) + '</td><td' + (' style="color:var(--bad)"' if fp else '') + '>' + str(fp) + '</td></tr>'))
     rows.sort(key=lambda r: r[0])
@@ -351,25 +370,73 @@ def _score_html():
         pct = 100 * T["hit"] / T["inj"]
         head = ('<b>주입한 이상 ' + str(T["inj"]) + '건 중 ' + str(T["hit"]) + '건 탐지 성공 (' + f'{pct:.0f}' + '%) · 시나리오 '
                 + str(len(cov_hit)) + '/' + str(len(cov_inj)) + '종 · 잘못 잡음(오탐) ' + str(T["fp"]) + '건</b>')
-        total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
+        total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
                  + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
         head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
               '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
-              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
+              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. <b>대조 시점</b>: 정답지 파일이 초안 생성 뒤에 올라왔으면 「사후 ✓」 — 검출·초안이 정답지를 볼 수 없었다는 순서 근거. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
     missed_html = ''
     if missed:
         missed_html = ('<p class="note" style="margin-top:8px"><b>놓친 이상</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">'
                        + "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
                                  for sid, no, name, tag, s_, e_ in sorted(missed)) + '</ul>')
     return ('<div class="card" style="padding:14px 18px">'
-            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">정답지를 올린 근무만 — <b>검출·초안 생성은 정답지를 읽지 않습니다</b>, 정답지는 여기 채점에만 쓰입니다</span></h2>'
+            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px"><b>검출·초안 생성은 정답지를 읽지 않습니다</b> — 정답지는 여기 채점에만 쓰입니다</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
-            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
+            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th rowspan="2" title="정답지가 초안 생성 뒤에 올라왔으면 사후">대조 시점</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
             '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
             + "".join(r for _, r in rows) + total + '</table></div>' + legend + missed_html + "".join(errs) + '</div>')
+
+
+def _reset_bar():
+    return ('<form method="post" action="/reset" style="display:flex;gap:8px;align-items:center;margin:0 0 12px">'
+            '<span class="muted" style="font-size:12px">처음부터 —</span>'
+            '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)" '
+            "onclick=\"if(!window.confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.sure.value='1'\">완전 빈 상태로</button>"
+            '<input type="hidden" name="sure" value="0">'
+            '<span class="muted" style="font-size:11.5px">· 매시 정각에 자동으로 비워집니다(최근 2시간 안에 눌렀으면 건너뜀)</span></form>')
+
+
+def _upload_result_html():
+    up = jobs.last_upload()
+    if not up["files"]:
+        return ""
+    return ('<div class="note" style="margin:0 0 10px;font-size:12.5px"><b>업로드 결과</b> — 받은 파일: ' + esc(", ".join(up["files"]))
+            + (' · 정답지 근무: <b>' + esc(", ".join(up["added"])) + '</b>' if up["added"] else '')
+            + "".join('<br><span class="muted">' + esc(w) + '</span>' for w in up.get("info", []))
+            + "".join('<br><span style="color:var(--accent)">⚠ ' + esc(w) + '</span>' for w in up["warn"]) + '</div>')
+
+
+def view_admin():
+    """관리 — 검증·리셋·시연용 컨트롤을 한곳에. 경모님(2026-08-27): "관리 버튼이 여기저기 있으면 기존 로직인지
+    관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 ③·⑤ 에서 이쪽으로 옮겼다."""
+    st = jobs.state(); running = st["running"]
+    links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + '</a> ' for sid in sorted(jobs.KEYS))
+    opts = "".join('<option value="' + esc(s["shift_id"]) + '">' + esc(s["shift_id"]) + ' · ' + ("확정" if s["status"] == "confirmed" else ("초안 있음" if s["status"] == "pending" else "적재됨")) + '</option>' for s in jobs.sources())
+    body = ('<div class="card" style="padding:14px 18px"><h2>관리 — 검증 · 리셋 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 제품 흐름(①~⑤)에는 없는 기능만 모았다</span></h2>'
+            '<p class="note" style="margin:0 0 10px"><b>정답지 대조</b> — 생성기가 CSV 와 함께 내려준 asu_answer_*.json 을 올리면, 그 근무에서 엔진이 잡은 것과 심어 둔 이상을 대조한다. '
+            '초안을 먼저 만든 뒤 올리면 「사후 ✓」로 표시된다(검출이 정답지를 볼 수 없었다는 순서 근거).</p>'
+            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" data-back="/admin" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<input type="hidden" name="back" value="/admin">'
+            '<span class="muted" style="font-size:12.5px">정답지 올리기 —</span>'
+            '<input type="file" name="files" multiple accept=".json" style="font-size:12.5px">'
+            '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
+            '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span></form>' + _upload_result_html()
+            + (('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>') if jobs.KEYS else '')
+            + '</div>' + _score_html()
+            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">다시 만들기</h2>'
+            '<p class="note" style="margin:0 0 8px">확정된 근무를 지우고 처음부터 다시 검출·초안. 원본이 정리됐으면 올린 CSV 에서 다시 적재한다. 확정 일지는 이력에 남지 않고 지워진다.</p>'
+            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:300px">' + opts + '</select>'
+            '<input type="hidden" name="redo" value="1">'
+            '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\')">확정돼 있어도 다시 만들기</button></form></div>'
+            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">처음부터</h2>'
+            '<p class="note" style="margin:0 0 8px">근무·초안·확정 이력·정답지 대조가 전부 지워진다. 빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다. '
+            '매시 정각에도 자동으로 비워진다(최근 2시간 안에 화면에서 실행·리셋을 눌렀으면 건너뜀).</p>' + _reset_bar() + '</div>')
+    return page("관리", body, active="/admin")
 
 
 def view_answer(shift_id):
@@ -443,16 +510,8 @@ def view_pipeline():
     for src in jobs.sources():
         d, h = have.get(src["shift_id"], (False, False))
         tag = "확정" if h else ("초안 있음" if d else "적재됨")
-        key = "정답지 ✓" if src["has_key"] else "정답지 없음"
-        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + key + ' · ' + tag + '</option>')
-    up = jobs.last_upload()
-    up_html = ""
-    if up["files"]:
-        up_html = ('<div class="note" style="margin:0 0 10px;font-size:12.5px"><b>업로드 결과</b> — 받은 파일: ' + esc(", ".join(up["files"]))
-                   + (' · 정답지 근무: <b>' + esc(", ".join(up["added"])) + '</b>' if up["added"] else '')
-                   + "".join('<br><span class="muted">' + esc(w) + '</span>' for w in up.get("info", []))
-                   + "".join('<br><span style="color:var(--accent)">⚠ ' + esc(w) + '</span>' for w in up["warn"]) + '</div>')
-    links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + ' 정답지</a> ' for sid in sorted(jobs.KEYS))
+        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + tag + '</option>')
+    up_html = _upload_result_html()
     log = "\n".join(esc(x) for x in st["lines"][-40:])
     running = st["running"]
     err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>') if st.get("error") else ""
@@ -474,32 +533,28 @@ def view_pipeline():
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
-            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 날짜·근무를 골라 CSV(와 정답지 JSON)를 내려받고 → ② <b>CSV 를</b> 올리면 바로 적재돼 그 안의 근무가 목록에 뜬다 → ③ 「검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
-            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. <b>정답지 JSON 은 나중에 따로</b> 올려도 된다 — 검출·초안은 정답지를 보지 않고, 정답지는 아래 「정답지 대조」 채점에만 쓰인다.</p>'
+            '<p class="note" style="margin:0 0 10px">② RTDB 에서 내려받은 근무 CSV 를 올리면 바로 적재돼 그 안의 근무가 목록에 뜬다 → 「검출 + AI 초안」 → ④ 초안 검토에서 승인·확정. '
+            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. 검증·시연용 기능(정답지 채점·리셋·다시 만들기)은 <a href="/admin">관리</a>에 있다.</p>'
             '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>① 파일 올리기</b></div>'
-            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" data-back="/pipeline" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<input type="hidden" name="back" value="/pipeline">'
             '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
-            '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
+            '<input type="file" name="files" multiple accept=".csv" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
-            '<span class="muted" style="font-size:11.5px">CSV 하나면 적재·초안 생성까지. 정답지 asu_answer_*.json 은 대조를 볼 때 올린다(같이 올려도 된다)</span>'
+            '<span class="muted" style="font-size:11.5px">근무 CSV(여러 개 가능). 올리면 바로 적재된다</span>'
             '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span>'
             '</form>' + up_html +
             '<div class="muted" style="font-size:12px;margin:12px 0 2px"><b>② 검출 + AI 초안</b>' + ('' if opts else ' <span style="color:var(--bad)">— 먼저 파일을 올리세요</span>') + '</div>'
             '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
             '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="var o=this.form.shift_id.selectedOptions[0].text; if(o.indexOf(\'초안 있음\')>=0 && !window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\')) return false;">적재 + 검출 + AI 초안 생성</button>'
-            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
             '</form>'
 
-            + ('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>' if jobs.KEYS else '')
             + '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
             '<span id="jobpill" class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
             '<pre id="joblog" class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
             + (log or "여기에 진행이 표시됩니다.") + '</pre>' + err + link + '</div>'
-            + _score_html()
-            + '<div class="card" style="padding:12px 18px"><p class="note" style="margin:0"><b>처음부터 다시</b> — ⑤ 일지 조회 상단 「완전 빈 상태로」. '
-              '빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다.</p></div>'
             + reload_js)
     return page("파이프라인", body, active="/pipeline")
 
@@ -563,13 +618,7 @@ def view_index():
             f'<span class="c">{badge}</span><span class="arw">›</span></a>'
         )
 
-    reset_bar = ('<form method="post" action="/reset" style="display:flex;gap:8px;align-items:center;margin:0 0 12px">'
-                 '<span class="muted" style="font-size:12px">처음부터 —</span>'
-                 '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)" '
-                 "onclick=\"if(!window.confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.sure.value='1'\">완전 빈 상태로</button>"
-                 '<input type="hidden" name="sure" value="0">'
-                 '<span class="muted" style="font-size:11.5px">· 매시 정각에 자동으로 비워집니다(최근 2시간 안에 눌렀으면 건너뜀)</span></form>')
-    body = (reset_bar + f'<div class="card" style="padding:14px 18px">'
+    body = (f'<div class="card" style="padding:14px 18px">'
             f'<h2>근무 일지</h2>'
             f'<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
             f'분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>'
@@ -871,6 +920,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, view_draft())
             elif path == "/pipeline":
                 self._send(200, view_pipeline())
+            elif path == "/admin":
+                self._send(200, view_admin())
             elif path.startswith("/answer/"):
                 self._send(200, view_answer(path.rstrip("/").split("/")[-1]))   # /answer/<근무> (옛 /answer/<정답지>/<근무> 도 마지막 조각)
             elif path == "/api/job":
@@ -985,9 +1036,13 @@ class Handler(BaseHTTPRequestHandler):
         msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
             b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
         saved, paths, key_sids = [], [], []
+        back = "/pipeline"
         try:
             for part in msg.iter_parts():
                 fn = part.get_filename()
+                if not fn and part.get_param("name", header="content-disposition") == "back":
+                    back = "/admin" if (part.get_payload(decode=True) or b"").strip() == b"/admin" else "/pipeline"
+                    continue
                 if fn:
                     data = part.get_payload(decode=True)
                     if fn.endswith(".gz"):
@@ -1002,7 +1057,7 @@ class Handler(BaseHTTPRequestHandler):
         csvs = [p for p in paths if p.suffix == ".csv"]
         queued = (not jobs.ingest_async(csvs)) if csvs else False   # 올린 CSV 는 바로 적재 → 그 안의 근무가 전부 목록에
         jobs.note_upload(saved, key_sids, queued)
-        self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+        self.send_response(303); self.send_header("Location", back); self.end_headers()
         return
 
     def _handle_form(self, raw):
@@ -1027,6 +1082,8 @@ class Handler(BaseHTTPRequestHandler):
                         newer = csv.stat().st_mtime > datetime.fromisoformat(row["ingested_at"]).timestamp() + 1
                     except (OSError, TypeError, ValueError):
                         newer = False
+                if confirmed and not redo:   # 확정 근무는 제품 흐름에서 다시 돌리지 않는다 — 비동기 실패 대신 바로 안내
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무입니다. 다시 만들려면 <a href="/admin">관리</a>의 「확정돼 있어도 다시 만들기」를 쓰세요.</div></div>', active="/pipeline")); return
                 if (newer or stale) and csv is None:
                     self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>', active="/pipeline")); return
                 if (newer or stale) and confirmed and not redo:   # 재적재 뒤 비동기로 "확정된 근무" 실패하지 않게 먼저 막는다 (Codex)
@@ -1067,7 +1124,7 @@ class Handler(BaseHTTPRequestHandler):
                 finally:
                     jobs.release_hold(held)
                 self.send_response(303)
-                self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
+                self.send_header("Location", "/admin?reset=" + ("empty" if empty else "seed"))
                 self.end_headers()
                 print(f"  RESET → {what}")
                 return
