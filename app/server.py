@@ -415,20 +415,50 @@ def _upload_result_html():
 _ai_check = (None, "")   # 마지막 「AI 연결 점검」 결과 (성공 여부, 설명)
 
 
-def view_admin():
+def _admin_key():
+    """심사 기간에 공개 URL 의 관리 동작(리셋·다시 만들기·정답지 업로드 등)을 아무나 누르지 못하게 하는 열쇠.
+    환경 변수 ENGRA_ADMIN_KEY 가 비어 있으면 잠금 없음(QA 기간). 09-02 심사 세팅 때 켠다 (경모님 2026-08-28)."""
+    import os
+    return (os.environ.get("ENGRA_ADMIN_KEY") or "").strip()
+
+
+def _admin_ok(handler):
+    key = _admin_key()
+    if not key:
+        return True
+    cookie = handler.headers.get("Cookie", "")
+    for part in cookie.split(";"):
+        k, _, v = part.strip().partition("=")
+        if k == "engra_admin" and v == key:
+            return True
+    return False
+
+
+def _admin_gate_html(locked):
+    if not _admin_key():
+        return ""
+    if locked:
+        return ('<div class="card" style="padding:12px 18px;border-left:3px solid var(--accent)"><b>관리 동작 잠김</b> — 심사 기간에는 열쇠를 넣어야 리셋·다시 만들기·정답지 업로드가 됩니다(보기는 자유). '
+                '<form method="post" action="/admin/unlock" style="display:inline-flex;gap:6px;margin-left:8px"><input type="password" name="key" placeholder="열쇠" style="font-size:12.5px;padding:4px 8px">'
+                '<button class="btn" style="padding:5px 10px;font-size:12.5px">열기</button></form></div>')
+    return '<div class="note muted" style="font-size:12px">관리 동작 열쇠 확인됨 — 이 브라우저에서만 유효</div>'
+
+
+def view_admin(handler=None):
     """관리 — 검증·리셋·시연용 컨트롤을 한곳에. 경모님(2026-08-27): "관리 버튼이 여기저기 있으면 기존 로직인지
     관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 ③·⑤ 에서 이쪽으로 옮겼다."""
     st = jobs.state(); running = st["running"]
+    locked = not _admin_ok(handler) if handler is not None else False
     links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + '</a> ' for sid in sorted(jobs.KEYS))
     opts = "".join('<option value="' + esc(s["shift_id"]) + '">' + esc(s["shift_id"]) + ' · ' + ("확정" if s["status"] == "confirmed" else ("초안 있음" if s["status"] == "pending" else "적재됨")) + '</option>' for s in jobs.sources())
-    body = ('<div class="card" style="padding:14px 18px"><h2>관리 — 검증 · 리셋 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 제품 흐름(①~⑤)에는 없는 기능만 모았다</span></h2>'
+    body = (_admin_gate_html(locked) + '<div class="card" style="padding:14px 18px"><h2>관리 — 검증 · 리셋 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 제품 흐름(①~⑤)에는 없는 기능만 모았다</span></h2>'
             '<p class="note" style="margin:0 0 10px"><b>정답지 대조</b> — 생성기가 CSV 와 함께 내려준 asu_answer_*.json 을 올리면, 그 근무에서 엔진이 잡은 것과 심어 둔 이상을 대조한다. '
             '초안을 먼저 만든 뒤 올리면 「사후 ✓」로 표시된다(검출이 정답지를 볼 수 없었다는 순서 근거).</p>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" data-back="/admin" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<input type="hidden" name="back" value="/admin">'
             '<span class="muted" style="font-size:12.5px">정답지 올리기 —</span>'
             '<input type="file" name="files" multiple accept=".json" style="font-size:12.5px">'
-            '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
+            '<button class="btn"' + (' disabled title="열쇠 필요"' if locked else '') + ' style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
             '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span></form>' + _upload_result_html()
             + (('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>') if jobs.KEYS else '')
             + '</div>' + _score_html()
@@ -437,7 +467,7 @@ def view_admin():
             '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
             '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:300px">' + opts + '</select>'
             '<input type="hidden" name="redo" value="1">'
-            '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\')">확정돼 있어도 다시 만들기</button></form></div>'
+            '<button class="btn"' + (' disabled title="열쇠 필요"' if locked else '') + '' + (' disabled' if (running or not opts) else '') + ' onclick="return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\')">확정돼 있어도 다시 만들기</button></form></div>'
             + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
             '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
             '<ol style="margin:0 0 6px 18px;font-size:12.5px;line-height:1.6">'
@@ -953,7 +983,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/pipeline":
                 self._send(200, view_pipeline())
             elif path == "/admin":
-                self._send(200, view_admin())
+                self._send(200, view_admin(self))
             elif path.startswith("/answer/"):
                 self._send(200, view_answer(path.rstrip("/").split("/")[-1]))   # /answer/<근무> (옛 /answer/<정답지>/<근무> 도 마지막 조각)
             elif path == "/api/job":
@@ -1080,6 +1110,8 @@ class Handler(BaseHTTPRequestHandler):
                     if fn.endswith(".gz"):
                         # 브라우저가 CompressionStream 으로 눌러 보낸 것 — 37MB CSV 가 수 MB 로 줄어 업로드가 수 초
                         data, fn = self._gunzip(data), fn[:-3]
+                    if fn.endswith(".json") and not _admin_ok(self):
+                        raise PermissionError("정답지 업로드는 심사 기간에 열쇠가 필요합니다 — 관리에서 열쇠를 넣으세요")
                     p, sids = jobs.save_upload(fn, data)
                     saved.append(p.name); paths.append(p); key_sids += sids
         except Exception as exc:
@@ -1096,6 +1128,15 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(raw.decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
+            if path == "/admin/unlock":
+                key = form.get("key", [""])[0]
+                self.send_response(303); self.send_header("Location", "/admin")
+                if _admin_key() and key == _admin_key():
+                    self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200")
+                self.end_headers(); return
+            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
+                if not _admin_ok(self):
+                    self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>', active="/admin")); return
             if path == "/admin/ai_check":
                 global _ai_check
                 import time as _t
