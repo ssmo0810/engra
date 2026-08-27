@@ -50,17 +50,37 @@ MAX_BAD_RATIO = 0.01   # 이 이상 깨졌으면 노이즈가 아니라 파일�
 
 
 class BadRows:
-    """건너뛴 행의 집계. ingest 가 끝나면 크게 보고한다 — 조용히 넘기지 않는다."""
+    """건너뛴 행의 집계. ingest 가 끝나면 크게 보고한다 — 조용히 넘기지 않는다.
+    max_ratio=None 이면 비율 상한 없이 전부 건너뛴다 — 사용자가 화면에서 "깨진 행을 건너뛰고 적재" 를 명시적으로
+    누른 경우(경모님 2026-08-27, 생성기 _mix 파일). 그 사실은 근무의 품질 기록(shift.quality_json)에 남는다."""
 
-    def __init__(self):
+    def __init__(self, max_ratio=None):
         self.count = 0
         self.total = 0
         self.samples = []
+        self.max_ratio = max_ratio          # None = 상한 없음. 기본 호출자는 MAX_BAD_RATIO 를 넘긴다
+        self.by_shift = {}       # shift_id -> {tag: n}  — 어느 근무·어느 태그가 얼마나 깨졌나
 
     def add(self, lineno, raw, exc):
         self.count += 1
         if len(self.samples) < 5:
             self.samples.append(f"{lineno}: {raw!r} — {exc}")
+        ts, tag = (raw[0], raw[1]) if isinstance(raw, tuple) and len(raw) >= 2 else (None, None)
+        try:
+            sid = shift_id_for(datetime.fromisoformat(ts))[0] if ts else "?"
+        except (ValueError, TypeError):
+            sid = "?"
+        self.by_shift.setdefault(sid, {})
+        self.by_shift[sid][tag or "?"] = self.by_shift[sid].get(tag or "?", 0) + 1
+
+    def quality(self, shift_id, skipped_by_user):
+        """한 근무의 품질 기록. 깨진 행이 없으면 None."""
+        tags = self.by_shift.get(shift_id) or {}
+        n = sum(tags.values())
+        if not n:
+            return None
+        return {"bad_rows": n, "total_rows_seen": self.total, "ratio_file": round(self.count / self.total, 4) if self.total else None,
+                "by_tag": dict(sorted(tags.items(), key=lambda kv: -kv[1])), "samples": self.samples[:3], "skipped_by_user": bool(skipped_by_user)}
 
 
 def _rows(fh, label, bad=None):
@@ -87,7 +107,7 @@ def _rows(fh, label, bad=None):
             if bad is None:
                 raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
             bad.add(lineno, (row.get("timestamp"), row.get("tag"), row.get("value")), exc)
-            if bad.total >= 1000 and bad.count / bad.total > MAX_BAD_RATIO:
+            if bad.max_ratio is not None and bad.total >= 1000 and bad.count / bad.total > bad.max_ratio:
                 raise ValueError(
                     f"{label}: {bad.total}행 중 {bad.count}행이 깨졌습니다 ({bad.count/bad.total:.1%}). "
                     f"1% 를 넘어 노이즈가 아니라 잘못된 파일로 봅니다. 예: {bad.samples[0]}")

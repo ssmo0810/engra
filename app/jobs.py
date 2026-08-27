@@ -42,7 +42,8 @@ def state():
     d = dict(_job)
     d["elapsed"] = (time.time() - d["started"]) if (d["running"] and d["started"]) else None   # "멈춘 건 아닐까" — 경과를 보인다
     with _qlock:
-        d["pending"] = [Path(p).name for p in _pending]
+        d["pending"] = [Path(p).name for p, _ in _pending]
+    d["can_skip"] = list(_job.get("can_skip") or [])
     d["last_run"] = dict(_last_run)
     return d
 
@@ -110,16 +111,23 @@ def _spawn(work, requeue=None):
 
 
 def _say(msg):
+    msg = time.strftime("%H:%M:%S ") + msg      # 같은 파일을 다시 올려 똑같이 실패하면 새 시도인지 안 보였다 (경모님 2026-08-27)
     _job["lines"].append(msg)
     print(f"  [job] {msg}", flush=True)
 
 
-def ingest_path(path):
-    """CSV 하나를 적재한다. 여러 근무가 섞여 있어도 collect 가 나눈다."""
-    src = collect.source_for(path, collect.BadRows())
+def ingest_path(path, skip_bad=False):
+    """CSV 하나를 적재한다. 여러 근무가 섞여 있어도 collect 가 나눈다.
+    skip_bad=False: 깨진 행 1% 까지는 건너뛰고 넘으면 거부(잘못된 파일). True: 사용자가 명시적으로 건너뛰기를 택함 — 상한 없음.
+    깨진 행이 있으면 근무별 품질 기록을 남긴다 → 초안에 '데이터 품질' 항목으로 들어가고 AI 도 그 사실을 알고 판단한다."""
+    bad = collect.BadRows(max_ratio=None if skip_bad else collect.MAX_BAD_RATIO)
+    src = collect.source_for(path, bad)
     counts = collect.ingest(src)
-    if src.bad and src.bad.count:
-        _say(f"⚠ 깨진 행 {src.bad.count:,}개 건너뜀 ({src.bad.count/src.bad.total:.2%})")
+    if bad.count:
+        _say(f"⚠ 깨진 행 {bad.count:,}개 건너뜀 ({bad.count/bad.total:.2%}) — 태그별: " + ", ".join(f"{t} {n}" for sid in bad.by_shift for t, n in list(bad.by_shift[sid].items())[:4]))
+        with db.connect() as conn:
+            for sid in counts:
+                db.set_quality(conn, sid, bad.quality(sid, skip_bad))
     return counts
 
 
@@ -133,31 +141,39 @@ def _summarize(sids):
                 db.save_summaries(conn, sid, pipeline.ports.summarize(series))
 
 
-def ingest_async(paths):
+def ingest_async(paths, skip_bad=False):
     """올라온 CSV 들을 적재한다(별도 스레드). 다른 작업이 돌고 있으면 줄을 세우고 False — 그 작업이 끝나면 이어진다."""
     mark_qa_active()
     with _qlock:
-        _pending.extend(str(p) for p in paths if str(p) not in _pending)
+        for p in paths:
+            key = (str(p), bool(skip_bad))
+            if key not in _pending:
+                _pending.append(key)
     return drain()
 
 
 def _run_ingest(paths):
-    """작업 락을 잡은 상태에서 부른다(drain). 파일별로 적재하고 요약한다."""
+    """작업 락을 잡은 상태에서 부른다(drain). 파일별로 적재하고 요약한다. paths = [(경로, skip_bad)]."""
     def work():
-        got, failed = {}, []
+        got, failed, can_skip = {}, [], []
+        _job["can_skip"] = []
         try:
-            for p in paths:
-                _say(f"적재 시작 — {Path(p).name}")
+            for p, skip in paths:
+                _say(f"적재 시작 — {Path(p).name}" + (" (깨진 행 건너뛰기)" if skip else ""))
                 try:
-                    for sid, n in sorted(ingest_path(p).items()):
+                    for sid, n in sorted(ingest_path(p, skip_bad=skip).items()):
                         _say(f"{sid}: {n:,}점 적재")
                         got[sid] = n
                 except Exception as exc:   # 파일 하나가 깨져도 나머지는 적재한다 (Codex). 실패는 그대로 보인다.
                     failed.append(Path(p).name)
                     _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
+                    if not skip and "깨졌습니다" in str(exc):
+                        can_skip.append(Path(p).name)   # 화면이 「깨진 행을 건너뛰고 적재」 를 제시한다
+                        _say("   → 파일이 잘못됐다고 판단해 멈췄습니다. 그래도 넣으려면 아래 「깨진 행을 건너뛰고 적재」 — 건너뛴 사실은 근무 품질 기록으로 남아 초안·AI 판단에 들어갑니다.")
             if got:
                 _summarize(list(got))
                 _say(f"요약 저장 — {len(got)}근무 (다음 근무의 기준선 재료)")
+            _job["can_skip"] = can_skip
             if failed and not got:
                 _finish(err="적재 실패: " + ", ".join(failed))
                 return
@@ -353,6 +369,14 @@ def reconcile_uploads():
         print(f"  uploads/ 에 적재 안 된 CSV {len(todo)}개 — 적재 시작: {[p.name for p in todo]}", flush=True)
         ingest_async(todo)
     return todo
+
+
+def ingest_skip(name):
+    """실패한 업로드 파일을 깨진 행을 건너뛰며 다시 적재한다(화면 버튼). uploads/ 안의 파일만."""
+    p = UPLOAD_DIR / Path(name).name
+    if not p.exists() or p.suffix != ".csv":
+        raise FileNotFoundError(f"{name} 은 올라온 CSV 가 아닙니다")
+    return ingest_async([p], skip_bad=True)
 
 
 _reload_uploads()

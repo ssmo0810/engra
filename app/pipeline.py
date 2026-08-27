@@ -107,6 +107,20 @@ def run(shift_id, verbose=True, redo=False, say=None):
             "SELECT * FROM shift WHERE id = ?", (shift_id,)
         ).fetchone())
         items = ports.compose(shift, stored, find_precedents)
+        quality = db.load_quality(conn, shift_id)
+        if quality and quality.get("bad_rows"):
+            # 원본이 깨진 근무는 그 사실 자체가 인수인계 대상이다 — 그 태그의 검출은 결측을 모른 채 나온 것이라 신뢰도가 낮다.
+            top = list(quality.get("by_tag") or {})[:3]
+            items.insert(0, {
+                "origin": "quality", "tag": top[0] if top else "-", "event_id": None,
+                "title": f"원본 데이터 결측/형식 오류 — {', '.join(top)} 등 {quality['bad_rows']}행" + (" (사용자가 건너뛰기를 택함)" if quality.get("skipped_by_user") else ""),
+                "body": f"적재 시 값이 비었거나 형식이 깨진 행 {quality['bad_rows']}행을 건너뜀" + (f" (파일 전체의 {quality['ratio_file']:.1%})" if quality.get("ratio_file") else "")
+                        + f". 태그별: " + ", ".join(f"{t} {n}행" for t, n in (quality.get("by_tag") or {}).items()) + ". 해당 태그의 검출 결과는 결측 구간을 반영하지 않으므로 신뢰도가 낮다.",
+                "evidence": "예: " + " / ".join(quality.get("samples") or []),
+                "severity": "중", "suggested_action": None, "precedents": [],
+            })
+            say(f"원본 품질 항목 추가 — 깨진 행 {quality['bad_rows']}행 ({', '.join(top)})")
+        shift["quality"] = quality
 
         # 4-1) AI 서술 — 문장만 다시 쓴다. 근거·숫자는 이벤트 metrics 로 넘기고 출력에서는 뺀다.
         # 실패하면 여기서 멈춘다. AI 없이 만든 초안을 저장하지 않는다 (llm.py 원칙 1).

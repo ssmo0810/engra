@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS shift (
     window_start  TEXT NOT NULL,
     window_end    TEXT NOT NULL,
     source        TEXT,
-    ingested_at   TEXT
+    ingested_at   TEXT,
+    quality_json  TEXT                        -- 원본 품질(깨진 행 건너뜀 등). 없으면 NULL. 초안·AI 에 전달된다
 );
 
 -- 1) 원본 시계열. 단기 회전 대상.
@@ -186,6 +187,8 @@ def _migrate(conn):
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
     if "waveform_json" not in have_ev:
         conn.execute("ALTER TABLE event ADD COLUMN waveform_json TEXT")
+    if "quality_json" not in {r[1] for r in conn.execute("PRAGMA table_info(shift)")}:
+        conn.execute("ALTER TABLE shift ADD COLUMN quality_json TEXT")
 
 
 def reopen_handover(conn, shift_id, reason=None):
@@ -278,6 +281,16 @@ def raw_complete(conn, shift_id):
     row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (shift_id,)).fetchone()
     from datetime import datetime, timedelta
     return datetime.fromisoformat(first) <= datetime.fromisoformat(row["window_start"]) + timedelta(minutes=1)
+
+
+def set_quality(conn, shift_id, quality):
+    """근무 원본의 품질 기록(dict 또는 None)."""
+    conn.execute("UPDATE shift SET quality_json = ? WHERE id = ?", (json.dumps(quality, ensure_ascii=False) if quality else None, shift_id))
+
+
+def load_quality(conn, shift_id):
+    row = conn.execute("SELECT quality_json FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    return json.loads(row["quality_json"]) if row and row["quality_json"] else None
 
 
 def forget_raw(conn, shift_id):

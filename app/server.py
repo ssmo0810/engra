@@ -434,6 +434,14 @@ def view_admin():
             '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:300px">' + opts + '</select>'
             '<input type="hidden" name="redo" value="1">'
             '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\')">확정돼 있어도 다시 만들기</button></form></div>'
+            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
+            '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
+            '<ol style="margin:0 0 6px 18px;font-size:12.5px;line-height:1.6">'
+            '<li><b>서술</b> — 엔진의 근거 수치(σ, 기울기, 한계 대비, 지속 시간)를 근무자 말투의 문장으로. 근거에 있는 숫자만 쓴다.</li>'
+            '<li><b>중요도 재판정</b> — 통계 크기가 매긴 상/중/하를 "놓치면 무엇이 일어나는가"(품질·안전·설비 직결 / 손실·비효율 / 후속 영향 작음)로 다시 매기고 이유를 쓴다. 규칙과 다르면 화면에 「통계 기준 → AI 판정」으로 드러나고 사람이 되돌릴 수 있다.</li>'
+            '<li><b>전달 가치</b> — 외기(TI-101·MI-102) 하루 주기와 그에 따라 함께 움직인 완만한 변화는 정상 운전으로 보고 「전달 가치 낮음」. 한계 접근·다른 이상과 겹침이면 전달. 갈리면 전달(놓치는 쪽이 비싸다).</li>'
+            '<li><b>사례 적합성 · 연관</b> — 같은 태그의 확정 일지 중 이번 현상에 맞는 것만 남기고(기각 사유 기록), 태그 마스터 연결이 놓친 인과(예: 순도 하강 ↔ Cold end 온도)를 「함께 봐야 할 항목」으로 잇는다. 근거 없으면 잇지 않는다.</li></ol>'
+            '<p class="note muted" style="margin:0;font-size:12px">AI 가 아는 것 = 공기분리장치 공정 일반 지식 + 태그 마스터 설명 + 이번 근무의 근거 수치 + 과거 확정 일지. 이 공장의 절차·이력은 모른다 — 그래서 조치는 확정 일지에서만 오고, 원본 결측이 있으면 그 사실을 받아 신뢰도를 낮게 적는다. 기준 원문: <span class="mono">app/llm.py SYSTEM</span>.</p></div>'
             + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">처음부터</h2>'
             '<p class="note" style="margin:0 0 8px">근무·초안·확정 이력·정답지 대조가 전부 지워진다. 빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다. '
             '매시 정각에도 자동으로 비워진다(최근 2시간 안에 화면에서 실행·리셋을 눌렀으면 건너뜀).</p>' + _reset_bar() + '</div>')
@@ -517,7 +525,11 @@ def view_pipeline():
     up_html = _upload_result_html()
     log = "\n".join(esc(x) for x in st["lines"][-40:])
     running = st["running"]
-    err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>') if st.get("error") else ""
+    skip_html = "".join(
+        '<form method="post" action="/pipeline/ingest_skip" style="display:inline-block;margin:4px 8px 8px 0"><input type="hidden" name="file" value="' + esc(fn) + '">'
+        '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px" onclick="return window.confirm(\'깨진 행을 건너뛰고 적재합니다. 건너뛴 사실은 근무 품질 기록으로 남아 초안과 AI 판단에 들어갑니다.\')">'
+        + esc(fn) + ' — 깨진 행을 건너뛰고 적재</button></form>' for fn in (st.get("can_skip") or []) if not st["running"])
+    err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>' + skip_html) if st.get("error") else ""
     status = ("실행 중 · " + esc(st["step"] or "")) if running else "대기"
     link = ""
     lr = st.get("last_run") or {}
@@ -800,6 +812,14 @@ def _waves(shift_id):
 def _view_pending(shift_id, draft, active="/"):
     waves = _waves(shift_id)
     items = []
+    quality = None
+    with db.connect() as conn:
+        quality = db.load_quality(conn, shift_id)
+    qbanner = ""
+    if quality and quality.get("bad_rows"):
+        qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — 적재 때 깨진 행 '
+                   + str(quality["bad_rows"]) + '행을 건너뜀' + (' (사용자가 건너뛰기를 택함)' if quality.get("skipped_by_user") else '') + ' · 태그별 '
+                   + esc(", ".join(f"{t} {n}" for t, n in (quality.get("by_tag") or {}).items())) + '. 해당 태그의 검출은 결측 구간을 반영하지 않는다.</div>')
     for it in draft["items"]:
         sug = ""
         # AI 중요도 판정 — 왜 그 등급인지, 규칙과 다르면 그 사실을 보인다. 사람이 뒤집을 수 있어야 한다.
@@ -817,26 +837,17 @@ def _view_pending(shift_id, draft, active="/"):
                        f'{", ".join(esc(t) for t in rel)}'
                        + (f' <span class="muted">— {esc(it.get("related_note") or "")}</span>' if it.get("related_note") else "")
                        + '</div>')
-        if it["suggested_action"]:
-            # 출처를 그대로 보인다 — 경모님(2026-08-27): "과거 조치 유사 사례가 정답지에서 온 건지 AI 가 지어낸 건지".
-            # precedents = 같은 태그의 확정 일지에서 실제로 찾은 것(AI 가 적합하다고 남긴 것만). 없으면 문장은 AI 제안이다.
-            quoted = json.dumps(it["suggested_action"], ensure_ascii=False)
-            pre = it["precedents"] or []
-            pall = it.get("precedents_all") or []
-            pnote = it.get("precedent_note") if hasattr(it, "keys") else None
-            note_html = f' <span class="muted">— {esc(pnote)}</span>' if pnote else ""
-            if pre:
-                srcs = "".join('<li>' + esc(str(p.get("shift_id") or p.get("shift") or "")) + ' ' + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(str(p.get("text") or ""))[:120] + '</li>' for p in pre[:3])
-                label = f'과거 조치 — 확정 일지 {len(pre)}건에 근거' + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중)</span>' if pall and len(pall) > len(pre) else '')
-                src_html = f'<ul class="muted" style="margin:4px 0 0 16px;font-size:11.5px">{srcs}</ul>'
-            else:
-                label = ('AI 제안 조치 — 과거 확정 일지 없음, 참고용' if not pall
-                         else f'AI 제안 조치 — 같은 태그 확정 일지 {len(pall)}건이 있었지만 이 사건에 맞지 않다고 판단')
-                src_html = ""
-            sug = (f'<div class="sug"><span class="lb">{label}{note_html}</span>'
-                   f'{esc(it["suggested_action"])}{src_html}'
-                   f'<button type="button" onclick="use(this,{html.escape(quoted, quote=True)})">'
-                   f'코멘트로 사용</button></div>')
+        pre = it.get("precedents") or []
+        pall = it.get("precedents_all") or []
+        pnote = it.get("precedent_note") if hasattr(it, "keys") else None
+        if pre:
+            # 과거 조치 = 같은 태그의 확정 일지에서 찾아 AI 가 이번 현상에 맞다고 판정한 것. 문장 그대로, 출처와 함께. AI 가 조치를 짓지 않는다 (경모님 2026-08-27).
+            rows_ = "".join('<li>' + esc(str(p.get("shift_id") or "")) + ' ' + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(str(p.get("text") or ""))
+                            + f' <button type="button" onclick="use(this,{html.escape(json.dumps(str(p.get("text") or ""), ensure_ascii=False), quote=True)})">코멘트로 사용</button></li>' for p in pre[:3])
+            sug = (f'<div class="sug"><span class="lb">과거 조치 — 확정 일지 {len(pre)}건' + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중 맞는 것)</span>' if len(pall) > len(pre) else '')
+                   + (f' <span class="muted">— {esc(pnote)}</span>' if pnote else '') + f'</span><ul style="margin:4px 0 0 16px;font-size:12px">{rows_}</ul></div>')
+        elif pall:
+            sug = f'<div class="sug muted" style="font-size:12px"><span class="lb">과거 조치 없음</span>같은 태그 확정 일지 {len(pall)}건이 있었지만 이 현상에 맞지 않다고 판단' + (f' — {esc(pnote)}' if pnote else '') + '</div>'
         items.append(f"""<div class="item">
 <div class="row1"><input type="checkbox" name="item" value="{it['id']}"{"" if it.get("adopted") == 0 else " checked"} onchange="tg(this)">
 <div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
@@ -861,6 +872,7 @@ def _view_pending(shift_id, draft, active="/"):
     n = len(draft["items"])
     return page(shift_id, f"""<a class="back" href="/">‹ 목록으로</a>
 {disc}
+{qbanner}
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
@@ -1078,6 +1090,12 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(raw.decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
+            if path == "/pipeline/ingest_skip":
+                try:
+                    started = jobs.ingest_skip(form.get("file", [""])[0])
+                except FileNotFoundError as exc:
+                    self._send(400, page("없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
+                self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers(); return
             if path == "/pipeline/run":
                 sid = form["shift_id"][0]
                 redo = form.get("redo", ["0"])[0] == "1"

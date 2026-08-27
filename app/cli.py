@@ -49,7 +49,7 @@ def cmd_sample(args):
 
 def cmd_ingest(args):
     db.init()
-    bad = collect.BadRows() if args.skip_bad_rows else None
+    bad = collect.BadRows(max_ratio=collect.MAX_BAD_RATIO) if args.skip_bad_rows else None
     source = collect.source_for(args.csv, bad)   # 파일 경로 또는 URL (#12)
     counts = collect.ingest(source)
     if bad and bad.count:
@@ -98,7 +98,7 @@ def prepare_latest(sid, redo):
     with db.connect() as conn:
         n = db.forget_raw(conn, sid)
     print(f"  {sid} 원본 {n:,}점 정리됨 — 올린 파일 {csv.name} 에서 다시 적재")
-    collect.ingest(collect.source_for(str(csv), collect.BadRows()))
+    collect.ingest(collect.source_for(str(csv), collect.BadRows(max_ratio=collect.MAX_BAD_RATIO)))
     return True
 
 

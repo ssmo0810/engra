@@ -43,7 +43,6 @@ ITEM_SCHEMA = {
                     "idx": {"type": "integer", "description": "입력 항목의 순번. 그대로 돌려준다"},
                     "title": {"type": "string", "description": "한 줄 제목. 태그와 현상"},
                     "body": {"type": "string", "description": "인수인계 문장 2~4개. 근거의 숫자를 그대로 인용"},
-                    "suggested_action": {"type": "string", "description": "다음 근무자에게 권하는 조치 한 문장. 과거 사례가 있으면 그것을 근거로"},
                     "severity": {"type": "string", "enum": ["상", "중", "하"],
                                  "description": "인수인계 관점의 중요도. 통계 크기가 아니라 '놓치면 무엇이 일어나는가'로 판단"},
                     "severity_reason": {"type": "string", "description": "그 중요도로 판단한 이유 한 문장. 근무자가 읽고 동의할 수 있어야 한다"},
@@ -55,7 +54,7 @@ ITEM_SCHEMA = {
                                     "description": "이 배치 안에서 같은 사건의 다른 얼굴이라고 판단되는 항목 번호. 태그 마스터 연결이 없어도 공정 지식으로 판단. 없으면 빈 배열"},
                     "related_note": {"type": "string", "description": "왜 같은 사건으로 보는지 한 문장. related_idx 가 비면 빈 문자열"},
                 },
-                "required": ["idx", "title", "body", "suggested_action", "severity", "severity_reason", "handover_worthy", "precedent_fit", "precedent_note", "related_idx", "related_note"],
+                "required": ["idx", "title", "body", "severity", "severity_reason", "handover_worthy", "precedent_fit", "precedent_note", "related_idx", "related_note"],
                 "additionalProperties": False,
             },
         }
@@ -72,7 +71,9 @@ SYSTEM = """당신은 24시간 연속 공정(공기분리장치, ASU) 교대 근
 - 숫자는 주어진 근거(evidence, metrics)에 있는 값만 쓴다. 새 숫자를 만들지 않는다.
 - 판단하지 않은 것을 단정하지 않는다. 원인이 불확실하면 "의심됨" 으로 쓴다.
 - 문장은 현장 근무자가 쓰는 말투로 짧게. 존칭 없이 "~됨", "~확인 필요" 형태.
-- 과거 사례가 있으면 그 조치를 참고해 suggested_action 을 쓴다. 없으면 관찰·확인 위주로.
+- **조치를 지어내지 않는다.** 현장 조치는 과거 확정 일지(precedents)에 있는 것만 유효하다 — 당신은 이 공장의 절차를 모른다.
+  당신이 할 일은 그 사례가 이번 현상에 맞는지(precedent_fit) 판정하는 것이다.
+- 근무 원본에 결측·형식 오류가 있었다는 '원본 품질' 항목이 있으면, 그 태그의 다른 항목 severity_reason 에 신뢰도가 낮다는 점을 적는다.
 - 태그명은 그대로 쓴다 (예: TI-205). 설명은 괄호로 붙인다.
 - 알람이 아직 울리지 않았지만 추세가 한계로 향하는 경우, 그 점을 반드시 명시한다 — 이것이 인수인계의 핵심이다.
 
@@ -92,8 +93,7 @@ handover_worthy 는 엄격하게 판단한다. **대기 온습도(TI-101, MI-102
 과거 조치(precedents)는 **같은 태그의 최근 확정 일지**를 기계적으로 가져온 것이다. 태그가 같아도
 증상이 다르거나 조치가 이번 현상과 무관하면 채택하지 않는다. 예) 대기 습도 드리프트에
 "LP 컬럼 리플럭스 조정" 은 맞지 않는다 — 다른 항목의 조치가 같은 근무 일지에 섞여 들어온 것이다.
-맞는 사례만 precedent_fit 에 번호로 적고, suggested_action 은 그 사례에 근거해 쓴다.
-맞는 사례가 없으면 precedent_fit 은 빈 배열, suggested_action 은 관찰·확인 위주로 새로 쓴다.
+맞는 사례만 precedent_fit 에 번호로 적는다. 맞는 사례가 없으면 빈 배열 — 대신 조치를 쓰지 않는다.
 
 항목들은 통계 검출기가 시간 겹침과 태그 마스터의 연결(links)로 이미 한 번 묶은 것이다. 그 묶음이
 놓치는 것을 공정 지식으로 찾아라 — 예) A탑·B탑 후단 수분이 동시에 오르면 공통 원인(재생 가스·
@@ -124,7 +124,10 @@ def status():
 def _prompt(shift, items):
     """항목 목록 -> 모델에 줄 사용자 메시지. 숫자는 여기서 전부 넘긴다."""
     lines = [f"근무: {shift.get('id')}  구간: {shift.get('window_start', '')} ~ {shift.get('window_end', '')}",
-             f"항목 {len(items)}개. 각 항목의 idx 를 그대로 돌려주고 title·body·suggested_action 만 써라.", ""]
+             f"항목 {len(items)}개. 각 항목의 idx 를 그대로 돌려주고 title·body 를 쓰고 severity·handover_worthy·precedent_fit·related_idx 를 판정하라.", ""]
+    q = shift.get("quality") if isinstance(shift, dict) else None
+    if q and q.get("bad_rows"):
+        lines.insert(1, f"원본 품질: 깨진 행 {q['bad_rows']}행 건너뜀 — 태그별 {json.dumps(q.get('by_tag') or {}, ensure_ascii=False)}. 이 태그들의 검출은 결측 구간을 모른 채 나온 것이다.")
     for i, it in enumerate(items):
         lines.append(f"[{i}] 태그 {it.get('tag')}  중요도 {it.get('severity')}")
         lines.append(f"    근거: {it.get('evidence')}")
@@ -234,7 +237,7 @@ def rewrite(shift, items, say=None):
         new = dict(it)                          # tag·evidence·precedents·event_id 등 원본 유지
         new["title"] = o["title"].strip() or it["title"]
         new["body"] = o["body"].strip() or it["body"]
-        new["suggested_action"] = o["suggested_action"].strip() or it.get("suggested_action")
+        # 조치 문장은 AI 가 쓰지 않는다 — 적합 판정된 과거 확정 일지의 문장만 남는다 (경모님 2026-08-27)
         # 중요도는 AI 가 다시 판단한다. 규칙이 매긴 값은 severity_rule 로 남겨 대비할 수 있게 한다.
         new["severity_rule"] = it.get("severity")
         new["severity"] = o["severity"] if o.get("severity") in ("상", "중", "하") else it.get("severity")
@@ -245,6 +248,7 @@ def rewrite(shift, items, say=None):
         fit = [k for k in (o.get("precedent_fit") or []) if isinstance(k, int) and 0 <= k < min(len(pre), 3)]
         new["precedents_all"] = pre
         new["precedents"] = [pre[k] for k in fit]
+        new["suggested_action"] = (new["precedents"][0].get("text") if new["precedents"] else None)
         new["precedent_note"] = (o.get("precedent_note") or "").strip()
         new["_related_local"] = [k for k in (o.get("related_idx") or []) if isinstance(k, int)]
         new["related_note"] = (o.get("related_note") or "").strip()
