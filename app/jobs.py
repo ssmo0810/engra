@@ -178,7 +178,7 @@ def ingest_async(paths, skip_bad=False):
 def _run_ingest(paths):
     """작업 락을 잡은 상태에서 부른다(drain). 파일별로 적재하고 요약한다. paths = [(경로, skip_bad)]."""
     def work():
-        got, failed, can_skip = {}, [], []
+        got, failed, can_skip, summarized = {}, [], [], []
         _job["can_skip"] = []; _job["advice"] = None
         try:
             for p, skip in paths:
@@ -190,6 +190,7 @@ def _run_ingest(paths):
                         got[sid] = n
                     try:
                         _summarize(list(counts))   # 파일마다 바로 요약 — 같은 묶음의 다음 파일이 '직전 근무' 로 볼 수 있게 (Codex)
+                        summarized += list(counts)
                     except Exception as exc:       # 적재는 됐다 — '적재 실패' 로 오보고하지 않는다 (Codex)
                         _say(f"⚠ {Path(p).name} 요약 실패 — {type(exc).__name__}: {exc} (적재는 됐음, 기준선 재료에서만 빠짐)")
                 except Exception as exc:   # 파일 하나가 깨져도 나머지는 적재한다 (Codex). 실패는 그대로 보인다.
@@ -197,8 +198,8 @@ def _run_ingest(paths):
                     _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
                     if not skip and "깨졌습니다" in str(exc):
                         can_skip.append(Path(p).name)   # 화면이 「깨진 행을 건너뛰고 적재」 를 제시한다(조언은 ingest_path 가 이미 적었다)
-            if got:
-                _say(f"요약 저장 — {len(got)}근무 (다음 근무의 기준선 재료)")
+            if summarized:
+                _say(f"요약 저장 — {len(summarized)}근무 (다음 근무의 기준선 재료)" + (f" · 요약 실패 {len(got) - len(summarized)}근무" if len(summarized) < len(got) else ""))
             _job["can_skip"] = can_skip
             if failed and not got:
                 _finish(err="적재 실패: " + ", ".join(failed))
