@@ -1023,7 +1023,7 @@ class Handler(BaseHTTPRequestHandler):
                         newer = Path(src["csv"]).stat().st_mtime > datetime.fromisoformat(already["ingested_at"]).timestamp() + 1   # ingested_at 은 초 단위 — 같은 초의 소수 mtime 으로 되풀이 재적재되지 않게 (Codex)
                     except (OSError, TypeError, ValueError):
                         newer = False
-                if newer and confirmed and not redo:
+                if (newer or stale) and confirmed and not redo:   # 재적재 뒤 비동기로 "확정된 근무" 실패하지 않게 먼저 막는다 (Codex)
                     self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 새 파일이 올라왔습니다. 새 파일로 다시 만들려면 「확정 data 다시 만들기」를 켜세요.</div></div>', active="/pipeline")); return
                 try:
                     jobs.run_async(sid, csv_path=src["csv"] if (not already or newer or stale) else None, redo=redo,

@@ -82,6 +82,26 @@ def cmd_shifts(_):
         print(f"{r['id']:<22}{span:<38}{r['event_count']:>6}{status:>12}")
 
 
+def prepare_latest(sid, redo):
+    """타이머 실행(--latest)의 사전 판정. 초안·확정이 있으면 사용자의 검토를 덮지 않는다. 원본이 없거나 앞이
+    잘렸으면(3일 회전) 업로드된 파일이 있을 때만 거기서 다시 적재하고, 없으면 할 일이 없다. True = 실행 진행."""
+    with db.connect() as conn:
+        if not redo and (db.load_draft(conn, sid) or db.load_handover(conn, sid)):
+            print(f"  {sid} 는 이미 초안/확정이 있습니다 — 건너뜀 (다시 만들려면 --redo)"); return False
+        complete = db.raw_complete(conn, sid)
+    if complete:
+        return True
+    import jobs   # 업로드 목록(uploads/*.json) — 서버와 같은 소스 정의
+    src = next((s for s in jobs.SOURCES if s["shift_id"] == sid and s["set"] == "업로드" and Path(s["csv"]).exists()), None)
+    if src is None:
+        print(f"  {sid} 는 적재된 원본이 없습니다(또는 보관 기간이 지나 정리됨) — 올린 파일도 없어 할 일 없음"); return False
+    with db.connect() as conn:
+        n = db.forget_raw(conn, sid)
+    print(f"  {sid} 원본 {n:,}점 정리됨 — 올린 파일 {Path(src['csv']).name} 에서 다시 적재")
+    collect.ingest(collect.source_for(src["csv"], collect.BadRows()))
+    return True
+
+
 def cmd_run(args):
     if args.latest:
         # 교대 시각(06:00/18:00) 직후에 돈다고 가정하고 "지금 끝난 근무" 를 고른다.
@@ -90,12 +110,8 @@ def cmd_run(args):
         sid, _kind, _s, _e = collect.shift_id_for(datetime.now() - timedelta(seconds=1))
         args.shift_id = sid
         print(f"--latest → {sid}")
-        # 타이머 실행이다. 적재된 원본이 없으면 할 일이 없고, 초안·확정이 이미 있으면 사용자의 검토를 덮어쓰지 않는다.
-        with db.connect() as conn:
-            if not db.raw_complete(conn, sid):
-                print(f"  {sid} 는 적재된 원본이 없습니다(또는 보관 기간이 지나 정리됨) — 할 일 없음"); return
-            if not args.redo and (db.load_draft(conn, sid) or db.load_handover(conn, sid)):
-                print(f"  {sid} 는 이미 초안/확정이 있습니다 — 건너뜀 (다시 만들려면 --redo)"); return
+        if not prepare_latest(sid, args.redo):
+            return
     if not args.shift_id:
         raise SystemExit("근무 ID 를 주거나 --latest 를 쓰세요.")
     print(f"[{args.shift_id}] 실행 — 엔진: {ports.engine_source()}")
