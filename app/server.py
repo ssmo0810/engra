@@ -390,7 +390,7 @@ def view_answer(key_name, shift_id):
     head = (f'<a class="back" href="/pipeline">‹ 파이프라인으로</a>'
             f'<div class="card" style="padding:14px 18px"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
             f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc(sh["csv_file"])}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
-            f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · seed {esc(str(sh.get("base_seed","")))} · 주입 <b>{len(sh["injected"])}건</b>'
+            f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · 주입 <b>{len(sh["injected"])}건</b>'
             + (f' · 동시 발생 {len(sh.get("overlaps") or [])}건' if sh.get("overlaps") else "") + '</p>')
     if not d:
         head += ('<p class="note"><b>아직 이 근무를 돌리지 않았습니다.</b> 아래는 심어둔 시나리오만 보입니다. '
@@ -474,7 +474,7 @@ def view_pipeline():
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
-            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지 JSON 을 내려받고 → ② 여기 올리고 → ③ 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
+            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 날짜·근무를 골라 CSV 와 정답지 JSON 을 내려받고 → ② 여기 올리고 → ③ 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
             '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. 아래 「정답지 대조」는 올린 근무만 채점한다.</p>'
             '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>① 파일 올리기</b></div>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
