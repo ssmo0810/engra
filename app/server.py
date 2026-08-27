@@ -664,7 +664,7 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 
     ents = []
     for it in adopted:
-        man = ' <span class="pill">직접 추가</span>' if it["origin"] == "manual" else ""
+        man = {"manual": ' <span class="pill">직접 추가</span>', "quality": ' <span class="pill amber">원본 품질</span>'}.get(it["origin"], "")
         comment = (f'<div class="c">{esc(it["comment"])} '
                    f'<span class="muted">— {esc(handover["confirmed_by"])}</span></div>'
                    if it.get("comment")
@@ -816,9 +816,9 @@ def _view_pending(shift_id, draft, active="/"):
     with db.connect() as conn:
         quality = db.load_quality(conn, shift_id)
     qbanner = ""
-    if quality and quality.get("bad_rows"):
+    if quality and (quality.get("bad_rows") or quality.get("unattributed_rows")):
         qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — 적재 때 깨진 행 '
-                   + str(quality["bad_rows"]) + '행을 건너뜀' + (' (사용자가 건너뛰기를 택함)' if quality.get("skipped_by_user") else '') + ' · 태그별 '
+                   + str(quality.get("bad_rows", 0)) + '행' + (f' + 시각 깨진 행 {quality["unattributed_rows"]}행' if quality.get("unattributed_rows") else '') + '을 건너뜀' + (' (사용자가 건너뛰기를 택함)' if quality.get("skipped_by_user") else '') + ' · 태그별 '
                    + esc(", ".join(f"{t} {n}" for t, n in (quality.get("by_tag") or {}).items())) + '. 해당 태그의 검출은 결측 구간을 반영하지 않는다.</div>')
     for it in draft["items"]:
         sug = ""

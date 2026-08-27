@@ -108,14 +108,16 @@ def run(shift_id, verbose=True, redo=False, say=None):
         ).fetchone())
         items = ports.compose(shift, stored, find_precedents)
         quality = db.load_quality(conn, shift_id)
-        if quality and quality.get("bad_rows"):
+        if quality and (quality.get("bad_rows") or quality.get("unattributed_rows")):
             # 원본이 깨진 근무는 그 사실 자체가 인수인계 대상이다 — 그 태그의 검출은 결측을 모른 채 나온 것이라 신뢰도가 낮다.
             top = list(quality.get("by_tag") or {})[:3]
             items.insert(0, {
                 "origin": "quality", "tag": top[0] if top else "-", "event_id": None,
-                "title": f"원본 데이터 결측/형식 오류 — {', '.join(top)} 등 {quality['bad_rows']}행" + (" (사용자가 건너뛰기를 택함)" if quality.get("skipped_by_user") else ""),
+                "title": f"원본 데이터 결측/형식 오류 — " + (f"{', '.join(top)} 등 {quality['bad_rows']}행" if quality.get("bad_rows") else "") + (f"{' + ' if quality.get('bad_rows') else ''}시각 깨진 행 {quality['unattributed_rows']}행" if quality.get("unattributed_rows") else "") + (" (사용자가 건너뛰기를 택함)" if quality.get("skipped_by_user") else ""),
                 "body": f"적재 시 값이 비었거나 형식이 깨진 행 {quality['bad_rows']}행을 건너뜀" + (f" (파일 전체의 {quality['ratio_file']:.1%})" if quality.get("ratio_file") else "")
-                        + f". 태그별: " + ", ".join(f"{t} {n}행" for t, n in (quality.get("by_tag") or {}).items()) + ". 해당 태그의 검출 결과는 결측 구간을 반영하지 않으므로 신뢰도가 낮다.",
+                        + (". 태그별: " + ", ".join(f"{t} {n}행" for t, n in (quality.get("by_tag") or {}).items()) if quality.get("by_tag") else "")
+                        + (f". 시각이 깨져 어느 근무인지 알 수 없는 행 {quality['unattributed_rows']}행은 이 파일의 모든 근무에 걸쳐 있을 수 있다" if quality.get("unattributed_rows") else "")
+                        + ". 해당 태그의 검출 결과는 결측 구간을 반영하지 않으므로 신뢰도가 낮다.",
                 "evidence": "예: " + " / ".join(quality.get("samples") or []),
                 "severity": "중", "suggested_action": None, "precedents": [],
             })

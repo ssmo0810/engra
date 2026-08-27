@@ -85,7 +85,7 @@ def render(shift_id, adopted):
     if not adopted:
         lines.append("특이사항 없음")
     for i, it in enumerate(adopted, start=1):
-        mark = "" if it["origin"] == "detected" else " (직접 추가)"
+        mark = {"detected": "", "quality": " (원본 품질)"}.get(it["origin"], " (직접 추가)")
         lines.append(f"{i}. [{it['severity'] or '-'}] {it['title']}{mark}")
         if it.get("body"):
             lines.append(f"   {it['body']}")

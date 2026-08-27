@@ -125,9 +125,9 @@ def ingest_path(path, skip_bad=False):
     counts = collect.ingest(src)
     if bad.count:
         _say(f"⚠ 깨진 행 {bad.count:,}개 건너뜀 ({bad.count/bad.total:.2%}) — 태그별: " + ", ".join(f"{t} {n}" for sid in bad.by_shift for t, n in list(bad.by_shift[sid].items())[:4]))
-        with db.connect() as conn:
-            for sid in counts:
-                db.set_quality(conn, sid, bad.quality(sid, skip_bad))
+    with db.connect() as conn:
+        for sid in counts:
+            db.set_quality(conn, sid, bad.quality(sid, skip_bad))   # 깨진 행이 없으면 None — 정상 파일로 다시 적재하면 옛 기록이 지워진다 (Codex)
     return counts
 
 

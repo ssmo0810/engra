@@ -74,12 +74,14 @@ class BadRows:
         self.by_shift[sid][tag or "?"] = self.by_shift[sid].get(tag or "?", 0) + 1
 
     def quality(self, shift_id, skipped_by_user):
-        """한 근무의 품질 기록. 깨진 행이 없으면 None."""
+        """한 근무의 품질 기록. 이 근무의 깨진 행도, 시각이 깨져 근무를 알 수 없는 행(미귀속)도 없으면 None."""
         tags = self.by_shift.get(shift_id) or {}
         n = sum(tags.values())
-        if not n:
+        unattributed = sum((self.by_shift.get("?") or {}).values())   # 시각 자체가 깨진 행 — 어느 근무인지 몰라 파일의 모든 근무에 알린다 (Codex)
+        if not n and not unattributed:
             return None
-        return {"bad_rows": n, "total_rows_seen": self.total, "ratio_file": round(self.count / self.total, 4) if self.total else None,
+        return {"bad_rows": n, "unattributed_rows": unattributed, "total_rows_seen": self.total,
+                "ratio_file": round(self.count / self.total, 4) if self.total else None,
                 "by_tag": dict(sorted(tags.items(), key=lambda kv: -kv[1])), "samples": self.samples[:3], "skipped_by_user": bool(skipped_by_user)}
 
 

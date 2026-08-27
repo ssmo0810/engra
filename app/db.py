@@ -531,7 +531,7 @@ def index_handover(conn, shift_id, items):
                 it.get("tag") or "",
                 " ".join(filter(None, [it.get("title"), it.get("body"), it.get("comment")])),
             )
-            for it in items
+            for it in items if (it.get("origin") or "detected") != "quality"
         ],
     )
 
