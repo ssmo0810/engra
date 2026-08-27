@@ -28,7 +28,8 @@ import score as score_mod
 # 전엔 정답지가 있어야 근무가 등록돼 CSV 만 올리면 "등록된 근무 없음" 이 나왔다. 임도영님 새 생성기는
 # 근무 하나짜리 JSON(shift_id·from·to·injected 최상위)을 내보내므로 두 형식을 다 받는다.
 UPLOAD_DIR = ROOT / "app" / "uploads"
-KEYS = {}          # shift_id -> 정답지(근무 하나) dict (+ key_file)
+KEYS = {}          # shift_id -> 정답지(근무 하나) dict (+ key_file, uploaded_at)
+SEEN_FILE = UPLOAD_DIR / ".keys_first_seen.json"   # shift_id -> 그 근무 정답지를 처음 받은 시각(epoch). 다시 올려도 바뀌지 않는다
 _pending = []      # 실행 중에 올라온 CSV — 그 작업이 끝나면 적재 (접근은 _qlock 아래)
 _qlock = threading.Lock()
 _lock = threading.Lock()
@@ -278,11 +279,32 @@ def _register_key(p):
         shifts = [d]
     else:
         raise ValueError(f"{p.name}: 정답지 형식이 아닙니다 (shift_id·injected 또는 shift_list 가 없음)")
-    sids = []
+    seen = _load_seen()
+    sids, changed = [], False
     for sh in shifts:
-        KEYS[sh["shift_id"]] = {**sh, "key_file": p.name, "uploaded_at": p.stat().st_mtime}   # 사후 대조 판정용(초안 생성 시각과 비교)
-        sids.append(sh["shift_id"])
+        sid = sh["shift_id"]
+        # 사후 대조 판정용. 같은 정답지를 다시 올리면 파일 mtime 이 새로워져 '사전' 이 '사후' 로 뒤집힌다(Codex) —
+        # 근무별 최초 수신 시각을 따로 남겨 두고 그것만 쓴다.
+        if sid not in seen:
+            seen[sid] = p.stat().st_mtime
+            changed = True
+        KEYS[sid] = {**sh, "key_file": p.name, "uploaded_at": seen[sid]}
+        sids.append(sid)
+    if changed:
+        _save_seen(seen)
     return sids
+
+
+def _load_seen():
+    try:
+        return json.loads(SEEN_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_seen(seen):
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    SEEN_FILE.write_text(json.dumps(seen), encoding="utf-8")
 
 
 def _reload_uploads():

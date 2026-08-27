@@ -447,12 +447,12 @@ def view_answer(shift_id):
     """
     sh = jobs.KEYS.get(shift_id)
     if not sh:
-        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다 — 생성기의 asu_answer_*.json 을 올리면 여기서 볼 수 있습니다.</div></div>', active="/pipeline")
+        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다 — 관리에서 생성기의 asu_answer_*.json 을 올리면 여기서 볼 수 있습니다.</div></div>', active="/admin")
     r = jobs.score_mod.score_shifts([sh])
     sh = next(x for x in r["shift_list"] if x["shift_id"] == shift_id)
     d = r["detail"].get(shift_id)
     kind = "주간" if sh.get("kind") == "day" else "야간"
-    head = (f'<a class="back" href="/pipeline">‹ 파이프라인으로</a>'
+    head = (f'<a class="back" href="/admin">‹ 관리로</a>'
             f'<div class="card" style="padding:14px 18px"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
             f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc((jobs.csv_for(shift_id) or Path("—")).name)}</span> · 정답지 <span class="mono">{esc(sh.get("key_file", ""))}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
             f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · 주입 <b>{len(sh["injected"])}건</b>'
@@ -496,7 +496,7 @@ def view_answer(shift_id):
         ov_html = ('<div class="card" style="padding:12px 16px"><h2 style="font-size:15px">동시 발생</h2><ul style="margin:6px 0 0 18px;font-size:12.5px">'
                    + "".join(f'<li>#{o["a"]} × #{o["b"]} — <span class="mono">{esc(", ".join(o.get("tags", [])))}</span> {esc(o["from"][11:16])}~{esc(o["to"][11:16])} ({o.get("minutes","?")}분)</li>' for o in sh["overlaps"])
                    + '</ul><p class="note" style="margin-top:6px">겹친 구간에서는 한 시나리오의 알람이 다른 시나리오 때문일 수 있다. 어느 쪽에 붙어도 탐지로 인정한다.</p></div>')
-    return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html, active="/pipeline")
+    return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html, active="/admin")
 
 
 def view_pipeline():
