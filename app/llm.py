@@ -192,7 +192,7 @@ def _call_api(system, user):
     return json.loads(text)
 
 
-def rewrite(shift, items):
+def rewrite(shift, items, say=None):
     """항목의 문장을 AI 로 다시 쓴다. 숫자·근거 필드는 원본 그대로.
 
     실패하면 LLMUnavailable 을 올린다. 호출한 쪽(pipeline)이 이것을 화면에 그대로 띄운다.
@@ -206,8 +206,11 @@ def rewrite(shift, items):
     # 배치로 나눠 부른다. 한 번에 다 넣으면 응답이 길어져 타임아웃에 걸린다.
     # 배치 안 idx 는 0부터 다시 매기고, 합칠 때 원래 순번으로 되돌린다.
     by_idx = {}
+    nb = (len(items) + BATCH - 1) // BATCH
     for start in range(0, len(items), BATCH):
         chunk = items[start:start + BATCH]
+        if say:
+            say(f"AI 서술 {start // BATCH + 1}/{nb} 묶음 시작 — {start}/{len(items)} 항목 끝남 (묶음당 약 1~1.5분)")
         user = _prompt(shift, chunk)
         # 간헐적으로 빈 응답(output_tokens 0)이 온다 — 서버 첫 시드가 그렇게 죽었다(2026-08-27).
         # 같은 입력을 다시 보내면 성공했으므로 1회 재시도한다. 두 번 다 비면 그때 멈춘다.

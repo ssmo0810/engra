@@ -352,15 +352,15 @@ def _score_html():
     if T["inj"]:
         pct = 100 * T["hit"] / T["inj"]
         head = ('<b>주입한 이상 ' + str(T["inj"]) + '건 중 ' + str(T["hit"]) + '건 탐지 성공 (' + f'{pct:.0f}' + '%) · 시나리오 '
-                + str(len(cov_hit)) + '/' + str(len(cov_inj)) + '종 · 오탐 ' + str(T["fp"]) + '건</b>')
+                + str(len(cov_hit)) + '/' + str(len(cov_inj)) + '종 · 잘못 잡음(오탐) ' + str(T["fp"]) + '건</b>')
         total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
                  + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
         head = '<span class="muted">아직 돌린 근무가 없습니다 — ③에서 한 근무를 실행하면 여기서 바로 채점됩니다</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
-              '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 낸 이벤트 수 = <b>정답 맞춤</b>(어떤 이상에든 겹친 이벤트) + <b>오탐</b>(어느 이상과도 안 겹친 이벤트). '
-              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 정답 맞춤(이벤트 수)은 다른 숫자다. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
+              '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
+              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
     missed_html = ''
     if missed:
         missed_html = ('<p class="note" style="margin-top:8px"><b>놓친 이상</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">'
@@ -370,7 +370,7 @@ def _score_html():
             '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">정답지가 있는 근무 전부 · 출처 = 기준(임도영 2근무) / sim(6근무) / 업로드</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
             '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">출처</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
-            '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>정답 맞춤</th><th>오탐</th></tr>'
+            '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
             + "".join(r for _, r in rows) + total + '</table></div>' + legend + missed_html + "".join(errs) + '</div>')
 
 
@@ -462,8 +462,16 @@ def view_pipeline():
     if not running and st.get("result") and st.get("shift_id"):
         link = ('<p class="note"><a href="/shift/' + esc(st["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(st["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
-    hint = '<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 · 이 화면은 5초마다 갱신</span>' if running else ""
-    reload_js = '<script>setTimeout(function(){if(!window.__uploading)location.reload();},5000);</script>' if running else ""
+    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 (16항목 ≈ 7분) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
+            '<a id="jobdone" href="/pipeline" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
+    # 새로고침이 아니라 /api/job 폴링으로 로그·경과만 바꾼다 — 새로고침은 파일 선택을 지우고 업로드를 끊었다 (경모님 QA)
+    reload_js = ('<script>(function(){function tick(){fetch("/api/job").then(function(r){return r.json()}).then(function(j){'
+                 'var pre=document.getElementById("joblog");if(pre)pre.textContent=(j.lines||[]).slice(-40).join("\\n")||"여기에 진행이 표시됩니다.";'
+                 'var el=document.getElementById("jobelapsed");if(el&&j.elapsed!=null){var s=Math.floor(j.elapsed);el.textContent="경과 "+Math.floor(s/60)+"분 "+(s%60)+"초";}'
+                 'if(!j.running){var f=document.querySelector("input[type=file]");'
+                 'if(!window.__uploading&&!(f&&f.files.length)){location.reload();return;}'
+                 'var p=document.getElementById("jobpill");if(p){p.textContent="완료";p.classList.remove("on");}var d=document.getElementById("jobdone");if(d)d.style.display="inline";return;}'
+                 'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
             '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
@@ -483,9 +491,9 @@ def view_pipeline():
             '</form>' + up_html
             + '<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>'
             '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
-            '<span class="pill' + (' on' if running else '') + '">' + status + '</span>'
+            '<span id="jobpill" class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
-            '<pre class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
+            '<pre id="joblog" class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
             + (log or "여기에 진행이 표시됩니다.") + '</pre>' + err + link + '</div>'
             + _score_html()
             + '<div class="card" style="padding:12px 18px"><p class="note" style="margin:0"><b>처음부터 다시</b> — ⑤ 일지 조회 상단 「완전 빈 상태로」. '

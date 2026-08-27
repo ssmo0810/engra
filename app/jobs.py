@@ -11,6 +11,7 @@
 import json
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 
@@ -38,11 +39,13 @@ UPLOAD_DIR = ROOT / "app" / "uploads"
 
 _lock = threading.Lock()
 upload_lock = threading.Lock()   # 업로드는 한 번에 하나 — 본문을 메모리에 다 올리므로 동시 2건이면 MemoryMax 를 넘는다
-_job = {"running": False, "step": None, "lines": [], "error": None, "shift_id": None, "result": None}
+_job = {"running": False, "step": None, "lines": [], "error": None, "shift_id": None, "result": None, "started": None}
 
 
 def state():
-    return dict(_job)
+    d = dict(_job)
+    d["elapsed"] = (time.time() - d["started"]) if (d["running"] and d["started"]) else None   # "멈춘 건 아닐까" — 경과를 보인다
+    return d
 
 
 def hold():
@@ -53,7 +56,7 @@ def hold():
 def _start(shift_id, step):
     if not _lock.acquire(blocking=False):
         raise RuntimeError("다른 작업이 돌고 있습니다. 끝난 뒤 다시 누르세요.")
-    _job.update({"running": True, "step": step, "lines": [], "error": None, "shift_id": shift_id, "result": None})
+    _job.update({"running": True, "step": step, "lines": [], "error": None, "shift_id": shift_id, "result": None, "started": time.time()})
 
 
 def _finish(err=None, result=None):
