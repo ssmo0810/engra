@@ -490,7 +490,7 @@
       <div id="viewScen" hidden>
         <div id="sWarn">
           <b>연결 규약 준수</b> — 내보내기 형식은 <code>timestamp,tag,value</code> CSV · 2초 주기 · 12시간 1근무입니다 (<code>app/README.md</code>).
-          <b>버튼을 누를 때마다 다음 근무</b>가 생성됩니다 — 주간(06~18) → 야간(18~06) → 다음날 주간 …
+          <b>날짜와 근무(주간/야간)를 골라 생성</b>합니다 — 누를 때마다 새로운 랜덤 데이터가 나옵니다.
           이상은 근무 경계를 넘어 이어질 수 있고, 같은 태그에서 동시에 일어날 수도 있습니다. 정답지는 <b>별도 파일</b>로 분리합니다.
         </div>
 
@@ -498,8 +498,13 @@
           <div class="spanel">
             <h4>주입 설정</h4>
             <div class="dbar" style="display:block">
-              <label style="display:flex;margin-bottom:6px">Seed <input id="sSeed" type="number" value="20260821" style="width:100px"></label>
-              <label style="display:flex;margin-bottom:6px">시작 <input id="sStart" type="datetime-local" value="2026-08-21T06:00" style="width:175px"></label>
+              <label style="display:flex;margin-bottom:6px">날짜 <input id="sDate" type="date" value="2026-08-21" style="width:135px"></label>
+              <label style="display:flex;margin-bottom:6px">근무
+                <select id="sKind" style="width:155px">
+                  <option value="day">주간 (06~18시)</option>
+                  <option value="night">야간 (18~06시)</option>
+                </select>
+              </label>
               <label style="display:flex;margin-bottom:8px">방식
                 <select id="sMode" style="width:155px">
                   <option value="rand">랜덤 6~10종</option>
@@ -508,15 +513,15 @@
               </label>
             </div>
             <div class="schk" id="sList"></div>
-            <button class="dbtn pri" id="sRun" style="width:100%;margin-top:8px">시나리오 주입 &amp; 생성 — 다음 근무</button>
+            <button class="dbtn pri" id="sRun" style="width:100%;margin-top:8px">시나리오 주입 &amp; 생성</button>
             <button class="dbtn" id="sReset" style="width:100%;margin-top:5px">처음부터 다시</button>
-            <p class="note" style="margin-top:6px">시작 일시는 첫 근무에만 적용됩니다. 이후에는 12시간씩 자동으로 넘어갑니다.</p>
+            <p class="note" style="margin-top:6px">같은 날짜·근무를 다시 생성하면 이전 것을 새 랜덤 데이터로 대체합니다. 직전 근무의 바로 다음 근무를 만들면 근무를 넘는 이상이 이어집니다.</p>
           </div>
 
           <div class="spanel">
             <h4 id="sHead">아직 생성하지 않았습니다</h4>
             <svg id="sTl" viewBox="0 0 720 60"></svg>
-            <div id="sMsg">시작 일시와 방식을 정하고 좌측 버튼을 누르세요.</div>
+            <div id="sMsg">날짜와 근무를 정하고 좌측 버튼을 누르세요.</div>
             <div id="sTbl"></div>
             <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
               <button class="dbtn" id="sCsv" disabled>이 근무 CSV</button>
@@ -539,7 +544,7 @@
         <div class="spanel" style="margin-top:9px">
           <h4>과거 기록 <span id="sHistCnt" style="color:#6b7280;font-weight:400"></span></h4>
           <div id="sHist"></div>
-          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 그 이전 근무는 같은 seed 로 처음부터 다시 돌리면 동일한 데이터가 재생성됩니다.</p>
+          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 그 이전 근무는 답안지에 기록된 base_seed 값으로 동일한 데이터를 재생성할 수 있습니다.</p>
         </div>
       </div>
 
@@ -1365,20 +1370,25 @@
   }
 
   /* ── 진행 상태 ─────────────────────────────────────────── */
-  var RKEY = 'engra_asu_shiftrun_v1';
-  var RUN = { baseMs:null, seed:0, idx:0, hist:[], active:[] };
+  /* chSeed/chStartMs/chK 는 "체인" 상태다. 직전에 만든 근무의 바로 다음 근무를
+     만들면 같은 체인으로 이어져(chK+1) 근무를 넘는 이상과 베이스라인 파형이
+     경계에서 이어진다. 다른 날짜·근무를 고르면 새 체인 — seed 를 새로 뽑는다.
+     idx 는 총 생성 회차로, 이력·RTDB 가 항목을 찾는 고유 키다. */
+  var RKEY = 'engra_asu_shiftrun_v2';
+  var RUN = { chSeed:0, chStartMs:null, chK:0, idx:0, hist:[], active:[] };
   var CACHE = [];                                   // {idx, ids, D, dec, shiftMs}
   try {
     var sv = localStorage.getItem(RKEY);
     if (sv){ var o = JSON.parse(sv);
-      RUN.baseMs=o.baseMs; RUN.seed=o.seed; RUN.idx=o.idx||0;
+      RUN.chSeed=o.chSeed||0; RUN.chStartMs=(o.chStartMs==null?null:o.chStartMs);
+      RUN.chK=o.chK||0; RUN.idx=o.idx||0;
       RUN.hist=o.hist||[];
       RUN.active=(o.active||[]).map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo||{}}; });
     }
   } catch(e){}
   function saveRun(){
     try { localStorage.setItem(RKEY, JSON.stringify({
-      baseMs:RUN.baseMs, seed:RUN.seed, idx:RUN.idx, hist:RUN.hist,
+      chSeed:RUN.chSeed, chStartMs:RUN.chStartMs, chK:RUN.chK, idx:RUN.idx, hist:RUN.hist,
       active:RUN.active.map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo}; })
     })); } catch(e){}
   }
@@ -1408,16 +1418,20 @@
 
   /* ── 근무 1개 생성 ─────────────────────────────────────── */
   function nextShift(){
-    if (RUN.baseMs===null){
-      var t=new Date($('sStart').value).getTime();
-      if (isNaN(t)){ smsg('시작 일시를 확인해주세요.',false); return; }
-      RUN.baseMs=t; RUN.seed=+$('sSeed').value||1; RUN.idx=0; RUN.hist=[]; RUN.active=[]; CACHE=[];
+    var dv=$('sDate').value, kindSel=$('sKind').value;
+    var shiftMs=new Date(dv+'T'+(kindSel==='day'?'06':'18')+':00:00').getTime();
+    if (!dv || isNaN(shiftMs)){ smsg('날짜를 확인해주세요.',false); return; }
+    // 직전 근무의 바로 다음 근무인가? 맞으면 체인 유지, 아니면 새 체인(새 랜덤 seed)
+    var isNext = RUN.chStartMs!==null && RUN.chK>0
+              && shiftMs===RUN.chStartMs+RUN.chK*SHIFT_SEC*1000;
+    if (!isNext){
+      RUN.chSeed=((Math.random()*0x7fffffff)|0)||1;
+      RUN.chStartMs=shiftMs; RUN.chK=0; RUN.active=[];
     }
-    var k=RUN.idx, gStart=k*N, gEnd=gStart+N;
-    var shiftMs=RUN.baseMs+k*SHIFT_SEC*1000;
+    var k=RUN.chK, gStart=k*N, gEnd=gStart+N;
     var lab=shiftLabel(shiftMs);
-    var baseHour=new Date(RUN.baseMs).getHours();
-    var seed=(RUN.seed+k)|0;
+    var baseHour=new Date(RUN.chStartMs).getHours();
+    var seed=(RUN.chSeed+k)|0;
 
     smsg('생성 중… 12시간 × 53태그 = 약 114만 행', null);
 
@@ -1458,7 +1472,7 @@
       var ids=Object.keys(state), D={};
       // 베이스라인은 기준 seed 하나로 생성한다. 근무마다 seed 를 바꾸면 드리프트
       // 위상이 달라져 경계에서 값이 튄다. 전역 스텝 오프셋만 넘겨 이어붙인다.
-      ids.forEach(function(id){ D[id]=series(id,RUN.seed,STEP,N,baseHour,gStart); });
+      ids.forEach(function(id){ D[id]=series(id,RUN.chSeed,STEP,N,baseHour,gStart); });
 
       var segs=RUN.active.filter(function(a){ return a.g1>gStart && a.g0<gEnd; }).map(function(a){
         var s=Math.max(a.g0,gStart)-gStart, e=Math.min(a.g1,gEnd)-gStart, S=scenById(a.id);
@@ -1500,9 +1514,9 @@
       // 5) 답안지 + 이력
       segs.sort(function(a,b){ return a.s-b.s; });
       var entry={
-        idx:k, shift_id:lab.id, kind:lab.kind, kind_ko:lab.ko,
+        idx:RUN.idx, shift_id:lab.id, kind:lab.kind, kind_ko:lab.ko,
         from:fmtTs(shiftMs), to:fmtTs(shiftMs+SHIFT_SEC*1000),
-        base_seed:RUN.seed, placement_seed:seed, sampling_interval_sec:STEP, tag_count:ids.length,
+        base_seed:RUN.chSeed, placement_seed:seed, sampling_interval_sec:STEP, tag_count:ids.length,
         injected:segs.map(function(w){
           return { scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
                    trigger_tag:w.S.tag, affected_tags:w.S.tags,
@@ -1513,19 +1527,25 @@
         }),
         overlaps:overlaps
       };
+      // 같은 근무를 다시 생성하면 이전 기록·데이터를 새것으로 대체한다
+      RUN.hist=RUN.hist.filter(function(e){ return e.shift_id!==lab.id; });
       RUN.hist.push(entry);
       RUN.active=RUN.active.filter(function(a){ return a.g1>gEnd; });
-      RUN.idx++;
+      RUN.chK++; RUN.idx++;
 
       var dec={}; ids.forEach(function(id){ dec[id]=decimals(id); });
-      CACHE.push({idx:k, ids:ids, D:D, dec:dec, shiftMs:shiftMs, entry:entry});
+      CACHE=CACHE.filter(function(c){ return c.shiftMs!==shiftMs; });
+      CACHE.push({idx:entry.idx, ids:ids, D:D, dec:dec, shiftMs:shiftMs, entry:entry});
       while(CACHE.length>CACHE_MAX) CACHE.shift();
 
       saveRun();
       renderShift(entry);
       renderHist();
       rtdbSync();
-      smsg('완료 — '+lab.date+' '+lab.ko+' ('+entry.injected.length+'건 주입, seed '+seed+')'
+      // 다음 근무를 미리 골라둔다 — 그대로 누르면 이어지는 근무가 생성된다
+      var nx=shiftLabel(shiftMs+SHIFT_SEC*1000);
+      $('sDate').value=nx.date; $('sKind').value=nx.kind;
+      smsg('완료 — '+lab.date+' '+lab.ko+' ('+entry.injected.length+'건 주입)'
            +(overlaps.length?' · 동시 발생 '+overlaps.length+'건':''), true);
     },30);
   }
@@ -1722,30 +1742,28 @@
     var cov={}; RUN.hist.forEach(function(E){ E.injected.forEach(function(w){ cov[w.scenario_id]=1; }); });
     return {
       generated_at:new Date().toISOString(),
-      base_seed:RUN.seed, base_start:fmtTs(RUN.baseMs),
       sampling_interval_sec:STEP, shift_hours:12, shifts:RUN.hist.length,
       scenario_coverage:{ covered:Object.keys(cov).map(Number).sort(function(a,b){return a-b;}),
                           missing:SCEN.map(function(S){return S.id;}).filter(function(i){return !cov[i];}),
                           rate:Object.keys(cov).length+'/'+SCEN.length },
-      shift_list:RUN.hist
+      shift_list:RUN.hist.slice().sort(function(a,b){ return a.from<b.from?-1:a.from>b.from?1:0; })
     };
   }
 
   /* ── 이벤트 연결 ───────────────────────────────────────── */
   buildScenList(); renderHist();
-  if(RUN.baseMs!==null){
-    $('sSeed').value=RUN.seed;
-    var d0=new Date(RUN.baseMs);
-    function p2(x){ return x<10?'0'+x:''+x; }
-    $('sStart').value=d0.getFullYear()+'-'+p2(d0.getMonth()+1)+'-'+p2(d0.getDate())+'T'+p2(d0.getHours())+':'+p2(d0.getMinutes());
-    smsg('이전 진행 상태를 불러왔습니다 — '+RUN.hist.length+'근무 생성됨. 다음은 '+(RUN.idx+1)+'회차입니다.',null);
-    if(RUN.hist.length){ var last=RUN.hist[RUN.hist.length-1]; renderShift(last); }
+  if(RUN.chStartMs!==null && RUN.hist.length){
+    // 날짜 선택을 마지막 근무의 다음 근무로 맞춰둔다 — 그대로 누르면 이어진다
+    var nx0=shiftLabel(RUN.chStartMs+RUN.chK*SHIFT_SEC*1000);
+    $('sDate').value=nx0.date; $('sKind').value=nx0.kind;
+    smsg('이전 진행 상태를 불러왔습니다 — '+RUN.hist.length+'근무 생성됨.',null);
+    renderShift(RUN.hist[RUN.hist.length-1]);
   }
 
   $('sRun').onclick = nextShift;
   $('sReset').onclick = function(){
     if(!confirm('진행 상태와 과거 기록을 모두 지우고 처음부터 시작합니다.')) return;
-    RUN={baseMs:null,seed:0,idx:0,hist:[],active:[]}; CACHE=[];
+    RUN={chSeed:0,chStartMs:null,chK:0,idx:0,hist:[],active:[]}; CACHE=[];
     try{ localStorage.removeItem(RKEY); }catch(e){}
     $('sHead').textContent='아직 생성하지 않았습니다';
     $('sTbl').innerHTML=''; var sv=$('sTl'); while(sv.firstChild) sv.removeChild(sv.firstChild);
