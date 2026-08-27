@@ -72,8 +72,11 @@ def quality_items(q):
                       "title": f"계측 결측 — {g['tag']} {g['start'][11:16]}~{g['end'][11:16]} ({g['minutes']}분) 실제 값 없음",
                       "body": f"{g['tag']} 는 이 구간에 값이 들어오지 않았다(행이 빠졌거나 비어 있음). 이 태그의 이 시간대 검출·추세는 판단 불가 — 계측기·통신 상태 확인 대상.",
                       "evidence": f"{g['start']} ~ {g['end']} 값 없음", "severity": "중", "suggested_action": None, "precedents": []})
+    # 갭 항목이 이미 덮은 태그의 깨진 행은 요약에서 뺀다 — 같은 사건이 두 항목으로 보였다(실제 AI 실행이 "[0]과 동일 사건" 이라 지적).
+    gap_tags = {g["tag"] for g in (q.get("gaps") or [])}
+    rest = (q.get("bad_rows") or 0) - sum(n for t, n in (q.get("by_tag") or {}).items() if t in gap_tags)
     qs = quality_summary(q)
-    if qs and (q.get("bad_rows") or q.get("unattributed_rows")):
+    if qs and (rest > 0 or q.get("unattributed_rows")):
         head, body = qs
         kind = q.get("pattern") or ""
         title = ("산발 결측 — " if kind == "산발" else "원본 데이터 결측/형식 오류 — ") + head

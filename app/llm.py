@@ -237,8 +237,13 @@ def rewrite(shift, items, say=None):
         if o is None:
             raise LLMUnavailable(f"항목 {i} 의 응답이 없습니다.")
         new = dict(it)                          # tag·evidence·precedents·event_id 등 원본 유지
-        new["title"] = o["title"].strip() or it["title"]
-        new["body"] = o["body"].strip() or it["body"]
+        if it.get("origin") == "quality":
+            # 원본 품질 항목은 사실 기록(태그·시각·행 수)이다 — 문장은 그대로 두고 판정(중요도·전달 가치)만 AI 가 한다.
+            # 실측: 실제 모델이 "계측 결측 — TI-205 07:09~09:40 (150분)" 을 "TI-205(토출 온도) 계측 결측 07:09~09:40" 으로 고쳤다 — 이번엔 시각을 지켰지만 보장이 없다.
+            new["title"], new["body"] = it["title"], it["body"]
+        else:
+            new["title"] = o["title"].strip() or it["title"]
+            new["body"] = o["body"].strip() or it["body"]
         # 조치 문장은 AI 가 쓰지 않는다 — 적합 판정된 과거 확정 일지의 문장만 남는다 (경모님 2026-08-27)
         # 중요도는 AI 가 다시 판단한다. 규칙이 매긴 값은 severity_rule 로 남겨 대비할 수 있게 한다.
         new["severity_rule"] = it.get("severity")
