@@ -92,6 +92,19 @@ def release_hold(lock):
     drain()
 
 
+def _spawn(work, requeue=None):
+    """작업 스레드를 띄운다. Thread.start() 자체가 실패하면(자원 고갈) 락이 영구 점유되고 큐가 사라진다 (Codex) —
+    락을 놓고 오류를 남기고, 옮겨 둔 CSV 는 큐에 되돌린다."""
+    try:
+        threading.Thread(target=work, daemon=True).start()
+    except Exception as exc:
+        if requeue:
+            with _qlock:
+                _pending[:0] = [p for p in requeue if p not in _pending]
+        _say(f"✗ 작업 스레드를 시작하지 못함 — {type(exc).__name__}: {exc}")
+        _finish(err=f"작업 스레드를 시작하지 못함: {type(exc).__name__}: {exc}")
+
+
 def _say(msg):
     _job["lines"].append(msg)
     print(f"  [job] {msg}", flush=True)
@@ -149,7 +162,7 @@ def _run_ingest(paths):
         except Exception as exc:
             _say(f"✗ {type(exc).__name__}: {exc}")
             _finish(err=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-600:]}")
-    threading.Thread(target=work, daemon=True).start()
+    _spawn(work, requeue=paths)
     return True
 
 
@@ -179,7 +192,7 @@ def run_async(shift_id, csv_path=None, redo=False, reingest=False, why=None):
         except Exception as exc:  # 화면에 그대로 보인다
             _say(f"✗ {type(exc).__name__}: {exc}")
             _finish(err=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-600:]}")
-    threading.Thread(target=work, daemon=True).start()
+    _spawn(work)
 
 
 def csv_for(shift_id):
