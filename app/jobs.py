@@ -71,7 +71,7 @@ def ingest_path(path):
     return counts
 
 
-def run_async(shift_id, csv_path=None, redo=False):
+def run_async(shift_id, csv_path=None, redo=False, reingest=False):
     """적재(선택) → 검출·AI 초안. 별도 스레드. AI 가 5~6분 걸리므로 화면은 폴링한다."""
     mark_qa_active()
     _start(shift_id, "ingest" if csv_path else "run")
@@ -79,6 +79,10 @@ def run_async(shift_id, csv_path=None, redo=False):
     def work():
         try:
             if csv_path:
+                if reingest:
+                    with db.connect() as conn:
+                        n = db.forget_raw(conn, shift_id)
+                    _say(f"같은 근무의 이전 원본 {n:,}점 지움 — 새 파일로 다시 적재")
                 _say(f"적재 시작 — {Path(csv_path).name}")
                 counts = ingest_path(csv_path)
                 for sid, n in sorted(counts.items()):

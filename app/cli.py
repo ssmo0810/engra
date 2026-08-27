@@ -90,6 +90,12 @@ def cmd_run(args):
         sid, _kind, _s, _e = collect.shift_id_for(datetime.now() - timedelta(seconds=1))
         args.shift_id = sid
         print(f"--latest → {sid}")
+        # 타이머 실행이다. 적재된 원본이 없으면 할 일이 없고, 초안·확정이 이미 있으면 사용자의 검토를 덮어쓰지 않는다.
+        with db.connect() as conn:
+            if conn.execute("SELECT 1 FROM shift WHERE id = ?", (sid,)).fetchone() is None:
+                print(f"  {sid} 는 적재된 원본이 없습니다 — 할 일 없음"); return
+            if not args.redo and (db.load_draft(conn, sid) or db.load_handover(conn, sid)):
+                print(f"  {sid} 는 이미 초안/확정이 있습니다 — 건너뜀 (다시 만들려면 --redo)"); return
     if not args.shift_id:
         raise SystemExit("근무 ID 를 주거나 --latest 를 쓰세요.")
     print(f"[{args.shift_id}] 실행 — 엔진: {ports.engine_source()}")

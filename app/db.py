@@ -258,6 +258,14 @@ def now():
 
 # --- 근무 -------------------------------------------------------------
 
+def forget_raw(conn, shift_id):
+    """이 근무 창의 원본을 지운다 — 같은 근무 ID 로 새 CSV 가 올라오면 옛 원본 위에 겹쳐 쌓이지 않게 (Codex 반증 2026-08-27)."""
+    row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    if row is None:
+        return 0
+    return conn.execute("DELETE FROM raw_sample WHERE ts >= ? AND ts < ?", (row["window_start"], row["window_end"])).rowcount
+
+
 def upsert_shift(conn, shift_id, kind, window_start, window_end, source):
     conn.execute(
         """INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at)
