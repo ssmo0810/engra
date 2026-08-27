@@ -127,6 +127,26 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
   font-size:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .navback a{color:var(--muted);text-decoration:none;border-bottom:1px solid transparent}
 .navback a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* 개념 절 — 용어 카드와 대비 배치 */
+.terms{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:1.5rem 0}
+.term{background:var(--surface);padding:1rem 1.1rem}
+.term .w{font-weight:600;font-size:.95rem;display:flex;align-items:baseline;gap:.45rem;flex-wrap:wrap}
+.term .w span{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.66rem;
+  color:var(--accent);letter-spacing:.06em}
+.term .f{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.76rem;
+  color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line-soft);
+  border-radius:2px;padding:.2rem .45rem;display:inline-block;margin:.45rem 0 .35rem}
+.term .m{font-size:.8rem;color:var(--ink-2);line-height:1.6}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:1.5rem 0}
+.two>div{background:var(--surface);padding:1.05rem 1.2rem}
+.two h4{font-size:.9rem;font-weight:600;margin-bottom:.4rem}
+.two p{font-size:.83rem;color:var(--ink-2);line-height:1.62;margin:0}
+.two .yes{color:var(--ok);font-weight:600}
+.two .no{color:var(--bad);font-weight:600}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -147,7 +167,486 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
 </header>
 
 <section>
-  <div class="sec-head"><span class="sec-num">01</span><h2>파이프라인</h2></div>
+  <div class="sec-head"><span class="sec-num">01</span><h2>먼저 — 무엇을 재고, 무엇으로 설명하는가</h2></div>
+  <div class="prose">
+    <p>이 페이지 뒤쪽에 <strong>회귀</strong>·<strong>기각</strong>·<strong>Cpk</strong> 같은 말이 나온다. 통계를 다루지 않는 사람에게는 그 절이 통째로 읽히지 않으므로, 쓰는 용어를 여기서 먼저 정리한다. 예시는 전부 우리 ASU 태그다.</p>
+
+    <h3>① CTQ — "잘 돌고 있나?" 를 답할 수 있는 질문으로 바꾸기</h3>
+    <p>"ASU 가 잘 돌고 있습니까?" 는 <strong>답할 수 없는 질문</strong>이다. 사람마다 기준이 다르고, 숫자로 확인할 방법이 없다. 그래서 6시그마는 맨 처음에 <strong>무엇을 재서 답할지</strong>부터 정한다. 그것이 <strong>CTQ</strong>다.</p>
+    <p>CTQ 는 <strong>품질을 좌우하는, 숫자로 측정되는 특성</strong>이다. 조건이 셋이다 — ① 고객·품질과 직결될 것 ② 실제로 계측되고 있을 것 ③ 벗어난 정도를 숫자로 말할 수 있을 것.</p>
+    <p>ENGRA 는 CTQ 를 <strong>LP Column 4종</strong>으로 잡았다. 제품 산소가 최종적으로 만들어지는 곳이라, 상류에서 무슨 일이 생기든 결국 여기로 모인다.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th class="mono">CTQ</th><th>무엇</th><th>왜 이것인가</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">AI-707</td><td>LP O₂ 순도</td><td>제품 규격 그 자체. 고객이 받는 값</td></tr>
+        <tr><td class="mono">LI-705</td><td>LP 레벨</td><td>분리 성능의 기반. 무너지면 순도가 따라 무너진다</td></tr>
+        <tr><td class="mono">PDI-706</td><td>LP 차압</td><td>탑 내부 흐름 상태. 범람·건조의 조기 신호</td></tr>
+        <tr><td class="mono">TI-708</td><td>LP 온도</td><td>기액 평형 조건. 순도의 물리적 원인</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose">
+    <p class="dim" style="font-size:.87rem">"잘 돌고 있나" → <strong>"AI-707 이 규격 안에 있고, 그 산포가 규격 폭에 비해 충분히 좁은가"</strong>. 이제 답할 수 있는 질문이 됐다.</p>
+
+    <h3>② Y = f(X) — 지키고 싶은 것과, 손댈 수 있는 것</h3>
+    <p>여기서 곧바로 문제가 하나 생긴다. <strong>근무자는 순도 다이얼을 돌릴 수 없다.</strong> 순도는 만들어져 <em>나오는</em> 값이지 넣는 값이 아니다. 실제로 손대는 것은 밸브 개도·유량·압력이다.</p>
+    <p>그래서 6시그마는 공정을 <strong>입력과 출력</strong>으로 나눈다. 지키고 싶은 결과를 <strong>Y</strong>(출력, CTQ), 그것을 움직이는 조작·조건을 <strong>X</strong>(입력, 인자)라 하고, 둘의 관계를 <code>Y = f(X)</code> 로 쓴다.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 268" role="img" aria-label="여러 입력 인자 X가 LP Column 공정을 거쳐 출력 Y인 CTQ 네 종으로 이어지는 구조. 근무자가 조작할 수 있는 것은 입력 쪽뿐이다">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <text x="2" y="16" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".65">X — 입력 · 인자</text>
+      <text x="360" y="16" text-anchor="middle" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".65">f — 공정</text>
+      <text x="898" y="16" text-anchor="end" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">Y — 출력 · CTQ</text>
+
+      <!-- X 상자들 -->
+      <rect x="2" y="30" width="176" height="34" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <text x="16" y="52" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">ZI-709 밸브 개도</text>
+      <rect x="2" y="74" width="176" height="34" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <text x="16" y="96" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">FI-602 공급유량</text>
+      <rect x="2" y="118" width="176" height="34" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <text x="16" y="140" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">PDI-702 HP 차압</text>
+      <rect x="2" y="162" width="176" height="34" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <text x="16" y="184" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">TI-403 Cold end</text>
+      <rect x="2" y="206" width="176" height="34" rx="2" fill="none" stroke="var(--muted)" stroke-width="1.1" stroke-dasharray="4 3"/>
+      <text x="16" y="228" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".65">TI-101 외기온도</text>
+
+      <line x1="182" y1="47" x2="248" y2="108" stroke="currentColor" stroke-width="1" opacity=".5" marker-end="url(#ar3)"/>
+      <line x1="182" y1="91" x2="248" y2="120" stroke="currentColor" stroke-width="1" opacity=".5" marker-end="url(#ar3)"/>
+      <line x1="182" y1="135" x2="248" y2="135" stroke="currentColor" stroke-width="1" opacity=".5" marker-end="url(#ar3)"/>
+      <line x1="182" y1="179" x2="248" y2="150" stroke="currentColor" stroke-width="1" opacity=".5" marker-end="url(#ar3)"/>
+      <line x1="182" y1="223" x2="248" y2="162" stroke="currentColor" stroke-width="1" opacity=".4" stroke-dasharray="4 3" marker-end="url(#ar3)"/>
+
+      <!-- 공정 -->
+      <rect x="252" y="86" width="216" height="98" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="360" y="122" text-anchor="middle" font-size="14" font-weight="600" fill="var(--accent-ink)">LP Column</text>
+      <text x="360" y="145" text-anchor="middle" font-size="11" fill="var(--accent-ink)" opacity=".85">기액 접촉 · 분리</text>
+      <text x="360" y="165" text-anchor="middle" font-size="10.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)" opacity=".7">f</text>
+
+      <line x1="472" y1="135" x2="536" y2="135" stroke="var(--accent)" stroke-width="1.3" marker-end="url(#ar3)"/>
+
+      <!-- Y 상자들 -->
+      <rect x="540" y="52" width="176" height="34" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="554" y="74" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">AI-707 순도</text>
+      <rect x="540" y="96" width="176" height="34" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="554" y="118" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">LI-705 레벨</text>
+      <rect x="540" y="140" width="176" height="34" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="554" y="162" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">PDI-706 차압</text>
+      <rect x="540" y="184" width="176" height="34" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="554" y="206" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">TI-708 온도</text>
+
+      <!-- 조작 가능성 -->
+      <line x1="2" y1="252" x2="178" y2="252" stroke="var(--ok)" stroke-width="2"/>
+      <text x="90" y="266" text-anchor="middle" font-size="10.5" fill="var(--ok)" font-weight="600">근무자가 손댈 수 있다</text>
+      <line x1="540" y1="252" x2="716" y2="252" stroke="var(--bad)" stroke-width="2" stroke-dasharray="5 3"/>
+      <text x="628" y="266" text-anchor="middle" font-size="10.5" fill="var(--bad)" font-weight="600">직접 못 만진다</text>
+
+      <!-- 결론 -->
+      <line x1="740" y1="40" x2="740" y2="230" stroke="currentColor" stroke-width=".7" opacity=".25"/>
+      <text x="758" y="96" font-size="11.5" font-weight="600" fill="currentColor">그래서</text>
+      <text x="758" y="118" font-size="11" fill="currentColor" opacity=".8">Y 를 지키려면</text>
+      <text x="758" y="136" font-size="11" fill="currentColor" opacity=".8">어느 X 가 Y 를</text>
+      <text x="758" y="154" font-size="11" fill="currentColor" opacity=".8">움직이는지</text>
+      <text x="758" y="172" font-size="11" fill="currentColor" opacity=".8">알아야 한다.</text>
+    </svg>
+    <figcaption><b>운전 지식이 곧 <code>f</code> 다.</b> 숙련 근무자가 "순도가 떨어지면 먼저 Cold end 온도를 본다" 고 말할 때, 그것이 바로 <code>f</code> 의 일부를 아는 것이다. 6시그마 인자분석은 <b>그 경험을 데이터로 확인하거나 반박하는 절차</b>다. 점선으로 그린 외기는 인자이되 <b>조작할 수 없는 인자</b>라 따로 표시했다 — 이것이 뒤 06 절에서 문제를 일으킨다.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <h3>③ 인자를 무엇을 보고 고르나 — 상관과 인과는 다르다</h3>
+    <p>여기서 가장 많이 틀린다. 태그가 53개니까 CTQ 하나에 대해 <strong>인자 후보가 52개</strong>다. 그중 무엇을 인자로 인정할 것인가?</p>
+    <p>가장 쉬운 답은 "상관이 높은 것" 이다. <strong>그리고 그 답은 틀렸다.</strong> 우리 데이터에서 실제로 이런 쌍이 나온다.</p>
+  </div>
+
+  <div class="note bad">
+    <span class="lbl">실측</span>
+    <b><code>MI-903</code> GN2 수분 ↔ <code>ZI-201</code> IGV 개도 — 상관 r = −0.903.</b>
+    거의 완벽한 역상관이다. 그런데 두 태그 사이에는 <b>아무 연결도 없다</b>. 계통도 다르고(GN2 공급 ↔ 압축), <code>tag_master.csv</code> 에 <code>links</code> 선언도 없다. 이 숫자만 보고 "IGV 개도가 GN2 수분을 좌우한다" 고 보고했다면, 그 뒤 조치는 전부 헛일이 된다.
+  </div>
+
+  <div class="prose">
+    <p>이유는 <strong>제3의 원인</strong>이다. <code>ZI-201</code> 은 기온을 따라 움직이고(낮에 상승), <code>MI-903</code> 은 습도를 따라 움직인다(낮에 하강). 그런데 기온과 습도는 <strong>서로 반대 위상</strong>이다. 그래서 둘은 서로를 전혀 모르는 채로 강하게 붙어 보인다.</p>
+    <p>두 값이 함께 움직이는 데는 <strong>세 가지 서로 다른 이유</strong>가 있고, 상관계수는 그 셋을 구분하지 못한다.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 220" role="img" aria-label="두 값이 함께 움직이는 세 가지 구조. 진짜 인과, 역방향 인과, 그리고 제3의 공통 원인에 의한 허위상관">
+      <defs>
+        <marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+        <marker id="ar5b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="var(--bad)"/>
+        </marker>
+      </defs>
+
+      <!-- A 진짜 인과 -->
+      <text x="140" y="18" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ok)">① 진짜 인과</text>
+      <circle cx="70" cy="86" r="27" fill="none" stroke="currentColor" stroke-width="1.3"/>
+      <text x="70" y="91" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">X</text>
+      <circle cx="210" cy="86" r="27" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="210" y="91" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">Y</text>
+      <line x1="100" y1="86" x2="178" y2="86" stroke="var(--ok)" stroke-width="1.8" marker-end="url(#ar5)"/>
+      <text x="140" y="140" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">X 를 움직이면</text>
+      <text x="140" y="157" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">Y 가 따라온다</text>
+      <text x="140" y="182" text-anchor="middle" font-size="10.5" fill="var(--ok)" font-weight="600">→ 조작 대상</text>
+
+      <line x1="290" y1="30" x2="290" y2="196" stroke="currentColor" stroke-width=".7" opacity=".2"/>
+
+      <!-- B 역인과 -->
+      <text x="450" y="18" text-anchor="middle" font-size="12" font-weight="600" fill="var(--warn)">② 방향이 반대</text>
+      <circle cx="380" cy="86" r="27" fill="none" stroke="currentColor" stroke-width="1.3"/>
+      <text x="380" y="91" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">X</text>
+      <circle cx="520" cy="86" r="27" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="520" y="91" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">Y</text>
+      <line x1="490" y1="86" x2="412" y2="86" stroke="var(--warn)" stroke-width="1.8" marker-end="url(#ar5)"/>
+      <text x="450" y="140" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">실은 Y 가 원인이다</text>
+      <text x="450" y="157" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">(제어 보상 동작이 흔하다)</text>
+      <text x="450" y="182" text-anchor="middle" font-size="10.5" fill="var(--warn)" font-weight="600">→ 조작해도 소용없다</text>
+
+      <line x1="600" y1="30" x2="600" y2="196" stroke="currentColor" stroke-width=".7" opacity=".2"/>
+
+      <!-- C 공통원인 -->
+      <text x="750" y="18" text-anchor="middle" font-size="12" font-weight="600" fill="var(--bad)">③ 공통 원인 — 허위상관</text>
+      <rect x="712" y="34" width="76" height="30" rx="2" fill="none" stroke="var(--bad)" stroke-width="1.3"/>
+      <text x="750" y="54" text-anchor="middle" font-size="11.5" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--bad)">Z 외기</text>
+      <circle cx="680" cy="118" r="27" fill="none" stroke="currentColor" stroke-width="1.3"/>
+      <text x="680" y="123" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">X</text>
+      <circle cx="820" cy="118" r="27" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="820" y="123" text-anchor="middle" font-size="13" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">Y</text>
+      <line x1="726" y1="66" x2="694" y2="90" stroke="var(--bad)" stroke-width="1.6" marker-end="url(#ar5b)"/>
+      <line x1="774" y1="66" x2="806" y2="90" stroke="var(--bad)" stroke-width="1.6" marker-end="url(#ar5b)"/>
+      <path d="M708,132 Q750,152 792,132" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" opacity=".5"/>
+      <text x="750" y="170" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">둘 사이엔 아무것도 없는데</text>
+      <text x="750" y="187" text-anchor="middle" font-size="11" fill="currentColor" opacity=".75">상관은 −0.903 이 나온다</text>
+      <text x="750" y="210" text-anchor="middle" font-size="10.5" fill="var(--bad)" font-weight="600">→ 조작하면 오히려 나빠진다</text>
+    </svg>
+    <figcaption><b>상관계수는 이 셋을 구분하지 못한다.</b> 세 구조 모두 <code>r</code> 이 크게 나온다. 그래서 <b>숫자만으로는 인자를 고를 수 없고</b>, 데이터 바깥의 근거 — 물리적 메커니즘과 시간 선후 — 를 함께 봐야 한다. ③번이 우리 데이터에서 실제로 일어난 일이다.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <p>그래서 인자 후보는 <strong>관문 네 개</strong>를 통과해야 인정한다. 앞의 두 개는 <strong>데이터를 보기 전에</strong> 판정하는 것이 핵심이다 — 데이터부터 보면 이미 숫자에 끌려간다.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 250" role="img" aria-label="인자 후보 52개가 물리 메커니즘, 계측 가능성, 시간 선후, 통계적 유의성 네 관문을 통과해 핵심인자로 채택되고 제어인자와 잡음인자로 분류되는 절차">
+      <defs>
+        <marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <rect x="2" y="76" width="104" height="56" rx="2" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <text x="54" y="100" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">인자 후보</text>
+      <text x="54" y="119" text-anchor="middle" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".7">52개</text>
+      <line x1="110" y1="104" x2="136" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/>
+
+      <!-- 관문 1 -->
+      <rect x="140" y="62" width="142" height="84" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="211" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent)">관문 ①</text>
+      <text x="211" y="101" text-anchor="middle" font-size="12" font-weight="600" fill="var(--accent-ink)">물리 메커니즘</text>
+      <text x="211" y="120" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">"왜 그렇게 되는지</text>
+      <text x="211" y="136" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">말로 설명되는가"</text>
+      <line x1="286" y1="104" x2="312" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/>
+
+      <!-- 관문 2 -->
+      <rect x="316" y="62" width="142" height="84" rx="2" fill="none" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="387" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent)">관문 ②</text>
+      <text x="387" y="101" text-anchor="middle" font-size="12" font-weight="600" fill="var(--accent-ink)">시간 선후</text>
+      <text x="387" y="120" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">X 가 Y 보다 먼저인가</text>
+      <text x="387" y="136" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">지연 0~600초 탐색</text>
+      <line x1="462" y1="104" x2="488" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/>
+
+      <!-- 관문 3 -->
+      <rect x="492" y="62" width="142" height="84" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="563" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".6">관문 ③</text>
+      <text x="563" y="101" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">공통원인 배제</text>
+      <text x="563" y="120" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">외기 같은 Z 를</text>
+      <text x="563" y="136" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">회귀에 함께 넣는다</text>
+      <line x1="638" y1="104" x2="664" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/>
+
+      <!-- 관문 4 -->
+      <rect x="668" y="62" width="142" height="84" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="739" y="82" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".6">관문 ④</text>
+      <text x="739" y="101" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">통계 유의성</text>
+      <text x="739" y="120" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">|r| &gt; r_crit 로</text>
+      <text x="739" y="136" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".75">H₀ 를 기각</text>
+      <line x1="814" y1="104" x2="840" y2="104" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar6)"/>
+      <text x="872" y="100" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ok)">핵심</text>
+      <text x="872" y="117" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ok)">인자</text>
+
+      <!-- 데이터 전/후 구분 -->
+      <line x1="140" y1="36" x2="458" y2="36" stroke="var(--accent)" stroke-width="1.6"/>
+      <text x="299" y="28" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)" font-weight="600">데이터를 보기 전에 — 공정 지식으로</text>
+      <line x1="492" y1="36" x2="810" y2="36" stroke="currentColor" stroke-width="1.2" opacity=".4"/>
+      <text x="651" y="28" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">데이터로 — 통계로</text>
+
+      <!-- 하단 경고 -->
+      <line x1="2" y1="176" x2="898" y2="176" stroke="currentColor" stroke-width=".7" opacity=".2"/>
+      <text x="2" y="196" font-size="11" font-weight="600" fill="var(--bad)">관문 ①②를 건너뛰고 ③④부터 하면 — 그것이 06 절에서 우리가 빠진 함정이다.</text>
+      <text x="2" y="216" font-size="10.5" fill="currentColor" opacity=".7">상관 상위 목록을 먼저 뽑아 놓고 나중에 이유를 붙이면, 어떤 숫자에도 그럴듯한 설명이 붙는다.</text>
+      <text x="2" y="238" font-size="10.5" fill="currentColor" opacity=".7">순서를 지키면 <tspan font-weight="600">MI-903 ↔ ZI-201 (r=−0.903)</tspan> 은 관문 ① 에서 이미 탈락한다 — 계통이 달라 메커니즘을 말할 수 없기 때문이다.</text>
+    </svg>
+    <figcaption><b>순서가 방법론의 전부다.</b> 네 관문 중 <b>앞의 둘은 데이터가 아니라 공정 지식으로 판정</b>한다. 이 순서를 지키면 우연히 높게 나온 상관은 통계 검정에 도달하기도 전에 걸러진다. 뒤집어서 하면 <b>거르는 장치가 통계 하나뿐</b>이 되고, 시계열에서 그 하나는 잘 듣지 않는다.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <h3>④ 제어인자와 잡음인자 — 외기가 특별한 이유</h3>
+    <p>관문을 통과했다고 끝이 아니다. 인자를 채택했으면 <strong>그것으로 무엇을 할 수 있는지</strong>가 갈린다. 6시그마는 여기서 인자를 두 종류로 나눈다.</p>
+  </div>
+
+  <div class="two">
+    <div>
+      <h4><span class="yes">제어인자</span> — 우리가 값을 정한다</h4>
+      <p><code>ZI-709</code> 밸브 개도, <code>FI-602</code> 공급유량처럼 <strong>운전원이 설정할 수 있는</strong> 것. 대응은 <strong>최적값을 찾아 고정</strong>하는 것이다.</p>
+    </div>
+    <div>
+      <h4><span class="no">잡음인자</span> — 영향은 주는데 못 정한다</h4>
+      <p><code>TI-101</code> 대기온도, <code>MI-102</code> 대기습도. <strong>날씨는 우리 소관이 아니다.</strong> 없앨 수 없으니 <strong>영향을 보정하거나, 그것에 둔감해지도록</strong> 만든다 — 강건설계.</p>
+    </div>
+  </div>
+
+  <div class="prose">
+    <p>이 구분이 실전에서 결정적이다. <strong>잡음인자를 제어인자로 착각하면 조치가 통째로 헛돈다.</strong> "대기 습도가 순도를 떨어뜨린다" 가 사실이어도, 근무자가 습도를 낮출 방법은 없다. 할 수 있는 것은 <strong>습도가 높은 날 다른 인자로 보상하는 것</strong>뿐이다.</p>
+  </div>
+
+  <div class="note">
+    <span class="lbl">이 페이지에서 실제로 한 일</span>
+    검출 엔진이 <b>외기 성분을 회귀로 걷어낸 뒤 판정</b>하도록 고친 것이 바로 이 강건화다. 임기응변이 아니라 <b>잡음인자에 대한 표준 대응</b>이다 — 없앨 수 없는 변동이므로, 그 몫을 모형에 넣어 설명해 버리고 <b>남은 것으로만 이상을 판정</b>한다. 이 결함을 어떻게 발견했고 무엇이 얼마나 좋아졌는지는 <b>「만들면서 깨진 것」 절</b>에 있다.
+  </div>
+
+  <div class="prose">
+    <h3>⑤ 중심과 산포 — 그리고 관리한계가 알람선이 아닌 이유</h3>
+    <p>Y 를 정했으면 다음은 "이 값이 정상인가" 를 판정할 선을 긋는 일이다. 여기서 <strong>서로 다른 두 종류의 선</strong>이 나오는데, 이 둘을 섞으면 ENGRA 가 하는 일 자체가 설명되지 않는다.</p>
+    <p><strong>ENGRA 의 이상 판정 기준은 규격이 아니라 「그 태그의 평소」다.</strong> 태그마다 이번 근무 안에서 중심 μ 와 산포 σ 를 구하고, <strong>평소 대비 몇 배나 벗어났는가</strong>로 판정한다. 절대값 기준을 쓰지 않는 이유는 분명하다 — 절대값으로 판정하는 장치가 이미 있고(알람선), <strong>그것이 못 잡는 것을 잡으려고 만든 것</strong>이 ENGRA 이기 때문이다.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 300" role="img" aria-label="정규분포 곡선 위에 평균과 관리한계, 그리고 그보다 훨씬 바깥의 알람선을 함께 그린 그림. 관리한계와 알람선 사이 구간이 ENGRA가 잡는 영역이다">
+      <!-- ENGRA 구간 음영 -->
+      <rect x="590" y="52" width="105" height="188" fill="var(--accent)" opacity=".1"/>
+      <rect x="65" y="52" width="105" height="188" fill="var(--accent)" opacity=".1"/>
+
+      <!-- 축 -->
+      <line x1="30" y1="240" x2="870" y2="240" stroke="currentColor" stroke-width="1" opacity=".45"/>
+
+      <!-- 분포 -->
+      <polyline fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" vector-effect="non-scaling-stroke"
+        points="135,240 170,238 205,232 240,216 275,182 310,131 345,81 362,66 380,60 398,66 415,81 450,131 485,182 520,216 555,232 590,238 625,240"/>
+
+      <!-- 평균 -->
+      <line x1="380" y1="60" x2="380" y2="240" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>
+      <text x="380" y="256" text-anchor="middle" font-size="12" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor">μ</text>
+      <text x="380" y="272" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".7">중심 — 평소 값</text>
+
+      <!-- 1σ 표시 -->
+      <line x1="310" y1="131" x2="450" y2="131" stroke="currentColor" stroke-width=".9" opacity=".4"/>
+      <text x="380" y="125" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".6">±1σ</text>
+      <text x="464" y="135" font-size="10" fill="currentColor" opacity=".55">σ = 산포 — 평소 흔들리는 폭</text>
+
+      <!-- 관리한계 -->
+      <line x1="170" y1="40" x2="170" y2="240" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="5 3"/>
+      <line x1="590" y1="40" x2="590" y2="240" stroke="var(--accent)" stroke-width="1.4" stroke-dasharray="5 3"/>
+      <text x="590" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--accent-ink)">관리한계 μ+3σ</text>
+      <text x="170" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--accent-ink)">μ−3σ</text>
+
+      <!-- 알람선 -->
+      <line x1="695" y1="40" x2="695" y2="252" stroke="var(--bad)" stroke-width="1.8"/>
+      <line x1="65" y1="40" x2="65" y2="252" stroke="var(--bad)" stroke-width="1.8"/>
+      <text x="695" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--bad)">알람선 H</text>
+      <text x="65" y="34" text-anchor="middle" font-size="11" font-weight="600" fill="var(--bad)">알람선 L</text>
+
+      <!-- ENGRA 라벨 -->
+      <text x="642" y="150" text-anchor="middle" font-size="11" font-weight="600" fill="var(--accent-ink)">ENGRA</text>
+      <text x="642" y="167" text-anchor="middle" font-size="10" fill="var(--accent-ink)" opacity=".8">평소와</text>
+      <text x="642" y="182" text-anchor="middle" font-size="10" fill="var(--accent-ink)" opacity=".8">달라졌다</text>
+
+      <!-- 설명 -->
+      <line x1="30" y1="286" x2="870" y2="286" stroke="currentColor" stroke-width=".7" opacity=".2"/>
+      <text x="740" y="212" font-size="10.5" fill="var(--bad)" opacity=".9">여기부터 알람</text>
+
+      <text x="30" y="300" font-size="10.5" fill="var(--accent-ink)">관리한계 — 데이터가 정한다. "평소와 달라졌다"</text>
+      <text x="470" y="300" font-size="10.5" fill="var(--bad)">알람선 — 설비가 정한다. "이제 위험하다"</text>
+    </svg>
+    <figcaption><b>두 선은 목적이 다르다.</b> 알람선은 설비를 지키려고 <b>설계자가 미리 못 박은 선</b>이고, 관리한계는 그 태그가 실제로 어떻게 움직여 왔는지 <b>데이터가 만들어 낸 선</b>이다. 그래서 관리한계가 훨씬 안쪽에 있다. <b>둘 사이의 빈 구간 — 알람은 안 울렸지만 평소와는 다른 상태 — 이 ENGRA 가 존재하는 이유다.</b></figcaption>
+  </figure>
+
+  <div class="prose">
+    <h3>⑥ 통계 용어 — 이 페이지에 나오는 것만</h3>
+  </div>
+
+  <div class="terms">
+    <div class="term">
+      <div class="w">평균 <span>μ</span></div>
+      <div class="f">모든 값을 더해 개수로 나눈 값</div>
+      <div class="m">그 태그의 <strong>평소 자리</strong>. 중심이 옮겨졌다면 운전 조건이 바뀐 것이다.</div>
+    </div>
+    <div class="term">
+      <div class="w">표준편차 <span>σ 시그마</span></div>
+      <div class="f">평균에서 떨어진 정도의 평균적 크기</div>
+      <div class="m">그 태그가 <strong>평소 흔들리는 폭</strong>. σ 가 커졌다면 값은 그대로여도 제어가 불안해진 것이다 — 헌팅.</div>
+    </div>
+    <div class="term">
+      <div class="w">규격한계 <span>LSL · USL</span></div>
+      <div class="f">지켜야 하는 바깥 경계</div>
+      <div class="m">제품·설비가 요구하는 선. ASU 에서는 <strong>알람선 L·H</strong> 가 이 역할을 한다.</div>
+    </div>
+    <div class="term">
+      <div class="w">공정능력 <span>Cp</span></div>
+      <div class="f">Cp = 규격 폭 ÷ 6σ</div>
+      <div class="m"><strong>여유가 얼마나 되나.</strong> 규격 폭이 산포보다 넉넉할수록 크다. 치우침은 보지 않는다.</div>
+    </div>
+    <div class="term">
+      <div class="w">치우침 반영 <span>Cpk</span></div>
+      <div class="f">Cpk = 가까운 쪽 여유 ÷ 3σ</div>
+      <div class="m"><strong>실제로 안전한가.</strong> 폭이 넉넉해도 한쪽으로 붙어 있으면 낮아진다. 현장에서 믿을 값은 이쪽이다.</div>
+    </div>
+    <div class="term">
+      <div class="w">단기 · 장기 <span>Cp/Cpk vs Pp/Ppk</span></div>
+      <div class="f">σ 를 어느 범위에서 쟀는가</div>
+      <div class="m">Cp 는 <strong>짧은 구간의 산포</strong>(I-MR 이동범위), Pp 는 <strong>전체 기간의 산포</strong>. 둘이 벌어지면 그사이 조건이 흔들렸다는 뜻이다.</div>
+    </div>
+    <div class="term">
+      <div class="w">상관계수 <span>r</span></div>
+      <div class="f">−1 ~ +1. 두 값이 함께 움직이는 정도</div>
+      <div class="m">+1 은 같이 오르고, −1 은 반대로 가고, 0 은 무관. <strong>인자 후보를 고르는 첫 잣대.</strong></div>
+    </div>
+    <div class="term">
+      <div class="w">회귀 <span>regression</span></div>
+      <div class="f">Y ≈ a·X₁ + b·X₂ + … + c</div>
+      <div class="m">여러 X 를 <strong>동시에</strong> 놓고 각자의 몫을 나눈다. 서로 얽힌 인자를 갈라내는 도구.</div>
+    </div>
+    <div class="term">
+      <div class="w">유효표본수 <span>n<sub>eff</sub></span></div>
+      <div class="f">실제로 독립인 정보의 개수</div>
+      <div class="m">시계열은 앞뒤 값이 닮아서, <strong>1,440점이어도 독립 정보는 수십 개뿐</strong>이다. 이걸 무시하면 우연을 발견으로 착각한다.</div>
+    </div>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 214" role="img" aria-label="같은 산포를 가진 두 분포. 규격 가운데 있는 쪽은 Cp와 Cpk가 같고, 한쪽으로 치우친 쪽은 Cp는 같지만 Cpk가 낮아 규격을 넘는 꼬리가 생긴다">
+      <!-- 왼쪽: 가운데 -->
+      <text x="220" y="16" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--ok)">가운데 있다 — Cp = Cpk = 1.7</text>
+      <line x1="30" y1="170" x2="410" y2="170" stroke="currentColor" stroke-width="1" opacity=".45"/>
+      <line x1="30" y1="30" x2="30" y2="182" stroke="var(--bad)" stroke-width="1.5"/>
+      <line x1="410" y1="30" x2="410" y2="182" stroke="var(--bad)" stroke-width="1.5"/>
+      <text x="30" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--bad)">L</text>
+      <text x="410" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--bad)">H</text>
+      <polyline fill="var(--accent)" fill-opacity=".14" stroke="var(--accent)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"
+        points="85,169 108,165 130,154 153,131 175,97 198,64 220,50 243,64 265,97 288,131 310,154 333,165 355,169"/>
+      <line x1="220" y1="50" x2="220" y2="170" stroke="currentColor" stroke-width=".9" stroke-dasharray="3 3" opacity=".5"/>
+      <text x="220" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".7">μ</text>
+      <text x="220" y="212" text-anchor="middle" font-size="10" fill="var(--ok)">양쪽 여유가 같다</text>
+
+      <!-- 오른쪽: 치우침 -->
+      <text x="670" y="16" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--bad)">치우쳤다 — Cp = 1.7 인데 Cpk = 0.9</text>
+      <line x1="480" y1="170" x2="860" y2="170" stroke="currentColor" stroke-width="1" opacity=".45"/>
+      <line x1="480" y1="30" x2="480" y2="182" stroke="var(--bad)" stroke-width="1.5"/>
+      <line x1="860" y1="30" x2="860" y2="182" stroke="var(--bad)" stroke-width="1.5"/>
+      <text x="480" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--bad)">L</text>
+      <text x="860" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--bad)">H</text>
+      <polyline fill="var(--bad)" fill-opacity=".13" stroke="var(--bad)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"
+        points="605,169 628,165 650,154 673,131 695,97 718,64 740,50 763,64 785,97 808,131 830,154 853,165 875,169"/>
+      <line x1="740" y1="50" x2="740" y2="170" stroke="currentColor" stroke-width=".9" stroke-dasharray="3 3" opacity=".5"/>
+      <text x="740" y="196" text-anchor="middle" font-size="10" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".7">μ</text>
+      <text x="740" y="212" text-anchor="middle" font-size="10" fill="var(--bad)">오른쪽 꼬리가 H 를 넘는다</text>
+    </svg>
+    <figcaption><b>산포가 같아도 안전하지 않다.</b> 두 분포는 폭이 완전히 같아서 <code>Cp</code> 가 동일하다. 그런데 오른쪽은 중심이 H 쪽으로 붙어 있어 꼬리가 규격을 넘는다. <b><code>Cp</code> 만 보고했다면 "여유 충분" 이라고 보고했을 상황이다.</b> 그래서 현장에서는 <code>Cpk</code> 를 본다.</figcaption>
+  </figure>
+
+  <div class="prose">
+    <h3>⑦ 기각과 채택 — "관계가 있다" 를 어떻게 인정하나</h3>
+    <p>이제 마지막 조각이다. "대기 습도가 오르면 순도가 떨어진다" 같은 <strong>운전 경험을 데이터로 확인</strong>하려면, 판정 규칙이 필요하다. 아무 두 태그나 가져와도 상관계수는 절대 정확히 0 이 나오지 않기 때문이다. <strong>얼마나 커야 우연이 아니라고 할 것인가</strong>를 미리 정해야 한다.</p>
+    <p>통계는 이것을 <strong>거꾸로</strong> 접근한다. 증명하고 싶은 것을 바로 증명하지 않고, <strong>"관계가 없다" 를 먼저 가정한 뒤 그 가정이 데이터와 얼마나 안 맞는지</strong> 본다. 이 가정을 <strong>귀무가설</strong>이라 하고, 너무 안 맞으면 <strong>기각</strong>한다.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 250" role="img" aria-label="귀무가설을 세우고 상관계수를 임계값과 비교해 기각하거나 기각하지 못하는 판정 흐름도">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,1 L9,5 L0,9 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- 1 귀무가설 -->
+      <rect x="2" y="76" width="182" height="72" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="93" y="100" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">귀무가설 H₀</text>
+      <text x="93" y="120" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">"이 X 는 Y 와</text>
+      <text x="93" y="137" text-anchor="middle" font-size="11" fill="currentColor" opacity=".8">아무 관계가 없다"</text>
+
+      <line x1="188" y1="112" x2="228" y2="112" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar4)"/>
+
+      <!-- 2 측정 -->
+      <rect x="232" y="76" width="182" height="72" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="323" y="100" text-anchor="middle" font-size="12" font-weight="600" fill="currentColor">데이터에서 잰다</text>
+      <text x="323" y="120" text-anchor="middle" font-size="11" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="currentColor" opacity=".8">상관 |r|</text>
+      <text x="323" y="138" text-anchor="middle" font-size="10.5" fill="currentColor" opacity=".65">지연 0~600초도 함께 탐색</text>
+
+      <line x1="418" y1="112" x2="458" y2="112" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar4)"/>
+
+      <!-- 3 비교 -->
+      <rect x="462" y="66" width="182" height="92" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.3"/>
+      <text x="553" y="90" text-anchor="middle" font-size="12" font-weight="600" fill="var(--accent-ink)">임계값과 비교</text>
+      <text x="553" y="112" text-anchor="middle" font-size="12" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="var(--accent-ink)">|r| &gt; r_crit ?</text>
+      <text x="553" y="133" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)" opacity=".8">r_crit 은 n_eff 로 정한다</text>
+      <text x="553" y="149" text-anchor="middle" font-size="10" fill="var(--accent-ink)" opacity=".7">표본이 적을수록 높아진다</text>
+
+      <!-- 분기 -->
+      <path d="M648,96 L688,96 L688,46 L716,46" fill="none" stroke="var(--ok)" stroke-width="1.3" marker-end="url(#ar4)"/>
+      <text x="672" y="66" font-size="10.5" fill="var(--ok)" font-weight="600">예</text>
+      <path d="M648,128 L688,128 L688,182 L716,182" fill="none" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#ar4)"/>
+      <text x="666" y="152" font-size="10.5" fill="var(--muted)" font-weight="600">아니오</text>
+
+      <!-- 기각 -->
+      <rect x="720" y="20" width="178" height="54" rx="2" fill="none" stroke="var(--ok)" stroke-width="1.4"/>
+      <text x="809" y="42" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ok)">H₀ 기각</text>
+      <text x="809" y="61" text-anchor="middle" font-size="10.5" fill="var(--ok)">→ 핵심인자로 채택</text>
+
+      <!-- 미기각 -->
+      <rect x="720" y="156" width="178" height="54" rx="2" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="809" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="var(--muted)">기각하지 못함</text>
+      <text x="809" y="197" text-anchor="middle" font-size="10.5" fill="var(--muted)">→ 증거가 부족하다</text>
+
+      <!-- 경고 -->
+      <line x1="2" y1="228" x2="898" y2="228" stroke="currentColor" stroke-width=".7" opacity=".2"/>
+      <text x="2" y="246" font-size="10.5" fill="var(--bad)" font-weight="600">주의 — "기각하지 못함" 은 "관계가 없다" 가 아니다. 못 찾았을 뿐일 수 있다.</text>
+    </svg>
+    <figcaption><b>왜 이렇게 뒤집어서 하나.</b> "관계가 있다" 는 <b>한 번만 맞아도 주장할 수 있어서</b> 우연에 약하다. 반대로 "관계가 없다" 를 세워 두고 그것이 무너질 때만 인정하면, 우연히 잘 맞은 한 판으로는 통과하지 못한다. 인자를 <b>함부로 채택하지 않기 위한 안전장치</b>다.</figcaption>
+  </figure>
+
+  <div class="two">
+    <div>
+      <h4><span class="yes">Vital Few</span> — 중요한 소수</h4>
+      <p>기각을 통과해 채택된 인자. 보통 전체의 <strong>2~3개</strong>가 Y 변동의 대부분을 설명한다. <strong>운전에서 실제로 볼 것은 이것뿐이다.</strong></p>
+    </div>
+    <div>
+      <h4><span class="no">Trivial Many</span> — 사소한 다수</h4>
+      <p>나머지 50여 개. 관계가 없지는 않아도 <strong>영향이 미미해 조작 대상이 못 된다.</strong> 여기에 시간을 쓰면 정작 중요한 것을 놓친다.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="lbl">이것이 운전에서 왜 중요한가</span>
+    순도가 흔들릴 때 <b>53개 태그를 전부 뒤지는 것과, 인자 두세 개를 먼저 보는 것은 대응 속도가 다르다.</b> 인자를 알면 ① 어디를 볼지 정해지고 ② 관리한계로 알람보다 먼저 알아채며 ③ 인계장에 "무엇이 왜 움직였는지" 를 쓸 수 있다. ENGRA 초안의 <b>근거 문장이 이 구조에서 나온다.</b>
+  </div>
+
+  <div class="note bad">
+    <span class="lbl">먼저 말해 둘 것</span>
+    <b>우리 데이터에서는 이 절차가 끝까지 가지 못했다.</b> 방법은 <code>engine/factors.py</code> 에 다 들어갔지만, 모의 데이터에 인과가 선언돼 있지 않아 <b>회귀가 찾을 것이 없었고, 오히려 우연한 상관을 "유의하다" 고 보고했다.</b> 그 경위는 <b>06 절</b>에 있다 — 이 페이지에서 가장 중요한 부분이다.
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">02</span><h2>파이프라인</h2></div>
   <div class="prose">
     <p>한 근무는 태그 53점 × 21,600샘플 = <strong>114만 점</strong>이다. 이걸 원본 그대로 이동창 통계에 넣으면 순수 파이썬으로는 초안 생성 시간 안에 끝나지 않는다. 그래서 <strong>30초 블록으로 한 번만 접고</strong>, 이후 모든 검출기가 그 위에서 돈다.</p>
   </div>
@@ -219,7 +718,7 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
 </section>
 
 <section>
-  <div class="sec-head"><span class="sec-num">02</span><h2>검출기 7종 — 신호가 어떻게 생겼나</h2></div>
+  <div class="sec-head"><span class="sec-num">03</span><h2>검출기 7종 — 신호가 어떻게 생겼나</h2></div>
   <div class="prose">
     <p>이상은 일곱 가지 모양으로 나타난다. 각 검출기는 <strong>값이 아니라 그 모양</strong>을 본다.</p>
   </div>
@@ -318,7 +817,7 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
 </section>
 
 <section>
-  <div class="sec-head"><span class="sec-num">03</span><h2>알람보다 얼마나 먼저 잡았나</h2></div>
+  <div class="sec-head"><span class="sec-num">04</span><h2>알람보다 얼마나 먼저 잡았나</h2></div>
   <div class="prose">
     <p>알람이 울리는 7종은 판정 기준이 "잡았는가"가 아니라 <strong>"알람보다 먼저 잡았는가"</strong>다. 근무자가 조치할 시간이 그만큼 생긴다.</p>
   </div>
@@ -342,7 +841,7 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
 </section>
 
 <section>
-  <div class="sec-head"><span class="sec-num">04</span><h2>만들면서 깨진 것 네 가지</h2></div>
+  <div class="sec-head"><span class="sec-num">05</span><h2>만들면서 깨진 것 네 가지</h2></div>
   <div class="prose">
     <p>처음 돌렸을 때 포함률은 나쁘지 않았지만 <strong>오탐이 근무당 30건</strong>이었다. 원인을 하나씩 찾아 고친 기록이다.</p>
   </div>
@@ -371,12 +870,12 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
   </div>
   <div class="note">
     <span class="lbl">최종</span>
-    오탐 <b>근무당 0.8건</b>. 남은 4건은 전부 같은 태그 하나에서 나오고, 검출기 문제가 아니다 — 아래 06 참고.
+    오탐 <b>근무당 0.8건</b>. 남은 4건은 전부 같은 태그 하나에서 나오고, 검출기 문제가 아니다 — 아래 07 참고.
   </div>
 </section>
 
 <section>
-  <div class="sec-head"><span class="sec-num">05</span><h2>6시그마 인자분석 — 그리고 함정</h2></div>
+  <div class="sec-head"><span class="sec-num">06</span><h2>6시그마 인자분석 — 그리고 함정</h2></div>
   <div class="prose">
     <p>"ASU 가 잘 돌고 있는가"를 재려면 먼저 <strong>무엇을 재서 답할지</strong>를 정해야 한다. CTQ 로 <strong>LP Column 4종</strong>(레벨·차압·순도·온도)을 잡고, 나머지 태그를 그것을 움직이는 인자 X 로 두었다. <code>Y = f(X)</code>.</p>
     <p>관리기준을 만드는 부분은 잘 돈다 — 중심 μ, 단기 σ(I-MR 이동범위), 관리한계 μ±3σ, Cp/Cpk/Ppk, 시그마 수준. <strong>문제는 인자 쪽이었다.</strong></p>
@@ -468,7 +967,7 @@ footer{padding:2.5rem 0 4rem; border-top:1px solid var(--line); color:var(--mute
 </section>
 
 <section>
-  <div class="sec-head"><span class="sec-num">06</span><h2>남은 것</h2></div>
+  <div class="sec-head"><span class="sec-num">07</span><h2>남은 것</h2></div>
   <div class="prose">
     <h3>임도영님께 — 태그 마스터 결함 2건</h3>
     <ul>
