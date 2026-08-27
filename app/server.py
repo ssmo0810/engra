@@ -412,6 +412,9 @@ def _upload_result_html():
             + "".join('<br><span style="color:var(--accent)">⚠ ' + esc(w) + '</span>' for w in up["warn"]) + '</div>')
 
 
+_ai_check = (None, "")   # 마지막 「AI 연결 점검」 결과 (성공 여부, 설명)
+
+
 def view_admin():
     """관리 — 검증·리셋·시연용 컨트롤을 한곳에. 경모님(2026-08-27): "관리 버튼이 여기저기 있으면 기존 로직인지
     관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 ③·⑤ 에서 이쪽으로 옮겼다."""
@@ -442,6 +445,8 @@ def view_admin():
             '<li><b>중요도 재판정</b> — 통계 크기가 매긴 상/중/하를 "놓치면 무엇이 일어나는가"(품질·안전·설비 직결 / 손실·비효율 / 후속 영향 작음)로 다시 매기고 이유를 쓴다. 규칙과 다르면 화면에 「통계 기준 → AI 판정」으로 드러나고 사람이 되돌릴 수 있다.</li>'
             '<li><b>전달 가치</b> — 외기(TI-101·MI-102) 하루 주기와 그에 따라 함께 움직인 완만한 변화는 정상 운전으로 보고 「전달 가치 낮음」. 한계 접근·다른 이상과 겹침이면 전달. 갈리면 전달(놓치는 쪽이 비싸다).</li>'
             '<li><b>사례 적합성 · 연관</b> — 같은 태그의 확정 일지 중 이번 현상에 맞는 것만 남기고(기각 사유 기록), 태그 마스터 연결이 놓친 인과(예: 순도 하강 ↔ Cold end 온도)를 「함께 봐야 할 항목」으로 잇는다. 근거 없으면 잇지 않는다.</li></ol>'
+            '<form method="post" action="/admin/ai_check" style="margin:6px 0 10px"><button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">AI 연결 점검 — 실제로 한 번 호출(수 초)</button>'
+            + (('<span class="pill' + (' on' if _ai_check[0] else ' red') + '" style="margin-left:8px">' + esc(_ai_check[1]) + '</span>') if _ai_check[1] else '') + '</form>'
             '<p class="note muted" style="margin:0;font-size:12px">AI 가 아는 것 = 공기분리장치 공정 일반 지식 + 태그 마스터 설명 + 이번 근무의 근거 수치 + 과거 확정 일지. 이 공장의 절차·이력은 모른다 — 그래서 조치는 확정 일지에서만 오고, 원본 결측이 있으면 그 사실을 받아 신뢰도를 낮게 적는다. 기준 원문: <span class="mono">app/llm.py SYSTEM</span>.</p></div>'
             + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">처음부터</h2>'
             '<p class="note" style="margin:0 0 8px">근무·초안·확정 이력·정답지 대조가 전부 지워진다. 빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다. '
@@ -1091,6 +1096,12 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(raw.decode("utf-8", "replace"))
         try:
             path = urlparse(self.path).path
+            if path == "/admin/ai_check":
+                global _ai_check
+                import time as _t
+                ok, msg = llm.check()
+                _ai_check = (ok, _t.strftime("%H:%M:%S ") + msg)
+                self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/pipeline/ingest_skip":
                 try:
                     started = jobs.ingest_skip(form.get("file", [""])[0])

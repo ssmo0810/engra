@@ -107,8 +107,41 @@ class LLMUnavailable(RuntimeError):
 
 
 def mode():
-    """off / cli / api. 설정 없으면 api."""
+    """off / cli / api / auto. 설정 없으면 api. auto = cli 로 시도하고 실패하면 API 키가 있을 때만 api 로 (경모님 2026-08-28) —
+    키가 없으면 대체 경로가 없으니 그대로 크게 실패한다(조용히 문장 틀로 가지 않음)."""
     return (os.environ.get("ENGRA_LLM") or "api").strip().lower()
+
+
+def _call(system, user):
+    """모드에 따라 호출. auto 는 cli → (키 있으면) api."""
+    m = mode()
+    if m == "cli":
+        return _call_cli(system, user)
+    if m == "api":
+        return _call_api(system, user)
+    if m == "auto":
+        try:
+            return _call_cli(system, user)
+        except LLMUnavailable as exc:
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                raise LLMUnavailable(f"CLI 실패({exc}) — API 키가 없어 전환할 곳이 없습니다") from exc
+            print(f"  ⚠ CLI 실패 → API 로 전환: {exc}", flush=True)
+            return _call_api(system, user)
+    raise LLMUnavailable(f"모르는 ENGRA_LLM 모드: {m}")
+
+
+def check():
+    """관리 페이지 「AI 연결 점검」 — 실제로 한 번 부른다(수 초). → (성공 여부, 한 줄 설명)"""
+    m = mode()
+    if m == "off":
+        return False, "ENGRA_LLM=off — AI 미연결(시험용 설정). 초안 생성이 거부됩니다."
+    import time
+    t0 = time.time()
+    try:
+        out = _call("답은 JSON {\"items\": []} 만.", "연결 점검. items 는 빈 배열로.")
+        return True, f"{status()} · 응답 {time.time() - t0:.1f}s · {type(out).__name__}"
+    except LLMUnavailable as exc:
+        return False, f"{status()} · 실패 {time.time() - t0:.1f}s — {exc}"
 
 
 def status():
@@ -118,6 +151,8 @@ def status():
         return "AI 미연결"
     if m == "cli":
         return f"AI cli · {MODEL}"
+    if m == "auto":
+        return f"AI auto(cli→api) · {MODEL}"
     return f"AI api · {MODEL}"
 
 
@@ -221,7 +256,7 @@ def rewrite(shift, items, say=None):
         # 같은 입력을 다시 보내면 성공했으므로 1회 재시도한다. 두 번 다 비면 그때 멈춘다.
         got = {}
         for attempt in (1, 2):
-            out = _call_cli(SYSTEM, user) if m == "cli" else _call_api(SYSTEM, user)
+            out = _call(SYSTEM, user)
             got = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
             if len(got) == len(chunk):
                 break
