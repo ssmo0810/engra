@@ -60,6 +60,22 @@ fi
 step "강제 재실행"   run "$SID" --redo
 
 echo "== 제작 과정 문서 생성 =="
+# 화면 렌더 — 라이브에서 실제로 열리는 페이지가 500 없이 뜨는지. 2026-08-27 밤 server.py 의 import 누락이 컴파일·배선 시험을
+# 다 통과하고 라이브 ④ 만 500 이었다. 파이썬 문법/배선이 아니라 "페이지가 뜨나" 를 직접 본다.
+PORT=$((20000 + RANDOM % 20000))
+ENGRA_LLM=off python3 app/cli.py serve --port "$PORT" >/tmp/engra_smoke_serve.log 2>&1 &
+SPID=$!; sleep 1.5
+SID=$(python3 -c "import sqlite3,os; c=sqlite3.connect(os.environ.get('ENGRA_DB','app/engra.db')); r=c.execute('select id from shift order by id desc limit 1').fetchone(); print(r[0] if r else '')")
+pages="/ /pipeline /draft /admin"
+[ -n "$SID" ] && pages="$pages /shift/$SID /answer/$SID"
+bad=0
+for pg in $pages; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "http://127.0.0.1:$PORT$pg")
+  case "$code" in 200|303) ;; *) echo "✗ 페이지 $pg → $code"; bad=1;; esac
+done
+kill $SPID 2>/dev/null; wait $SPID 2>/dev/null
+if [ "$bad" = 0 ]; then echo "✓ 화면 렌더 ($pages)"; else fail=1; fi
+
 if python3 tools/journal.py >/dev/null 2>&1; then
   echo "✓ journal.py"
 else
