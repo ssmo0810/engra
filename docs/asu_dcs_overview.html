@@ -444,7 +444,6 @@
 
       <div id="viewData" hidden>
         <div class="dbar">
-          <label>Seed <input id="dSeed" type="number" value="20260821"></label>
           <label>샘플 주기
             <select id="dStep"><option value="1">1초</option><option value="5" selected>5초</option><option value="10">10초</option><option value="60">60초</option></select>
           </label>
@@ -544,7 +543,7 @@
         <div class="spanel" style="margin-top:9px">
           <h4>과거 기록 <span id="sHistCnt" style="color:#6b7280;font-weight:400"></span></h4>
           <div id="sHist"></div>
-          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 그 이전 근무는 답안지에 기록된 base_seed 값으로 동일한 데이터를 재생성할 수 있습니다.</p>
+          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 생성한 근무의 CSV 와 답안지는 그 자리에서 함께 저장하세요 — 그 이전 근무를 다시 만들면 새 랜덤 데이터가 됩니다.</p>
         </div>
       </div>
 
@@ -1074,6 +1073,10 @@
     return Math.min(4, Math.max(n, Math.abs(+d.hi - +d.lo) < 5 ? 2 : 1));
   }
 
+  /* 미리보기와 베이스라인 생성이 쓰는 난수 기준값. 화면에서 입력받지 않고 자동
+     발급한다 — 「베이스라인 생성」을 누를 때마다 새로 뽑아 매번 다른 데이터가 나온다. */
+  var DSEED = ((Math.random()*0x7fffffff)|0)||1;
+
   /* ── 미리보기 차트 ── */
   function drawPreview(){
     var svg = $('pvChart');
@@ -1084,7 +1087,7 @@
     $('pvTag').textContent = sel + '  ·  ' + d.desc + '  (' + d.unit + ')';
 
     var step = 60, n = 1440;                      // 24시간 / 60초 — 일주기가 보이도록
-    var sd = +$('dSeed').value || 1, tmp = {}, y;
+    var sd = DSEED, tmp = {}, y;
     [sel, AMBT.tag, AMBH.tag].forEach(function(id){ if (!tmp[id]) tmp[id] = series(id, sd, step, n, 6); });
     applyAmbient(tmp, n);
     clampPhysical(tmp, Object.keys(tmp));
@@ -1147,7 +1150,8 @@
 
   /* ── 베이스라인 CSV 생성 ── */
   function generate(){
-    var seed = +$('dSeed').value || 1;
+    DSEED = ((Math.random()*0x7fffffff)|0)||1;    // 누를 때마다 새 랜덤
+    var seed = DSEED;
     var step = +$('dStep').value;
     var mins = +$('dDur').value;
     var n = Math.floor(mins * 60 / step) + 1;
@@ -1173,7 +1177,8 @@
       rows.push(ts + ',' + line.join(','));
     }
     show(rows.join('\n'));
-    msg('베이스라인 생성 완료 — ' + n.toLocaleString() + '행 × ' + ids.length + '태그 (seed ' + seed + ', ' + step + '초 간격). 아래 상자를 전체 선택해 복사하세요.');
+    if (sel) drawPreview();                       // 미리보기도 방금 만든 데이터로 맞춘다
+    msg('베이스라인 생성 완료 — ' + n.toLocaleString() + '행 × ' + ids.length + '태그 (' + step + '초 간격). 아래 상자를 전체 선택해 복사하세요.');
   }
 
   function specCsv(){
@@ -1219,7 +1224,6 @@
   $('dGen').onclick = generate;
   $('dSpec').onclick = specCsv;
   $('dJson').onclick = function(){ show(JSON.stringify(state, null, 2)); msg('태그 마스터 JSON — 팀 저장소에 그대로 넣으면 됩니다.'); };
-  $('dSeed').onchange = function(){ if (sel) drawPreview(); };
 
   /* ══════════════════════════════════════════════════════════
      시나리오 주입 — 근무(12시간) 단위 연속 생성
