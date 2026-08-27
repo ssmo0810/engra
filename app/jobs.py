@@ -295,16 +295,30 @@ def _register_key(p):
     return sids
 
 
+_seen = None            # 메모리가 정본. 파일은 시작 시 한 번 읽고, 바뀔 때마다 원자적으로 쓴다
+_seen_readonly = False  # 파일이 있는데 못 읽었으면 덮어쓰지 않는다 — 일시 장애 뒤 저장이 최초 시각 전체를 지우는 것 방지 (Codex)
+
+
 def _load_seen():
-    try:
-        return json.loads(SEEN_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    global _seen, _seen_readonly
+    if _seen is None:
+        try:
+            _seen = json.loads(SEEN_FILE.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            _seen = {}
+        except (OSError, ValueError) as exc:
+            print(f"  !! {SEEN_FILE.name} 을 읽지 못함 — 최초 수신 시각을 메모리에만 두고 파일은 덮어쓰지 않는다: {exc}", file=sys.stderr)
+            _seen, _seen_readonly = {}, True
+    return _seen
 
 
 def _save_seen(seen):
+    if _seen_readonly:
+        return
     UPLOAD_DIR.mkdir(exist_ok=True)
-    SEEN_FILE.write_text(json.dumps(seen), encoding="utf-8")
+    tmp = SEEN_FILE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(seen), encoding="utf-8")
+    tmp.replace(SEEN_FILE)   # 원자적 교체 — 쓰다 죽어도 반쪽 파일이 남지 않는다
 
 
 def _reload_uploads():
