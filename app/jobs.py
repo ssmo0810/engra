@@ -188,7 +188,10 @@ def _run_ingest(paths):
                     for sid, n in sorted(counts.items()):
                         _say(f"{sid}: {n:,}점 적재")
                         got[sid] = n
-                    _summarize(list(counts))   # 파일마다 바로 요약 — 같은 묶음의 다음 파일이 '직전 근무' 로 볼 수 있게 (Codex)
+                    try:
+                        _summarize(list(counts))   # 파일마다 바로 요약 — 같은 묶음의 다음 파일이 '직전 근무' 로 볼 수 있게 (Codex)
+                    except Exception as exc:       # 적재는 됐다 — '적재 실패' 로 오보고하지 않는다 (Codex)
+                        _say(f"⚠ {Path(p).name} 요약 실패 — {type(exc).__name__}: {exc} (적재는 됐음, 기준선 재료에서만 빠짐)")
                 except Exception as exc:   # 파일 하나가 깨져도 나머지는 적재한다 (Codex). 실패는 그대로 보인다.
                     failed.append(Path(p).name)
                     _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
