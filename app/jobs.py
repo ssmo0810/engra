@@ -316,7 +316,8 @@ def _save_seen(seen):
     if _seen_readonly:
         return
     UPLOAD_DIR.mkdir(exist_ok=True)
-    tmp = SEEN_FILE.with_suffix(".json.tmp")
+    import os
+    tmp = SEEN_FILE.with_suffix(f".{os.getpid()}.tmp")   # 프로세스별 임시 이름 — 서버와 CLI 가 동시에 저장해도 충돌 없음 (Codex)
     tmp.write_text(json.dumps(seen), encoding="utf-8")
     tmp.replace(SEEN_FILE)   # 원자적 교체 — 쓰다 죽어도 반쪽 파일이 남지 않는다
 
