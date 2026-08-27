@@ -184,16 +184,17 @@ def _run_ingest(paths):
             for p, skip in paths:
                 _say(f"적재 시작 — {Path(p).name}" + (" (깨진 행 건너뛰기)" if skip else ""))
                 try:
-                    for sid, n in sorted(ingest_path(p, skip_bad=skip).items()):
+                    counts = ingest_path(p, skip_bad=skip)
+                    for sid, n in sorted(counts.items()):
                         _say(f"{sid}: {n:,}점 적재")
                         got[sid] = n
+                    _summarize(list(counts))   # 파일마다 바로 요약 — 같은 묶음의 다음 파일이 '직전 근무' 로 볼 수 있게 (Codex)
                 except Exception as exc:   # 파일 하나가 깨져도 나머지는 적재한다 (Codex). 실패는 그대로 보인다.
                     failed.append(Path(p).name)
                     _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
                     if not skip and "깨졌습니다" in str(exc):
                         can_skip.append(Path(p).name)   # 화면이 「깨진 행을 건너뛰고 적재」 를 제시한다(조언은 ingest_path 가 이미 적었다)
             if got:
-                _summarize(list(got))
                 _say(f"요약 저장 — {len(got)}근무 (다음 근무의 기준선 재료)")
             _job["can_skip"] = can_skip
             if failed and not got:
