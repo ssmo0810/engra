@@ -23,17 +23,10 @@ import db
 import pipeline
 import score as score_mod
 
-# 화면에서 고를 수 있는 정본 데이터 — 정답지가 있는 것만. 정답지 없으면 채점이 안 된다.
+# 화면에서 고를 수 있는 근무 = 사용자가 올린 것만. 정본(data/)을 미리 채우지 않는다 —
+# 경모님 2026-08-27: "빈 화면에서 생성 → 첨부 → 검출 → 초안 → 확정, 그 확정을 다음 근무가 쓰는지까지".
+# 정본은 tools/score.py(독립 채점)·tools/seed.py 가 직접 경로로 쓴다.
 SOURCES = []
-for key in (ROOT / "data" / "asu_answer_key.json", ROOT / "data" / "sim" / "asu_answer_all.json"):
-    if key.exists():
-        d = json.loads(key.read_text(encoding="utf-8"))
-        for sh in d["shift_list"]:
-            csv = key.parent / sh["csv_file"]
-            if csv.exists():
-                SOURCES.append({"shift_id": sh["shift_id"], "csv": str(csv), "key": str(key),
-                                "injected": len(sh["injected"]), "set": key.parent.name if key.parent.name != "data" else "기준"})
-SOURCES.sort(key=lambda s: s["shift_id"])
 
 UPLOAD_DIR = ROOT / "app" / "uploads"
 

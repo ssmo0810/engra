@@ -356,7 +356,7 @@ def _score_html():
         total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
                  + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
-        head = '<span class="muted">아직 돌린 근무가 없습니다 — ③에서 한 근무를 실행하면 여기서 바로 채점됩니다</span>'; total = ''
+        head = '<span class="muted">' + ('아직 올린 근무가 없습니다 — 위에서 CSV 와 정답지를 올리세요' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
               '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
@@ -367,7 +367,7 @@ def _score_html():
                        + "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
                                  for sid, no, name, tag, s_, e_ in sorted(missed)) + '</ul>')
     return ('<div class="card" style="padding:14px 18px">'
-            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">정답지가 있는 근무 전부 · 출처 = 기준(임도영 2근무) / sim(6근무) / 업로드</span></h2>'
+            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">올린 근무 전부 — 정답지가 심은 것과 엔진이 잡은 것</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
             '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">출처</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
             '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
@@ -462,7 +462,7 @@ def view_pipeline():
     if not running and st.get("result") and st.get("shift_id"):
         link = ('<p class="note"><a href="/shift/' + esc(st["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(st["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
-    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목당 약 1.5분 (16항목 ≈ 7분) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
+    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목 묶음당 약 2~3분 (16항목 ≈ 7~10분, 실측) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
             '<a id="jobdone" href="/pipeline" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
     # 새로고침이 아니라 /api/job 폴링으로 로그·경과만 바꾼다 — 새로고침은 파일 선택을 지우고 업로드를 끊었다 (경모님 QA)
     reload_js = ('<script>(function(){function tick(){fetch("/api/job").then(function(r){return r.json()}).then(function(j){'
@@ -474,23 +474,25 @@ def view_pipeline():
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
-            '<p class="note" style="margin:0 0 10px">데이터 생성은 ① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지를 내려받고, 여기서 올린다. '
-            '그다음 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인 → 「정답지 대조」 Page 갱신. '
-            '같은 근무를 다시 돌리려면 「다시 만들기」를 켠다.</p>'
-            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
-            '<button class="btn"' + (' disabled' if running else '') + ' onclick="var o=this.form.shift_id.selectedOptions[0].text; if(o.indexOf(\'초안 있음\')>=0 && !window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\')) return false;">적재 + 검출 + AI 초안 생성</button>'
-            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
-            '</form>'
+            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 seed 를 정해 CSV 와 정답지 JSON 을 내려받고 → ② 여기 올리고 → ③ 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
+            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. 아래 「정답지 대조」는 올린 근무만 채점한다.</p>'
+            '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>① 파일 올리기</b></div>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
             '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
             '<span class="muted" style="font-size:11.5px">CSV(근무) + 정답지 JSON 을 같이. 정답지가 있어야 대조가 된다</span>'
             '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span>'
-            '</form>' + up_html
-            + '<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>'
-            '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
+            '</form>' + up_html +
+            '<div class="muted" style="font-size:12px;margin:12px 0 2px"><b>② 검출 + AI 초안</b>' + ('' if opts else ' <span style="color:var(--bad)">— 먼저 파일을 올리세요</span>') + '</div>'
+            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
+            '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="var o=this.form.shift_id.selectedOptions[0].text; if(o.indexOf(\'초안 있음\')>=0 && !window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\')) return false;">적재 + 검출 + AI 초안 생성</button>'
+            '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
+            '</form>'
+
+            + ('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>' if jobs.SOURCES else '')
+            + '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
             '<span id="jobpill" class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
             '<pre id="joblog" class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
@@ -536,9 +538,7 @@ def view_index():
         }
 
     if not rows:
-        return page("일지", '<div class="card"><div class="empty">등록된 근무 구간이 없습니다.<br>'
-                            '<code class="mono">python3 app/cli.py ingest &lt;csv&gt;</code> 로 '
-                            '데이터를 넣으세요.</div></div>')
+        return page("일지", '<div class="card"><div class="empty">아직 근무가 없습니다.<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 생성기 CSV 와 정답지를 올리고 「검출 + AI 초안」을 누르면 여기에 쌓입니다.</div></div>', active=active)
 
     out = []
     for r in rows:
@@ -561,12 +561,11 @@ def view_index():
         )
 
     reset_bar = ('<form method="post" action="/reset" style="display:flex;gap:8px;align-items:center;margin:0 0 12px">'
-                 '<span class="muted" style="font-size:12px">데모 상태 되돌리기 —</span>'
-                 '<button class="btn" style="padding:6px 12px;font-size:12px">기준선으로 (팀 정본 8근무)</button>'
+                 '<span class="muted" style="font-size:12px">처음부터 —</span>'
                  '<button class="btn" name="empty" value="1" style="padding:6px 12px;font-size:12px;background:var(--sub)" '
                  "onclick=\"if(!window.confirm('완전 빈 상태로 되돌립니다. 근무·초안·확정 이력이 전부 지워집니다.')){return false;} this.form.sure.value='1'\">완전 빈 상태로</button>"
                  '<input type="hidden" name="sure" value="0">'
-                 '<span class="muted" style="font-size:11.5px">· 매시 정각에도 자동으로 기준선으로 돌아갑니다</span></form>')
+                 '<span class="muted" style="font-size:11.5px">· 매시 정각에 자동으로 비워집니다(최근 2시간 안에 눌렀으면 건너뜀)</span></form>')
     body = (reset_bar + f'<div class="card" style="padding:14px 18px">'
             f'<h2>근무 일지</h2>'
             f'<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '

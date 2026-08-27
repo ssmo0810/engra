@@ -263,6 +263,7 @@ python3 app/cli.py serve     # 화면 http://127.0.0.1:8000
 
 ✅ **정답지 뷰** `/answer/<정답지파일>/<근무ID>` — 주입 시나리오별 잡음/놓침 + 매칭 이벤트 + 오탐 + 동시 발생. `tools/score.py` 가 `detail` 을 돌려준다.
 ✅ **업로드** multipart **48MB**(근무 하나 = 12h CSV 35.8MB + 정답지; 폼 256KB 와 분리 — 37MB CSV 가 413 났던 것). email 파서가 본문의 ~11배 메모리를 써서(라이브 실측 420MB) MemoryMax 700MB 아래 유지하려면 이 상한. 업로드는 락으로 한 번에 하나, 수신은 read1 + 30s/300s 타임아웃(408) — Codex 4라운드 산물. 브라우저 가드가 보내기 전에 크기를 본다. 정답지 JSON 이 근무·CSV 를 등록(csv_file 은 basename 만; 같은 근무 ID 는 정본을 교체, 재시작 뒤에도 `uploads/*.json` 을 다시 읽어 남는다; 대조표는 key 에 실제 붙은 근무만 채점). 정시 리셋은 `.qa_active` 2h 이내면 건너뜀(`tools/reset_if_idle.sh`).
+✅ **QA 6라운드**(2026-08-27, 구조 변경): **미리 채운 정본 근무 없음** — `jobs.SOURCES` 는 업로드만(정본 `data/` 는 `tools/score.py`·`tools/seed.py` 가 직접 경로로 씀). 파이프라인 화면 순서 ① 업로드 → ② 검출+AI. 정시 리셋 = **빈 상태**(`tools/reset_if_idle.sh`), ⑤ 「기준선으로」 버튼 제거(시연에 시드가 필요하면 `db.reset(empty=False)` CLI). 5초 새로고침 → `/api/job` 폴링(파일 선택 유지), AI 묶음 진행·경과 표시, 대조표 쉬운 말(맞게 잡음/잘못 잡음). 새 엔진 16d956d 배포 — 독립 재채점 오탐 1.5/2.2.
 ✅ **QA 5라운드**(2026-08-27): 리셋 버튼 인라인 `confirm()` 이 `name=confirm` 입력으로 풀리던 버그(→ `sure`) · `pipeline.run` 이 AI 단계 내내 쓰기 잠금을 잡아 승인이 `database is locked` → 잠금 놓는 `conn.commit()` 을 `llm.rewrite` 직전에 · 실행 중 리셋 409 · 업로드 = 브라우저 gzip(CompressionStream) + XHR 진행률 + 이동 잠금, 서버 `_gunzip` 64MB 상한 · 드롭박스 선택 유지 · 대조표 단일화(심은=잡음+놓침 / 이벤트=정답맞춤+오탐).
 ✅ **③ 파이프라인 화면** — `/pipeline`. 소스 고르기(정본 8근무 + 업로드) → 「적재+검출+AI 초안」 한 버튼 → `jobs.py`
 스레드 + `/api/job` 폴링 → 「정답지 대조」 (`tools/score.py` 그대로, 라이브). 한 번에 하나만(Lock, 409).
