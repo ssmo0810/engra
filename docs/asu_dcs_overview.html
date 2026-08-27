@@ -1302,7 +1302,7 @@
      이어질 때 c.off 가 채워지므로, 파형을 '경과초 x' 의 함수로만 쓰면
      경계에서 끊기지 않는다. c.memo 는 근무를 넘겨 기억할 값. */
   var SCEN = [
-   {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707'], dur:1800,
+   {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707','AI-803'], dur:1800,
     desc:'평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정',
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
       D['AI-707'][i] -= 0.42*Math.exp(-3*x/c.tot)*(1-Math.cos(2*Math.PI*x/180))/2; } }},
@@ -1312,7 +1312,7 @@
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
       D['TI-205'][i] += 0.68*x/3600; } }},
 
-   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601','FI-602','PI-604','LI-701'], dur:14460,
+   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601','FI-602','PI-604','LI-701','FI-710','PDI-702','TI-704'], dur:14460,
     desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
     pre:function(D,s,e,c){ var hr=headroom('ZI-601'), a=[6,9,13];
       for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/7200), r=x-k*7200;
@@ -1329,7 +1329,7 @@
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
       if(k<5 && r<10) D['FI-602'][i] -= 39800*0.05; } }},
 
-   {id:6, nm:'흡착탑 수분 파과', tag:'MI-302', tags:['MI-302','PDI-303'], dur:5400,
+   {id:6, nm:'흡착탑 수분 파과', tag:'MI-302', tags:['MI-302','PDI-303','AI-703'], dur:5400,
     desc:'차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승',
     pre:function(D,s,e,c){ var E=Math.exp(3)-1;
       for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
@@ -1358,7 +1358,7 @@
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
       D['LI-806'][i] = 87.3 + (D['LI-806'][i]-87.3)*0.25 + 1.7*clamp01((x-c.tot*0.6)/(c.tot*0.2)); } }},
 
-   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601','PI-604','LI-701','FI-710'], dur:3600,
+   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601','PI-604','LI-701','FI-710','PDI-702','TI-704'], dur:3600,
     desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
     pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['ZI-601'][i] += 4*Math.sin(2*Math.PI*(c.off+(i-s)*STEP)/900); },
     post:function(D,s,e,c){
@@ -1456,7 +1456,7 @@
       정답이 필요하다. 두 시나리오 모두 압축기(K-201)가 시작점이다. */
    {id:23, nm:'플랜트 계획 정지', tag:'JI-206',
     tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
-          'SI-507','PI-502','PI-504','LI-701','LI-705','AI-703','AI-707','FI-710','TI-403','PI-901','FI-902'],
+          'SI-507','PI-502','PI-504','LI-701','LI-705','AI-703','AI-707','AI-803','FI-710','PDI-702','TI-704','TI-403','PI-901','FI-902'],
     dur:21600, op:true, solo:true, first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (계획 감부하)',
     desc:'계획 정지 — 압축기 부하를 3시간에 걸쳐 단계적으로 내려 정지, 1시간 유지 후 2시간 재기동',
     pre:function(D,s,e,c){
@@ -1471,7 +1471,7 @@
    {id:24, nm:'플랜트 Trip (비상 정지)', tag:'JI-206',
     tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
           'SI-507','PI-502','PI-504','TI-501','TI-503','LI-701','LI-705','AI-703','AI-707','FI-710',
-          'PDI-702','PDI-706','TI-401','TI-403','AI-402','MI-302','MI-305','PDI-303','PDI-306',
+          'PDI-702','PDI-706','TI-704','AI-803','TI-401','TI-403','AI-402','MI-302','MI-305','PDI-303','PDI-306',
           'PI-901','FI-902','MI-903','ZI-905','FI-906'],
     dur:21600, solo:true, alarm:'다수 (HH/LL 포함)',
     first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (전력 상실, 0초)',
