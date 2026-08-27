@@ -73,8 +73,8 @@ def quality_items(q):
                       "body": f"{g['tag']} 는 이 구간에 값이 들어오지 않았다(행이 빠졌거나 비어 있음). 이 태그의 이 시간대 검출·추세는 판단 불가 — 계측기·통신 상태 확인 대상.",
                       "evidence": f"{g['start']} ~ {g['end']} 값 없음", "severity": "중", "suggested_action": None, "precedents": []})
     # 갭 항목이 이미 덮은 태그의 깨진 행은 요약에서 뺀다 — 같은 사건이 두 항목으로 보였다(실제 AI 실행이 "[0]과 동일 사건" 이라 지적).
-    gap_tags = {g["tag"] for g in (q.get("gaps") or [])}
-    rest = (q.get("bad_rows") or 0) - sum(n for t, n in (q.get("by_tag") or {}).items() if t in gap_tags)
+    # 연속 구간(runs)에 든 깨진 행만 뺀다 — 같은 태그라도 구간 밖 산발 행은 요약에 남아야 한다 (Codex).
+    rest = (q.get("bad_rows") or 0) - sum(r.get("rows", 0) for r in (q.get("runs") or []))
     qs = quality_summary(q)
     if qs and (rest > 0 or q.get("unattributed_rows")):
         head, body = qs

@@ -107,16 +107,17 @@ class BadRows:
                 dts = [datetime.fromisoformat(t) for t in ts_list]
             except (ValueError, TypeError):
                 continue
-            start = prev = dts[0]
+            start = prev = dts[0]; nrows = 1
             for cur in dts[1:] + [None]:
                 if cur is not None and (cur - prev).total_seconds() <= SAMPLE_INTERVAL_SEC * 3:
-                    prev = cur
+                    prev = cur; nrows += 1
                     continue
                 mins = (prev - start).total_seconds() / 60
                 if mins >= gap_min_minutes:
-                    runs.append({"shift_id": sid, "tag": tag, "start": start.isoformat(timespec="seconds"), "end": prev.isoformat(timespec="seconds"), "minutes": round(mins)})
+                    runs.append({"shift_id": sid, "tag": tag, "start": start.isoformat(timespec="seconds"), "end": prev.isoformat(timespec="seconds"),
+                                 "minutes": round(mins), "rows": nrows})   # rows = 이 연속 구간에 든 깨진 행 수 — 요약에서 정확히 뺄 수 있게 (Codex)
                 if cur is not None:
-                    start = prev = cur
+                    start = prev = cur; nrows = 1
         tags = {tag for (_, tag) in self.times if tag != "?"}
         kind = "연속" if runs else ("산발" if len(tags) >= 3 else "소량")
         runs.sort(key=lambda r: -r["minutes"])
