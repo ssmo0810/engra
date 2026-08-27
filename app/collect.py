@@ -46,7 +46,8 @@ def shift_id_for(ts):
 
 # --- 데이터 소스 ------------------------------------------------------
 
-MAX_BAD_RATIO = 0.01   # 이 이상 깨졌으면 노이즈가 아니라 파일이 잘못된 것이다
+MAX_BAD_RATIO = 0.01   # 이 이상 깨졌으면 노이즈가 아니라 파일이 잘못된 것이다 — 단, 오래 끊긴 태그의 행은 빼고 센다
+RUN_MIN_ROWS = 300     # 한 태그가 이만큼(2초 간격 10분) 깨졌으면 '오래 끊긴 태그' 로 본다 — 그 행은 산발 상한에서 뺀다
 
 
 class BadRows:
@@ -61,7 +62,8 @@ class BadRows:
         self.max_ratio = max_ratio          # None = 상한 없음. 기본 호출자는 MAX_BAD_RATIO 를 넘긴다
         self.by_shift = {}       # shift_id -> {tag: n}  — 어느 근무·어느 태그가 얼마나 깨졌나
         self.times = {}          # (shift_id, tag) -> [ts 문자열] — 연속 결측인지 산발인지 가르는 재료
-        self.note = None         # 상한을 넘었지만 연속 결측으로 판단해 계속 적재한 사실
+        self.note = None         # 오래 끊긴 태그가 있어 그 행을 상한에서 뺀 사실
+        self._ntimes = 0
 
     def add(self, lineno, raw, exc):
         self.count += 1
@@ -74,8 +76,22 @@ class BadRows:
             sid = "?"
         self.by_shift.setdefault(sid, {})
         self.by_shift[sid][tag or "?"] = self.by_shift[sid].get(tag or "?", 0) + 1
-        if sid != "?" and len(self.times) < 200000:
+        if sid != "?" and self._ntimes < 200000:      # 시각은 20만 개까지만 저장(메모리) — 그 뒤엔 집계만 계속 (Codex)
             self.times.setdefault((sid, tag or "?"), []).append(ts)
+            self._ntimes += 1
+
+    def dominant_tags(self):
+        """오래 끊긴 태그(깨진 행 RUN_MIN_ROWS 이상) → [(tag, n)] 많은 순."""
+        agg = {}
+        for sid, tags in self.by_shift.items():
+            for t, n in tags.items():
+                if t != "?":
+                    agg[t] = agg.get(t, 0) + n
+        return sorted(((t, n) for t, n in agg.items() if n >= RUN_MIN_ROWS), key=lambda x: -x[1])
+
+    def scattered(self):
+        """오래 끊긴 태그의 행을 뺀 나머지 깨진 행 — 상한은 여기에 건다."""
+        return self.count - sum(n for _, n in self.dominant_tags())
 
     def pattern(self, gap_min_minutes=10):
         """깨진 행이 어떤 모양인가 — 경모님(2026-08-27) 케이스 구분.
@@ -144,17 +160,15 @@ def _rows(fh, label, bad=None):
             if bad is None:
                 raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
             bad.add(lineno, (row.get("timestamp"), row.get("tag"), row.get("value")), exc)
-            if bad.max_ratio is not None and bad.total >= 1000 and bad.count / bad.total > bad.max_ratio:
+            if bad.max_ratio is not None and bad.total >= 1000 and bad.scattered() / bad.total > bad.max_ratio:
                 # 한 태그가 오래 끊긴 것(계측·통신 장애)은 파일이 잘못된 게 아니다 — 한 태그는 전체 행의 1/53 이라 150분만
-                # 끊겨도 누적 1% 를 넘는다(실측). 모양을 보고 연속이면 계속 적재하고 결측 구간으로 남긴다 (경모님 2026-08-27 케이스 (a)).
-                kind, runs, ntags = bad.pattern()
-                if kind == "연속" and ntags <= 3:
-                    bad.max_ratio = None
-                    bad.note = f"연속 결측으로 판단해 계속 적재 — " + ", ".join(f"{r['tag']} {r['start'][11:16]}~{r['end'][11:16]} ({r['minutes']}분)" for r in runs[:3])
-                    continue
+                # 끊겨도 누적 1% 를 넘는다(실측). 그래서 상한은 '산발' 행(오래 끊긴 태그의 행을 뺀 나머지)에만 건다.
+                # 연속 결측은 통과해 결측 구간으로 남고, 그 뒤에 산발 오류가 섞이면 여전히 잡힌다 (Codex).
                 raise ValueError(
-                    f"{label}: {bad.total}행 중 {bad.count}행이 깨졌습니다 ({bad.count/bad.total:.1%}). "
+                    f"{label}: {bad.total}행 중 {bad.count}행이 깨졌습니다 (산발 {bad.scattered()}행, {bad.scattered()/bad.total:.1%}). "
                     f"1% 를 넘어 노이즈가 아니라 잘못된 파일로 봅니다. 예: {bad.samples[0]}")
+            if bad.count and bad.note is None and bad.count - bad.scattered() >= RUN_MIN_ROWS:
+                bad.note = "연속 결측으로 판단해 계속 적재 — " + ", ".join(f"{t} {n:,}행" for t, n in bad.dominant_tags()[:3])
             continue
         yield ts, row["tag"].strip(), value
 

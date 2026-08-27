@@ -288,31 +288,29 @@ GAP_MIN_MINUTES = 10   # 이보다 오래 값이 없으면 '계측 결측 구간
 
 def find_gaps(conn, shift_id, min_minutes=GAP_MIN_MINUTES):
     """근무 창 안에서 태그별로 값이 min_minutes 넘게 없는 구간. 행이 빠졌든 값이 비어 건너뛰었든 같은 결과다.
-    창 시작~첫 표본, 마지막 표본~창 끝도 본다. → [{tag, start, end, minutes}] (긴 것부터)"""
+    창 시작~첫 표본, 마지막 표본~창 끝도 본다. → [{tag, start, end, minutes}] (긴 것부터)
+    태그마다 PK(tag, ts) 접두 범위로 읽는다 — 정렬(TEMP B-TREE)·fetchall 없이 창 안 행만 흐른다 (Codex).
+    (ORDER BY tag, ts 한 방 쿼리는 플래너가 ts 인덱스를 골라 임시 정렬을 했다 — EXPLAIN 실측.)"""
     row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
     if row is None:
         return []
-    ws, we = row["window_start"], row["window_end"]
-    gaps = []
-    rows = conn.execute(
-        """SELECT tag, ts, LAG(ts) OVER (PARTITION BY tag ORDER BY ts) AS prev
-           FROM raw_sample WHERE ts >= ? AND ts < ?""", (ws, we)).fetchall()
     from datetime import datetime
-    first, last = {}, {}
-    for r in rows:
-        t = r["ts"]; tag = r["tag"]
-        first.setdefault(tag, t); last[tag] = max(last.get(tag, t), t)
-        if r["prev"]:
-            m = (datetime.fromisoformat(t) - datetime.fromisoformat(r["prev"])).total_seconds() / 60
-            if m > min_minutes:
-                gaps.append({"tag": tag, "start": r["prev"], "end": t, "minutes": round(m)})
-    for tag in first:
-        m0 = (datetime.fromisoformat(first[tag]) - datetime.fromisoformat(ws)).total_seconds() / 60
-        if m0 > min_minutes:
-            gaps.append({"tag": tag, "start": ws, "end": first[tag], "minutes": round(m0)})
-        m1 = (datetime.fromisoformat(we) - datetime.fromisoformat(last[tag])).total_seconds() / 60
-        if m1 > min_minutes:
-            gaps.append({"tag": tag, "start": last[tag], "end": we, "minutes": round(m1)})
+    ws, we = datetime.fromisoformat(row["window_start"]), datetime.fromisoformat(row["window_end"])
+    limit = min_minutes * 60
+    gaps = []
+    tags = [r[0] for r in conn.execute("SELECT DISTINCT tag FROM raw_sample WHERE ts >= ? AND ts < ?", (row["window_start"], row["window_end"]))]
+    for tag in tags:
+        prev = None
+        for (ts,) in conn.execute("SELECT ts FROM raw_sample WHERE tag = ? AND ts >= ? AND ts < ? ORDER BY ts", (tag, row["window_start"], row["window_end"])):
+            t = datetime.fromisoformat(ts)
+            if prev is None:
+                if (t - ws).total_seconds() > limit:
+                    gaps.append({"tag": tag, "start": row["window_start"], "end": ts, "minutes": round((t - ws).total_seconds() / 60)})
+            elif (t - prev).total_seconds() > limit:
+                gaps.append({"tag": tag, "start": prev.isoformat(timespec="seconds"), "end": ts, "minutes": round((t - prev).total_seconds() / 60)})
+            prev = t
+        if prev is not None and (we - prev).total_seconds() > limit:
+            gaps.append({"tag": tag, "start": prev.isoformat(timespec="seconds"), "end": row["window_end"], "minutes": round((we - prev).total_seconds() / 60)})
     gaps.sort(key=lambda g: -g["minutes"])
     return gaps
 
