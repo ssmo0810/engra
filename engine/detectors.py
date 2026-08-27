@@ -158,18 +158,25 @@ def drift(view):
 
     판정은 **변화량 대 평소 산포**로 한다. 기울기의 유의성 검정을 쓰지 않은 것은
     데이터의 진동이 백색잡음이 아니어서 검정 가정이 깨지기 때문이다.
+
+    **원본이 아니라 외기를 걷어낸 계열(`view.adj`)에서 잰다.** 대기 온습도는
+    24시간 주기인데 근무는 12시간이라 한 근무 안에서는 반주기만 보이고, 그것이
+    단조 상승·하강이라 드리프트와 구분되지 않는다. 걷어내지 않으면 없는 고장을
+    만들어 내고(오탐 54건), 반대로 외기가 진짜 상승을 상쇄하는 근무에서는 있는
+    고장을 지운다(시나리오 2 미검출). `core.fit_noise()` 주석 참고.
     """
     n = len(view)
     if n < 20:
         return []
+    src = view.adj
     found = []
     for win_min in PARAMS["drift_windows_min"]:
         w = max(10, min(n, int(win_min * 60 / BLOCK_SEC)))
         for i in range(0, n - w + 1, max(1, w // 4)):
-            ys = view.meds[i:i + w]
+            ys = src[i:i + w]
             slope, r = ols(ys)
             delta = slope * (w - 1)
-            k = abs(delta) / view.s_level
+            k = abs(delta) / view.s_adj
             if k < PARAMS["drift_k"] or abs(r) < PARAMS["drift_r"]:
                 continue
             found.append((k, i, i + w, delta, slope, r))
@@ -201,13 +208,28 @@ def drift(view):
 
     sev = SEV_HIGH if (eta is not None and eta <= 12) else _sev_by_z(k)
     hint = f" · 이 속도면 {'H' if up else 'L'} 한계까지 약 {eta}시간" if eta else ""
+
+    # 외기 몫을 함께 적는다. 근무자가 "날씨 탓" 과 "설비 이상" 을 구분하려면 이
+    # 한 줄이 필요하다. 특히 외기가 반대로 움직여 상쇄한 근무에서는 화면상 거의
+    # 변하지 않은 태그가 왜 이상으로 올라왔는지 이것 없이는 설명되지 않는다.
+    extra, amb_note = {}, ""
+    if view.amb is not None:
+        raw_delta = view.meds[j - 1] - view.meds[i]
+        amb_delta = view.amb[j - 1] - view.amb[i]
+        if abs(amb_delta) > abs(raw_delta) * 0.15:
+            extra = {"raw_delta": round(raw_delta, 4),
+                     "ambient_delta": round(amb_delta, 4)}
+            amb_note = (f" · 실측 변화는 {_fmt(raw_delta, unit)} 이나 "
+                        f"외기로 설명되는 몫 {_fmt(amb_delta, unit)} 을 제외한 값")
+
     return [_event(
         view, i, j, "드리프트", sev, k,
         {"delta": round(delta, 4), "per_hour": round(per_hour, 4), "r": round(r, 3),
-         "k_sigma": round(k, 2), "eta_to_limit_h": eta, "limit": limit, "unit": unit},
+         "k_sigma": round(k, 2), "eta_to_limit_h": eta, "limit": limit, "unit": unit,
+         **extra},
         f"{label(view.tag)} {'상승' if up else '하강'} 추세 — "
         f"{_fmt(abs(per_hour), unit)}/시간, 구간 변화 {_fmt(delta, unit)} "
-        f"(평소 산포의 {k:.1f}배){hint}",
+        f"(평소 산포의 {k:.1f}배){hint}{amb_note}",
     )]
 
 
