@@ -14,3 +14,4 @@ engine/__pycache__/
 engine/_out/
 __pycache__/
 firebase-debug.log
+tools/out/
