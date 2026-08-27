@@ -538,7 +538,7 @@ def view_index():
         }
 
     if not rows:
-        return page("일지", '<div class="card"><div class="empty">아직 근무가 없습니다.<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 생성기 CSV 와 정답지를 올리고 「검출 + AI 초안」을 누르면 여기에 쌓입니다.</div></div>', active=active)
+        return page("일지", '<div class="card"><div class="empty">아직 근무가 없습니다.<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 생성기 CSV 와 정답지를 올리고 「검출 + AI 초안」을 누르면 여기에 쌓입니다.</div></div>', active="/")
 
     out = []
     for r in rows:
