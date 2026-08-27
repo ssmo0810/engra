@@ -71,7 +71,7 @@ def ingest_path(path):
     return counts
 
 
-def run_async(shift_id, csv_path=None, redo=False, reingest=False):
+def run_async(shift_id, csv_path=None, redo=False, reingest=False, why=None):
     """적재(선택) → 검출·AI 초안. 별도 스레드. AI 가 5~6분 걸리므로 화면은 폴링한다."""
     mark_qa_active()
     _start(shift_id, "ingest" if csv_path else "run")
@@ -80,9 +80,11 @@ def run_async(shift_id, csv_path=None, redo=False, reingest=False):
         try:
             if csv_path:
                 if reingest:
+                    # 지움과 적재는 별 트랜잭션이다 — 새 파일 적재가 실패하면 이 근무의 원본은 비어 있게 되고 실행이
+                    # "적재된 데이터가 없습니다" 로 멈춘다. 화면에 그대로 보이고 파일을 다시 올리면 복구되므로 스테이징은 두지 않는다.
                     with db.connect() as conn:
                         n = db.forget_raw(conn, shift_id)
-                    _say(f"같은 근무의 이전 원본 {n:,}점 지움 — 새 파일로 다시 적재")
+                    _say(f"이 근무의 남은 원본 {n:,}점 지움 — {why or '다시 적재'} → 파일에서 다시 적재")
                 _say(f"적재 시작 — {Path(csv_path).name}")
                 counts = ingest_path(csv_path)
                 for sid, n in sorted(counts.items()):

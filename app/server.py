@@ -1014,17 +1014,20 @@ class Handler(BaseHTTPRequestHandler):
                     already = conn.execute("SELECT ingested_at FROM shift WHERE id = ?", (sid,)).fetchone()
                     confirmed = already is not None and db.load_handover(conn, sid) is not None
                 # 같은 근무 ID 로 새 CSV 를 올렸으면(업로드 파일이 적재 시각보다 새로움) 옛 원본이 아니라 그 파일로 다시 적재 (Codex 반증)
-                newer = False
+                newer = stale = False
                 if already and src["set"] == "업로드":
+                    with db.connect() as conn:
+                        stale = not db.raw_complete(conn, sid)   # 3일 회전이 원본을 지웠거나 앞부분을 잘랐다 → 파일에서 다시 적재
                     from datetime import datetime
                     try:
-                        newer = Path(src["csv"]).stat().st_mtime > datetime.fromisoformat(already["ingested_at"]).timestamp()
+                        newer = Path(src["csv"]).stat().st_mtime > datetime.fromisoformat(already["ingested_at"]).timestamp() + 1   # ingested_at 은 초 단위 — 같은 초의 소수 mtime 으로 되풀이 재적재되지 않게 (Codex)
                     except (OSError, TypeError, ValueError):
                         newer = False
                 if newer and confirmed and not redo:
                     self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 새 파일이 올라왔습니다. 새 파일로 다시 만들려면 「확정 data 다시 만들기」를 켜세요.</div></div>', active="/pipeline")); return
                 try:
-                    jobs.run_async(sid, csv_path=src["csv"] if (not already or newer) else None, redo=redo, reingest=newer)
+                    jobs.run_async(sid, csv_path=src["csv"] if (not already or newer or stale) else None, redo=redo,
+                                   reingest=(newer or stale), why=("새 파일" if newer else "보관 기간(3일)이 지나 원본이 정리됨") if (newer or stale) else None)
                 except RuntimeError as exc:
                     self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
                 self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()

@@ -258,6 +258,27 @@ def now():
 
 # --- 근무 -------------------------------------------------------------
 
+def raw_coverage(conn, shift_id):
+    """이 근무 창에 원본이 얼마나 남았나 → (표본 수, 첫 ts). 3일 회전이 창을 통째로 또는 앞부분만 지운 뒤
+    다시 돌리면 "데이터 없음" 이나 반쪽 데이터로 검출하게 되므로, 실행 전에 이걸 보고 파일에서 다시 적재한다."""
+    row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    if row is None:
+        return 0, None
+    n, first = conn.execute("SELECT COUNT(*), MIN(ts) FROM raw_sample WHERE ts >= ? AND ts < ?",
+                            (row["window_start"], row["window_end"])).fetchone()
+    return n, first
+
+
+def raw_complete(conn, shift_id):
+    """창 전체가 남아 있나 — 첫 표본이 창 시작 1분 안이면 온전한 것으로 본다."""
+    n, first = raw_coverage(conn, shift_id)
+    if not n:
+        return False
+    row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    from datetime import datetime, timedelta
+    return datetime.fromisoformat(first) <= datetime.fromisoformat(row["window_start"]) + timedelta(minutes=1)
+
+
 def forget_raw(conn, shift_id):
     """이 근무 창의 원본을 지운다 — 같은 근무 ID 로 새 CSV 가 올라오면 옛 원본 위에 겹쳐 쌓이지 않게 (Codex 반증 2026-08-27)."""
     row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
