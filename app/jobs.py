@@ -62,12 +62,13 @@ def _begin(shift_id, step):
     _job.update({"running": True, "step": step, "lines": [], "error": None, "shift_id": shift_id, "result": None, "started": time.time()})
 
 
-def _finish(err=None, result=None):
+def _finish(err=None, result=None, drain_after=True):
     _job.update({"running": False, "error": err, "result": result})
     if _job["shift_id"] and not err:
         _last_run.update({"shift_id": _job["shift_id"], "result": result})
     _lock.release()
-    drain()
+    if drain_after:
+        drain()
 
 
 def drain():
@@ -102,7 +103,8 @@ def _spawn(work, requeue=None):
             with _qlock:
                 _pending[:0] = [p for p in requeue if p not in _pending]
         _say(f"✗ 작업 스레드를 시작하지 못함 — {type(exc).__name__}: {exc}")
-        _finish(err=f"작업 스레드를 시작하지 못함: {type(exc).__name__}: {exc}")
+        # 여기서 drain 하면 같은 실패를 무한 반복한다(실측). 큐는 다음 업로드/작업 종료 때 다시 시도된다.
+        _finish(err=f"작업 스레드를 시작하지 못함: {type(exc).__name__}: {exc}", drain_after=False)
 
 
 def _say(msg):
