@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlparse
 import approve as approve_mod
 import db
 import jobs
+import pipeline   # quality_summary — ④ 배너 문구
 import llm
 import ports
 from config import DOCS_DIR
