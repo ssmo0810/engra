@@ -530,7 +530,8 @@ def view_pipeline():
         '<form method="post" action="/pipeline/ingest_skip" style="display:inline-block;margin:4px 8px 8px 0"><input type="hidden" name="file" value="' + esc(fn) + '">'
         '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px" onclick="return window.confirm(\'깨진 행을 건너뛰고 적재합니다. 건너뛴 사실은 근무 품질 기록으로 남아 초안과 AI 판단에 들어갑니다.\')">'
         + esc(fn) + ' — 깨진 행을 건너뛰고 적재</button></form>' for fn in (st.get("can_skip") or []) if not st["running"])
-    err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>' + skip_html) if st.get("error") else ""
+    adv_html = ('<div class="note" style="margin:6px 0;border-left:3px solid var(--accent);padding-left:10px">' + esc(st["advice"]) + '</div>') if st.get("advice") and not st["running"] else ""
+    err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>' + adv_html + skip_html) if st.get("error") else ""
     status = ("실행 중 · " + esc(st["step"] or "")) if running else "대기"
     link = ""
     lr = st.get("last_run") or {}

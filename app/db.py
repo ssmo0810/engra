@@ -283,6 +283,40 @@ def raw_complete(conn, shift_id):
     return datetime.fromisoformat(first) <= datetime.fromisoformat(row["window_start"]) + timedelta(minutes=1)
 
 
+GAP_MIN_MINUTES = 10   # 이보다 오래 값이 없으면 '계측 결측 구간' — 초안에 태그·시간대로 들어간다 (경모님 2026-08-27)
+
+
+def find_gaps(conn, shift_id, min_minutes=GAP_MIN_MINUTES):
+    """근무 창 안에서 태그별로 값이 min_minutes 넘게 없는 구간. 행이 빠졌든 값이 비어 건너뛰었든 같은 결과다.
+    창 시작~첫 표본, 마지막 표본~창 끝도 본다. → [{tag, start, end, minutes}] (긴 것부터)"""
+    row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    if row is None:
+        return []
+    ws, we = row["window_start"], row["window_end"]
+    gaps = []
+    rows = conn.execute(
+        """SELECT tag, ts, LAG(ts) OVER (PARTITION BY tag ORDER BY ts) AS prev
+           FROM raw_sample WHERE ts >= ? AND ts < ?""", (ws, we)).fetchall()
+    from datetime import datetime
+    first, last = {}, {}
+    for r in rows:
+        t = r["ts"]; tag = r["tag"]
+        first.setdefault(tag, t); last[tag] = max(last.get(tag, t), t)
+        if r["prev"]:
+            m = (datetime.fromisoformat(t) - datetime.fromisoformat(r["prev"])).total_seconds() / 60
+            if m > min_minutes:
+                gaps.append({"tag": tag, "start": r["prev"], "end": t, "minutes": round(m)})
+    for tag in first:
+        m0 = (datetime.fromisoformat(first[tag]) - datetime.fromisoformat(ws)).total_seconds() / 60
+        if m0 > min_minutes:
+            gaps.append({"tag": tag, "start": ws, "end": first[tag], "minutes": round(m0)})
+        m1 = (datetime.fromisoformat(we) - datetime.fromisoformat(last[tag])).total_seconds() / 60
+        if m1 > min_minutes:
+            gaps.append({"tag": tag, "start": last[tag], "end": we, "minutes": round(m1)})
+    gaps.sort(key=lambda g: -g["minutes"])
+    return gaps
+
+
 def set_quality(conn, shift_id, quality):
     """근무 원본의 품질 기록(dict 또는 None)."""
     conn.execute("UPDATE shift SET quality_json = ? WHERE id = ?", (json.dumps(quality, ensure_ascii=False) if quality else None, shift_id))

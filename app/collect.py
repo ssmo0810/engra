@@ -60,6 +60,8 @@ class BadRows:
         self.samples = []
         self.max_ratio = max_ratio          # None = 상한 없음. 기본 호출자는 MAX_BAD_RATIO 를 넘긴다
         self.by_shift = {}       # shift_id -> {tag: n}  — 어느 근무·어느 태그가 얼마나 깨졌나
+        self.times = {}          # (shift_id, tag) -> [ts 문자열] — 연속 결측인지 산발인지 가르는 재료
+        self.note = None         # 상한을 넘었지만 연속 결측으로 판단해 계속 적재한 사실
 
     def add(self, lineno, raw, exc):
         self.count += 1
@@ -72,6 +74,37 @@ class BadRows:
             sid = "?"
         self.by_shift.setdefault(sid, {})
         self.by_shift[sid][tag or "?"] = self.by_shift[sid].get(tag or "?", 0) + 1
+        if sid != "?" and len(self.times) < 200000:
+            self.times.setdefault((sid, tag or "?"), []).append(ts)
+
+    def pattern(self, gap_min_minutes=10):
+        """깨진 행이 어떤 모양인가 — 경모님(2026-08-27) 케이스 구분.
+        '연속': 한 태그가 gap_min 분 넘게 이어서 비었다(계측·통신 끊김 → 초안에 결측 구간으로 넣는다).
+        '산발': 여러 태그에 흩어져 짧게 비었다(전송 문제 → 다시 내려받기를 권한다).
+        → (종류, 연속 구간 목록 [{tag, start, end, minutes}], 영향 태그 수)"""
+        runs = []
+        for (sid, tag), ts_list in self.times.items():
+            if tag == "?":
+                continue
+            ts_list = sorted(ts_list)
+            try:
+                dts = [datetime.fromisoformat(t) for t in ts_list]
+            except (ValueError, TypeError):
+                continue
+            start = prev = dts[0]
+            for cur in dts[1:] + [None]:
+                if cur is not None and (cur - prev).total_seconds() <= SAMPLE_INTERVAL_SEC * 3:
+                    prev = cur
+                    continue
+                mins = (prev - start).total_seconds() / 60
+                if mins >= gap_min_minutes:
+                    runs.append({"shift_id": sid, "tag": tag, "start": start.isoformat(timespec="seconds"), "end": prev.isoformat(timespec="seconds"), "minutes": round(mins)})
+                if cur is not None:
+                    start = prev = cur
+        tags = {tag for (_, tag) in self.times if tag != "?"}
+        kind = "연속" if runs else ("산발" if len(tags) >= 3 else "소량")
+        runs.sort(key=lambda r: -r["minutes"])
+        return kind, runs, len(tags)
 
     def quality(self, shift_id, skipped_by_user):
         """한 근무의 품질 기록. 이 근무의 깨진 행도, 시각이 깨져 근무를 알 수 없는 행(미귀속)도 없으면 None."""
@@ -80,7 +113,9 @@ class BadRows:
         unattributed = sum((self.by_shift.get("?") or {}).values())   # 시각 자체가 깨진 행 — 어느 근무인지 몰라 파일의 모든 근무에 알린다 (Codex)
         if not n and not unattributed:
             return None
-        return {"bad_rows": n, "unattributed_rows": unattributed, "total_rows_seen": self.total,
+        kind, runs, ntags = self.pattern()
+        return {"bad_rows": n, "unattributed_rows": unattributed, "total_rows_seen": self.total, "pattern": kind, "affected_tags": ntags,
+                "runs": [r for r in runs if r["shift_id"] == shift_id][:10],
                 "ratio_file": round(self.count / self.total, 4) if self.total else None,
                 "by_tag": dict(sorted(tags.items(), key=lambda kv: -kv[1])), "samples": self.samples[:3], "skipped_by_user": bool(skipped_by_user)}
 
@@ -110,6 +145,13 @@ def _rows(fh, label, bad=None):
                 raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc
             bad.add(lineno, (row.get("timestamp"), row.get("tag"), row.get("value")), exc)
             if bad.max_ratio is not None and bad.total >= 1000 and bad.count / bad.total > bad.max_ratio:
+                # 한 태그가 오래 끊긴 것(계측·통신 장애)은 파일이 잘못된 게 아니다 — 한 태그는 전체 행의 1/53 이라 150분만
+                # 끊겨도 누적 1% 를 넘는다(실측). 모양을 보고 연속이면 계속 적재하고 결측 구간으로 남긴다 (경모님 2026-08-27 케이스 (a)).
+                kind, runs, ntags = bad.pattern()
+                if kind == "연속" and ntags <= 3:
+                    bad.max_ratio = None
+                    bad.note = f"연속 결측으로 판단해 계속 적재 — " + ", ".join(f"{r['tag']} {r['start'][11:16]}~{r['end'][11:16]} ({r['minutes']}분)" for r in runs[:3])
+                    continue
                 raise ValueError(
                     f"{label}: {bad.total}행 중 {bad.count}행이 깨졌습니다 ({bad.count/bad.total:.1%}). "
                     f"1% 를 넘어 노이즈가 아니라 잘못된 파일로 봅니다. 예: {bad.samples[0]}")

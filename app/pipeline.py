@@ -38,7 +38,7 @@ def _waveform(points, start_ts, end_ts):
 def quality_summary(q):
     """품질 기록 → (제목 조각, 본문). 깨진 행(태그 귀속)과 시각 깨진 행(미귀속)이 각각 있을 때/없을 때 문구가 다르다 (Codex).
     화면 배너와 초안 항목이 같은 문장을 쓴다."""
-    if not q or not (q.get("bad_rows") or q.get("unattributed_rows")):
+    if not q or not (q.get("bad_rows") or q.get("unattributed_rows") or q.get("gaps")):
         return None
     by_tag = q.get("by_tag") or {}
     parts = []
@@ -46,8 +46,10 @@ def quality_summary(q):
         parts.append(f"{', '.join(list(by_tag)[:3])} 등 {q['bad_rows']}행" if by_tag else f"{q['bad_rows']}행")
     if q.get("unattributed_rows"):
         parts.append(f"시각 깨진 행 {q['unattributed_rows']}행")
+    if q.get("gaps"):
+        parts.append(f"계측 결측 구간 {len(q['gaps'])}개(" + ", ".join(f"{g['tag']} {g['minutes']}분" for g in q["gaps"][:3]) + ")")
     head = " + ".join(parts) + (" (사용자가 건너뛰기를 택함)" if q.get("skipped_by_user") else "")
-    body = "적재 시 값이 비었거나 형식이 깨진 행을 건너뜀"
+    body = ("적재 시 값이 비었거나 형식이 깨진 행을 건너뜀" if (q.get("bad_rows") or q.get("unattributed_rows")) else "값이 들어오지 않은 구간이 있음")
     if q.get("ratio_file"):
         body += f" (파일 전체의 {q['ratio_file']:.1%})"
     if by_tag:
@@ -57,17 +59,37 @@ def quality_summary(q):
     return head, body + "."
 
 
-def quality_item(q):
-    """초안 맨 앞에 들어가는 '원본 데이터 품질' 항목. 기록이 없으면 None."""
+def quality_items(q):
+    """초안 맨 앞에 들어가는 '원본 데이터 품질' 항목들. 경모님(2026-08-27) 케이스 구분:
+    - 계측 결측 구간(태그가 10분 넘게 값 없음): 구간마다 한 항목 — 그 태그·그 시간대는 실제 값을 못 받았다.
+    - 산발 결측(여러 태그에 흩어짐): 요약 한 항목 — 전송 문제 의심, 재수집 권고.
+    - 소량(1% 이하 몇 행): 요약 한 항목."""
+    if not q:
+        return []
+    items = []
+    for g in (q.get("gaps") or [])[:8]:
+        items.append({"origin": "quality", "tag": g["tag"], "event_id": None,
+                      "title": f"계측 결측 — {g['tag']} {g['start'][11:16]}~{g['end'][11:16]} ({g['minutes']}분) 실제 값 없음",
+                      "body": f"{g['tag']} 는 이 구간에 값이 들어오지 않았다(행이 빠졌거나 비어 있음). 이 태그의 이 시간대 검출·추세는 판단 불가 — 계측기·통신 상태 확인 대상.",
+                      "evidence": f"{g['start']} ~ {g['end']} 값 없음", "severity": "중", "suggested_action": None, "precedents": []})
     qs = quality_summary(q)
-    if not qs:
-        return None
-    head, body = qs
-    top = list((q.get("by_tag") or {}))[:1]
-    return {"origin": "quality", "tag": top[0] if top else "-", "event_id": None,
-            "title": f"원본 데이터 결측/형식 오류 — {head}", "body": body,
-            "evidence": ("예: " + " / ".join(q.get("samples") or [])) if q.get("samples") else "적재 로그 참조",
-            "severity": "중", "suggested_action": None, "precedents": []}
+    if qs and (q.get("bad_rows") or q.get("unattributed_rows")):
+        head, body = qs
+        kind = q.get("pattern") or ""
+        title = ("산발 결측 — " if kind == "산발" else "원본 데이터 결측/형식 오류 — ") + head
+        if kind == "산발":
+            body = f"{q.get('affected_tags', 0)}개 태그에 흩어져 값이 비었다 — 데이터 전송 문제로 보인다. RTDB 에서 다시 내려받아 확인 권고. " + body
+        top = list((q.get("by_tag") or {}))[:1]
+        items.append({"origin": "quality", "tag": top[0] if top else "-", "event_id": None, "title": title, "body": body,
+                      "evidence": ("예: " + " / ".join(q.get("samples") or [])) if q.get("samples") else "적재 로그 참조",
+                      "severity": "중", "suggested_action": None, "precedents": []})
+    return items
+
+
+def quality_item(q):
+    """(호환) 첫 항목만."""
+    its = quality_items(q)
+    return its[0] if its else None
 
 
 def run(shift_id, verbose=True, redo=False, say=None):
@@ -143,11 +165,11 @@ def run(shift_id, verbose=True, redo=False, say=None):
         ).fetchone())
         items = ports.compose(shift, stored, find_precedents)
         quality = db.load_quality(conn, shift_id)
-        qi = quality_item(quality)
-        if qi:
+        qis = quality_items(quality)
+        if qis:
             # 원본이 깨진 근무는 그 사실 자체가 인수인계 대상이다 — 그 태그의 검출은 결측을 모른 채 나온 것이라 신뢰도가 낮다.
-            items.insert(0, qi)
-            say(f"원본 품질 항목 추가 — {qi['title']}")
+            items[0:0] = qis
+            say(f"원본 품질 항목 {len(qis)}개 추가 — " + "; ".join(i["title"] for i in qis[:3]))
         shift["quality"] = quality
 
         # 4-1) AI 서술 — 문장만 다시 쓴다. 근거·숫자는 이벤트 metrics 로 넘기고 출력에서는 뺀다.

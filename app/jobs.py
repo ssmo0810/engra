@@ -44,6 +44,7 @@ def state():
     with _qlock:
         d["pending"] = [Path(p).name for p, _ in _pending]
     d["can_skip"] = list(_job.get("can_skip") or [])
+    d["advice"] = _job.get("advice")
     d["last_run"] = dict(_last_run)
     return d
 
@@ -122,12 +123,34 @@ def ingest_path(path, skip_bad=False):
     깨진 행이 있으면 근무별 품질 기록을 남긴다 → 초안에 '데이터 품질' 항목으로 들어가고 AI 도 그 사실을 알고 판단한다."""
     bad = collect.BadRows(max_ratio=None if skip_bad else collect.MAX_BAD_RATIO)
     src = collect.source_for(path, bad)
-    counts = collect.ingest(src)
+    try:
+        counts = collect.ingest(src)
+    except ValueError as exc:
+        if "깨졌습니다" in str(exc):
+            # 거부하되 모양을 말한다 — 연속(계측 끊김: 건너뛰면 결측 구간으로 초안에 들어감) / 산발(전송 문제: 다시 내려받기 권고)
+            kind, runs, ntags = bad.pattern()
+            if kind == "연속":
+                advice = ("특정 태그가 오래 비어 있습니다: " + ", ".join(f"{r['tag']} {r['start'][11:16]}~{r['end'][11:16]} ({r['minutes']}분)" for r in runs[:3])
+                          + ". 「깨진 행을 건너뛰고 적재」하면 그 구간이 초안에 '계측 결측' 항목으로 들어갑니다.")
+            else:
+                advice = (f"{ntags}개 태그에 흩어져 비어 있습니다 — 데이터 전송 문제로 보입니다. RTDB 에서 다시 내려받아 올리기를 권합니다. "
+                          "그래도 진행하려면 「깨진 행을 건너뛰고 적재」(결측이 초안에 '산발 결측' 항목으로 남습니다).")
+            _job["advice"] = advice
+            _say("   → " + advice)
+        raise
+    if bad.note:
+        _say("⚠ " + bad.note)
     if bad.count:
         _say(f"⚠ 깨진 행 {bad.count:,}개 건너뜀 ({bad.count/bad.total:.2%}) — 태그별: " + ", ".join(f"{t} {n}" for sid in bad.by_shift for t, n in list(bad.by_shift[sid].items())[:4]))
     with db.connect() as conn:
         for sid in counts:
-            db.set_quality(conn, sid, bad.quality(sid, skip_bad))   # 깨진 행이 없으면 None — 정상 파일로 다시 적재하면 옛 기록이 지워진다 (Codex)
+            q = bad.quality(sid, skip_bad)   # 깨진 행이 없으면 None — 정상 파일로 다시 적재하면 옛 기록이 지워진다 (Codex)
+            gaps = db.find_gaps(conn, sid)   # 행이 빠졌든 값이 비었든, 태그별로 10분 넘게 값이 없는 구간
+            if gaps:
+                q = q or {"bad_rows": 0, "unattributed_rows": 0, "by_tag": {}, "samples": [], "skipped_by_user": bool(skip_bad), "pattern": "연속", "affected_tags": 0, "runs": []}
+                q["gaps"] = gaps[:20]
+                _say(f"⚠ 계측 결측 구간 {len(gaps)}개 — " + ", ".join(f"{g['tag']} {g['start'][11:16]}~{g['end'][11:16]} ({g['minutes']}분)" for g in gaps[:3]) + (" …" if len(gaps) > 3 else ""))
+            db.set_quality(conn, sid, q)
     return counts
 
 
@@ -156,7 +179,7 @@ def _run_ingest(paths):
     """작업 락을 잡은 상태에서 부른다(drain). 파일별로 적재하고 요약한다. paths = [(경로, skip_bad)]."""
     def work():
         got, failed, can_skip = {}, [], []
-        _job["can_skip"] = []
+        _job["can_skip"] = []; _job["advice"] = None
         try:
             for p, skip in paths:
                 _say(f"적재 시작 — {Path(p).name}" + (" (깨진 행 건너뛰기)" if skip else ""))
@@ -168,8 +191,7 @@ def _run_ingest(paths):
                     failed.append(Path(p).name)
                     _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
                     if not skip and "깨졌습니다" in str(exc):
-                        can_skip.append(Path(p).name)   # 화면이 「깨진 행을 건너뛰고 적재」 를 제시한다
-                        _say("   → 파일이 잘못됐다고 판단해 멈췄습니다. 그래도 넣으려면 아래 「깨진 행을 건너뛰고 적재」 — 건너뛴 사실은 근무 품질 기록으로 남아 초안·AI 판단에 들어갑니다.")
+                        can_skip.append(Path(p).name)   # 화면이 「깨진 행을 건너뛰고 적재」 를 제시한다(조언은 ingest_path 가 이미 적었다)
             if got:
                 _summarize(list(got))
                 _say(f"요약 저장 — {len(got)}근무 (다음 근무의 기준선 재료)")

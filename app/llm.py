@@ -126,8 +126,10 @@ def _prompt(shift, items):
     lines = [f"근무: {shift.get('id')}  구간: {shift.get('window_start', '')} ~ {shift.get('window_end', '')}",
              f"항목 {len(items)}개. 각 항목의 idx 를 그대로 돌려주고 title·body 를 쓰고 severity·handover_worthy·precedent_fit·related_idx 를 판정하라.", ""]
     q = shift.get("quality") if isinstance(shift, dict) else None
-    if q and q.get("bad_rows"):
-        lines.insert(1, f"원본 품질: 깨진 행 {q['bad_rows']}행 건너뜀 — 태그별 {json.dumps(q.get('by_tag') or {}, ensure_ascii=False)}. 이 태그들의 검출은 결측 구간을 모른 채 나온 것이다.")
+    if q and (q.get("bad_rows") or q.get("gaps")):
+        lines.insert(1, f"원본 품질: 깨진 행 {q.get('bad_rows', 0)}행 건너뜀({q.get('pattern', '')}) — 태그별 {json.dumps(q.get('by_tag') or {}, ensure_ascii=False)}"
+                     + (" · 계측 결측 구간: " + "; ".join(f"{g['tag']} {g['start'][11:16]}~{g['end'][11:16]}" for g in q["gaps"][:5]) if q.get("gaps") else "")
+                     + ". 이 태그들의 검출은 결측 구간을 모른 채 나온 것이다 — 관련 항목의 severity_reason 에 신뢰도가 낮다고 적어라.")
     for i, it in enumerate(items):
         lines.append(f"[{i}] 태그 {it.get('tag')}  중요도 {it.get('severity')}")
         lines.append(f"    근거: {it.get('evidence')}")
