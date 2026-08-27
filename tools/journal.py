@@ -155,6 +155,20 @@ def troubles(cs):
         if c["body"]:
             L.append("\n".join("> " + ln if ln.strip() else ">"
                                for ln in c["body"].splitlines()) + "\n\n")
+    # 팀원이 직접 쓴 기록 — 커밋 메시지에 없는 과정의 디테일(시도 순서·뒤집힌 판단). 원문 그대로 붙인다.
+    L.append(h(1, "팀원이 직접 쓴 기록"))
+    L.append("커밋 본문에 담기지 않은 과정을 담당자가 직접 정리한 것입니다. 자동 수집분과 사실이 겹치더라도 관점이 다르므로 원문 그대로 둡니다.\n\n")
+    eng = ROOT / "engine" / "난관기록.md"
+    if eng.exists():
+        L.append(h(2, "검출 엔진 — 정기영 (engine/난관기록.md)"))
+        L.append(eng.read_text(encoding="utf-8").strip() + "\n\n")
+    try:
+        raw = sh("gh", "issue", "view", "15", "--json", "body,title", "-q", ".body")
+        if raw.strip():
+            L.append(h(2, "데이터·시나리오 — 임도영 (이슈 #15)"))
+            L.append(raw.strip() + "\n\n")
+    except Exception as exc:   # gh 없이도 문서는 만들어진다 — 그 사실을 남긴다
+        L.append(f"(이슈 #15 본문을 읽지 못했습니다: {exc})\n\n")
     return "".join(L)
 
 
