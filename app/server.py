@@ -325,29 +325,27 @@ def _score_html():
     검출이벤트·탐지·주입·오탐이 무슨 뜻인지 모르겠고 합이 안 맞는다". 합이 맞게 보이는 두 축으로 나눈다:
       정답 쪽: 심은 이상 = 잡음 + 놓침 / 엔진 쪽: 낸 이벤트 = 정답 맞춤 + 오탐.
     한 이상을 여러 이벤트가 잡을 수 있어 '잡음'(이상 수) 과 '정답 맞춤'(이벤트 수) 은 다른 숫자다."""
-    boards = jobs.scoreboard()
+    b = jobs.scoreboard()
     rows, errs = [], []
     T = {"inj": 0, "hit": 0, "ev": 0, "fp": 0}
     cov_inj, cov_hit, missed = set(), set(), []
-    src_of = {s["shift_id"]: s["set"] for s in jobs.SOURCES}
-    for b in boards:
-        if b.get("error"):
-            errs.append('<div class="note">채점 실패 — ' + esc(Path(b["key"]).name) + ': ' + esc(b["error"]) + '</div>')
+    if b is None:
+        b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": []}
+    if b.get("error"):
+        errs.append('<div class="note">채점 실패 — ' + esc(b["error"]) + '</div>'); b = {"per_shift": [], "cov_inj": [], "cov_hit": [], "missed": []}
+    cov_inj.update(b["cov_inj"]); cov_hit.update(b["cov_hit"]); missed.extend(b["missed"])
+    for sid, ev, inj, hit, fp in b["per_shift"]:
+        link = '<a href="/answer/' + esc(sid) + '">' + esc(sid) + '</a>'
+        src = esc(jobs.KEYS.get(sid, {}).get("key_file", ""))
+        if ev is None:
+            rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td><td>' + str(inj) + '</td>'
+                         '<td class="muted" colspan="5">아직 안 돌림 — CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
             continue
-        kn = Path(b["key"]).name
-        cov_inj.update(b["cov_inj"]); cov_hit.update(b["cov_hit"]); missed.extend(b["missed"])
-        for sid, ev, inj, hit, fp in b["per_shift"]:
-            link = '<a href="/answer/' + esc(kn) + '/' + esc(sid) + '">' + esc(sid) + '</a>'
-            src = esc(src_of.get(sid, ""))
-            if ev is None:
-                rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted">' + src + '</td><td>' + str(inj) + '</td>'
-                             '<td class="muted" colspan="5">아직 안 돌림 — ③에서 실행하면 채점</td></tr>'))
-                continue
-            T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
-            miss = inj - hit
-            rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted">' + src + '</td>'
-                         '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td>'
-                         '<td>' + str(ev) + '</td><td>' + str(ev - fp) + '</td><td' + (' style="color:var(--bad)"' if fp else '') + '>' + str(fp) + '</td></tr>'))
+        T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
+        miss = inj - hit
+        rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>'
+                     '<td>' + str(inj) + '</td><td><b>' + str(hit) + '</b></td><td' + (' style="color:var(--bad)"' if miss else '') + '>' + str(miss) + '</td>'
+                     '<td>' + str(ev) + '</td><td>' + str(ev - fp) + '</td><td' + (' style="color:var(--bad)"' if fp else '') + '>' + str(fp) + '</td></tr>'))
     rows.sort(key=lambda r: r[0])
     if T["inj"]:
         pct = 100 * T["hit"] / T["inj"]
@@ -356,7 +354,7 @@ def _score_html():
         total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
                  + str(T["inj"] - T["hit"]) + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
-        head = '<span class="muted">' + ('아직 올린 근무가 없습니다 — 위에서 CSV 와 정답지를 올리세요' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
+        head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
               '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
@@ -367,29 +365,29 @@ def _score_html():
                        + "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
                                  for sid, no, name, tag, s_, e_ in sorted(missed)) + '</ul>')
     return ('<div class="card" style="padding:14px 18px">'
-            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">올린 근무 전부 — 정답지가 심은 것과 엔진이 잡은 것</span></h2>'
+            '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px">정답지를 올린 근무만 — <b>검출·초안 생성은 정답지를 읽지 않습니다</b>, 정답지는 여기 채점에만 쓰입니다</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
-            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">출처</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
+            '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th colspan="3" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
             '<tr><th>주입한 이상</th><th>탐지 성공</th><th>놓침</th><th>총 검출 수</th><th>맞게 잡음</th><th>잘못 잡음(오탐)</th></tr>'
             + "".join(r for _, r in rows) + total + '</table></div>' + legend + missed_html + "".join(errs) + '</div>')
 
 
-def view_answer(key_name, shift_id):
+def view_answer(shift_id):
     """정답지 뷰 — 이 근무에 무엇을 심었고, 검출기가 무엇을 잡았고 무엇을 놓쳤고 무엇이 오탐인지.
 
     경모님 지적(2026-08-27): "정답지에 어떤 게 들어있는지 보여줘야 하고, 어떤 케이스가 어떤 문제였는지
     날짜별·CSV별로 조회가 다 돼야 한다." 대조표의 숫자 한 줄을 여기서 펼친다.
     """
-    src = next((s for s in jobs.SOURCES if Path(s["key"]).name == key_name and s["shift_id"] == shift_id), None)
-    if not src:
-        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다.</div></div>', active="/pipeline")
-    r = jobs.score_mod.score(src["key"])
+    sh = jobs.KEYS.get(shift_id)
+    if not sh:
+        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다 — 생성기의 asu_answer_*.json 을 올리면 여기서 볼 수 있습니다.</div></div>', active="/pipeline")
+    r = jobs.score_mod.score_shifts([sh])
     sh = next(x for x in r["shift_list"] if x["shift_id"] == shift_id)
     d = r["detail"].get(shift_id)
     kind = "주간" if sh.get("kind") == "day" else "야간"
     head = (f'<a class="back" href="/pipeline">‹ 파이프라인으로</a>'
             f'<div class="card" style="padding:14px 18px"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
-            f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc(sh["csv_file"])}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
+            f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc((jobs.csv_for(shift_id) or Path("—")).name)}</span> · 정답지 <span class="mono">{esc(sh.get("key_file", ""))}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
             f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · 주입 <b>{len(sh["injected"])}건</b>'
             + (f' · 동시 발생 {len(sh.get("overlaps") or [])}건' if sh.get("overlaps") else "") + '</p>')
     if not d:
@@ -440,27 +438,29 @@ def view_pipeline():
     with db.connect() as conn:
         have = {r["id"]: (bool(db.load_draft(conn, r["id"])), bool(db.load_handover(conn, r["id"]))) for r in db.list_shifts(conn)}
     opts = []
-    up0 = jobs.last_upload()
-    cur = st.get("shift_id") or (up0["added"][-1] if up0["added"] else None)   # 새로고침마다 1번으로 돌아가던 것 (경모님 QA)
-    for src in jobs.SOURCES:
+    ingested = (st.get("result") or {}).get("ingested") if isinstance(st.get("result"), dict) else None
+    cur = st.get("shift_id") or (ingested[-1] if ingested else None)   # 새로고침마다 1번으로 돌아가던 것 (경모님 QA)
+    for src in jobs.sources():
         d, h = have.get(src["shift_id"], (False, False))
-        tag = "확정" if h else ("초안 있음" if d else ("적재됨" if src["shift_id"] in have else "미적재"))
-        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + esc(src["set"]) + ' · 주입 ' + str(src["injected"]) + '건 · ' + tag + '</option>')
+        tag = "확정" if h else ("초안 있음" if d else "적재됨")
+        key = "정답지 ✓" if src["has_key"] else "정답지 없음"
+        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + key + ' · ' + tag + '</option>')
     up = jobs.last_upload()
     up_html = ""
     if up["files"]:
-        up_html = ('<div class="note" style="margin:0 0 10px"><b>업로드 결과</b> — 받은 파일: ' + esc(", ".join(up["files"]))
-                   + (' · 등록된 근무: <b>' + esc(", ".join(up["added"])) + '</b>' if up["added"] else ' · <b>등록된 근무 없음</b>')
+        up_html = ('<div class="note" style="margin:0 0 10px;font-size:12.5px"><b>업로드 결과</b> — 받은 파일: ' + esc(", ".join(up["files"]))
+                   + (' · 정답지 근무: <b>' + esc(", ".join(up["added"])) + '</b>' if up["added"] else '')
+                   + "".join('<br><span class="muted">' + esc(w) + '</span>' for w in up.get("info", []))
                    + "".join('<br><span style="color:var(--accent)">⚠ ' + esc(w) + '</span>' for w in up["warn"]) + '</div>')
-    links = "".join('<a href="/answer/' + esc(Path(x["key"]).name) + '/' + esc(x["shift_id"]) + '" class="pill" style="text-decoration:none;font-size:11.5px">'
-                    + esc(x["shift_id"]) + ' 정답지</a> ' for x in jobs.SOURCES)
+    links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + ' 정답지</a> ' for sid in sorted(jobs.KEYS))
     log = "\n".join(esc(x) for x in st["lines"][-40:])
     running = st["running"]
     err = ('<pre class="mono" style="color:var(--accent);white-space:pre-wrap;font-size:11.5px">' + esc(st["error"]) + '</pre>') if st.get("error") else ""
     status = ("실행 중 · " + esc(st["step"] or "")) if running else "대기"
     link = ""
-    if not running and st.get("result") and st.get("shift_id"):
-        link = ('<p class="note"><a href="/shift/' + esc(st["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(st["shift_id"]) + ')</b></a>'
+    lr = st.get("last_run") or {}
+    if not running and lr.get("shift_id"):   # 뒤이어 적재가 돌았어도 마지막 실행의 링크는 남는다
+        link = ('<p class="note"><a href="/shift/' + esc(lr["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(lr["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
     hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목 묶음당 약 2~3분 (16항목 ≈ 7~10분, 실측) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
             '<a id="jobdone" href="/pipeline" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
@@ -474,14 +474,14 @@ def view_pipeline():
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     body = ('<div class="card" style="padding:14px 18px">'
             '<h2>파이프라인 — ENGRA Simulation</h2>'
-            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 날짜·근무를 골라 CSV 와 정답지 JSON 을 내려받고 → ② 여기 올리고 → ③ 「적재 + 검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
-            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. 아래 「정답지 대조」는 올린 근무만 채점한다.</p>'
+            '<p class="note" style="margin:0 0 10px">① DCS 의 <b>SCENARIO INJECT</b> 탭에서 날짜·근무를 골라 CSV(와 정답지 JSON)를 내려받고 → ② <b>CSV 를</b> 올리면 바로 적재돼 그 안의 근무가 목록에 뜬다 → ③ 「검출 + AI 초안」 → ④ 초안 검토에서 승인·확정 → '
+            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. <b>정답지 JSON 은 나중에 따로</b> 올려도 된다 — 검출·초안은 정답지를 보지 않고, 정답지는 아래 「정답지 대조」 채점에만 쓰인다.</p>'
             '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>① 파일 올리기</b></div>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
             '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
-            '<span class="muted" style="font-size:11.5px">CSV(근무) + 정답지 JSON 을 같이. 정답지가 있어야 대조가 된다</span>'
+            '<span class="muted" style="font-size:11.5px">CSV 하나면 적재·초안 생성까지. 정답지 asu_answer_*.json 은 대조를 볼 때 올린다(같이 올려도 된다)</span>'
             '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span>'
             '</form>' + up_html +
             '<div class="muted" style="font-size:12px;margin:12px 0 2px"><b>② 검출 + AI 초안</b>' + ('' if opts else ' <span style="color:var(--bad)">— 먼저 파일을 올리세요</span>') + '</div>'
@@ -491,7 +491,7 @@ def view_pipeline():
             '<label style="font-size:12.5px;color:var(--sub)"><input type="checkbox" name="redo" value="1"> 확정 data 다시 만들기</label>'
             '</form>'
 
-            + ('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>' if jobs.SOURCES else '')
+            + ('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>' if jobs.KEYS else '')
             + '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
             '<span id="jobpill" class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
@@ -537,8 +537,11 @@ def view_index():
             r["id"]: [e["tag"] for e in db.load_events(conn, r["id"])] for r in rows
         }
 
+    only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed")]
+    rows = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다" — 초안·확정만
     if not rows:
-        return page("일지", '<div class="card"><div class="empty">아직 근무가 없습니다.<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 생성기 CSV 와 정답지를 올리고 「검출 + AI 초안」을 누르면 여기에 쌓입니다.</div></div>', active="/")
+        why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
+        return page("일지", '<div class="card"><div class="empty">' + why + '<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 ' + ('「검출 + AI 초안」을 누르면' if only_ingested else '생성기 CSV 를 올리고 「검출 + AI 초안」을 누르면') + ' 여기에 쌓입니다.</div></div>', active="/")
 
     out = []
     for r in rows:
@@ -869,8 +872,7 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/pipeline":
                 self._send(200, view_pipeline())
             elif path.startswith("/answer/"):
-                _, _, key_name, sid = path.split("/", 3)
-                self._send(200, view_answer(key_name, sid))
+                self._send(200, view_answer(path.rstrip("/").split("/")[-1]))   # /answer/<근무> (옛 /answer/<정답지>/<근무> 도 마지막 조각)
             elif path == "/api/job":
                 self._json(jobs.state())
             elif path == "/dcs":
@@ -982,7 +984,7 @@ class Handler(BaseHTTPRequestHandler):
         import email.parser, email.policy
         msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
             b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
-        saved = []
+        saved, paths, key_sids = [], [], []
         try:
             for part in msg.iter_parts():
                 fn = part.get_filename()
@@ -991,12 +993,15 @@ class Handler(BaseHTTPRequestHandler):
                     if fn.endswith(".gz"):
                         # 브라우저가 CompressionStream 으로 눌러 보낸 것 — 37MB CSV 가 수 MB 로 줄어 업로드가 수 초
                         data, fn = self._gunzip(data), fn[:-3]
-                    saved.append(jobs.save_upload(fn, data).name)
+                    p, sids = jobs.save_upload(fn, data)
+                    saved.append(p.name); paths.append(p); key_sids += sids
         except Exception as exc:
             self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
             return
         print("  UPLOAD " + str(saved))
-        jobs.note_upload(saved)
+        csvs = [p for p in paths if p.suffix == ".csv"]
+        queued = (not jobs.ingest_async(csvs)) if csvs else False   # 올린 CSV 는 바로 적재 → 그 안의 근무가 전부 목록에
+        jobs.note_upload(saved, key_sids, queued)
         self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
         return
 
@@ -1007,26 +1012,27 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/pipeline/run":
                 sid = form["shift_id"][0]
                 redo = form.get("redo", ["0"])[0] == "1"
-                src = next((x for x in jobs.SOURCES if x["shift_id"] == sid), None)
-                if not src:
-                    self._send(400, page("없음", '<div class="card"><div class="empty">모르는 근무입니다.</div></div>', active="/pipeline")); return
+                if not any(x["shift_id"] == sid for x in jobs.sources()):
+                    self._send(400, page("없음", '<div class="card"><div class="empty">적재된 근무가 아닙니다. 먼저 CSV 를 올리세요.</div></div>', active="/pipeline")); return
                 with db.connect() as conn:
-                    already = conn.execute("SELECT ingested_at FROM shift WHERE id = ?", (sid,)).fetchone()
-                    confirmed = already is not None and db.load_handover(conn, sid) is not None
-                # 같은 근무 ID 로 새 CSV 를 올렸으면(업로드 파일이 적재 시각보다 새로움) 옛 원본이 아니라 그 파일로 다시 적재 (Codex 반증)
-                newer = stale = False
-                if already and src["set"] == "업로드":
-                    with db.connect() as conn:
-                        stale = not db.raw_complete(conn, sid)   # 3일 회전이 원본을 지웠거나 앞부분을 잘랐다 → 파일에서 다시 적재
+                    row = conn.execute("SELECT ingested_at FROM shift WHERE id = ?", (sid,)).fetchone()
+                    confirmed = db.load_handover(conn, sid) is not None
+                    stale = not db.raw_complete(conn, sid)   # 3일 회전이 원본을 지웠거나 앞부분을 잘랐다 → 파일에서 다시 적재
+                csv = jobs.csv_for(sid)
+                newer = False
+                if csv is not None:
                     from datetime import datetime
                     try:
-                        newer = Path(src["csv"]).stat().st_mtime > datetime.fromisoformat(already["ingested_at"]).timestamp() + 1   # ingested_at 은 초 단위 — 같은 초의 소수 mtime 으로 되풀이 재적재되지 않게 (Codex)
+                        # 같은 근무 ID 로 새 파일을 올렸으면(파일이 적재 시각보다 새로움) 그 파일로 다시 적재. ingested_at 은 초 단위 → 1초 여유 (Codex)
+                        newer = csv.stat().st_mtime > datetime.fromisoformat(row["ingested_at"]).timestamp() + 1
                     except (OSError, TypeError, ValueError):
                         newer = False
+                if (newer or stale) and csv is None:
+                    self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>', active="/pipeline")); return
                 if (newer or stale) and confirmed and not redo:   # 재적재 뒤 비동기로 "확정된 근무" 실패하지 않게 먼저 막는다 (Codex)
-                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 새 파일이 올라왔습니다. 새 파일로 다시 만들려면 「확정 data 다시 만들기」를 켜세요.</div></div>', active="/pipeline")); return
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 원본을 다시 적재해야 합니다. 새로 만들려면 「확정 data 다시 만들기」를 켜세요.</div></div>', active="/pipeline")); return
                 try:
-                    jobs.run_async(sid, csv_path=src["csv"] if (not already or newer or stale) else None, redo=redo,
+                    jobs.run_async(sid, csv_path=str(csv) if (newer or stale) else None, redo=redo,
                                    reingest=(newer or stale), why=("새 파일" if newer else "보관 기간(3일)이 지나 원본이 정리됨") if (newer or stale) else None)
                 except RuntimeError as exc:
                     self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
@@ -1059,7 +1065,7 @@ class Handler(BaseHTTPRequestHandler):
                     jobs.mark_qa_active()
                     what = db.reset(empty=empty)
                 finally:
-                    held.release()
+                    jobs.release_hold(held)
                 self.send_response(303)
                 self.send_header("Location", "/?reset=" + ("empty" if empty else "seed"))
                 self.end_headers()
@@ -1106,6 +1112,7 @@ def serve(host, port):
     print(f"ENGRA 화면: http://{host}:{port}  (엔진: {ports.engine_source()})")
     print("멈추려면 Ctrl+C")
     try:
+        jobs.reconcile_uploads()   # 재시작 뒤 적재 안 된 업로드 CSV 를 살린다
         ThreadingHTTPServer((host, port), Handler).serve_forever()
     except KeyboardInterrupt:
         print("\n종료")

@@ -38,11 +38,14 @@ def _overlap(a0, a1, b0, b1):
 
 def score(answer_path, only=None):
     key = json.loads(Path(answer_path).read_text(encoding="utf-8"))
-    shifts = key["shift_list"]
+    shifts = key["shift_list"] if "shift_list" in key else [key]   # 묶음 / 근무 하나짜리(새 생성기) 둘 다
     if only is not None:
-        # 화면 채점용 — 업로드가 정본의 일부 근무를 교체하면 그 근무는 정본 표에서 빼야 두 표에 겹치지 않는다 (Codex 반증)
         shifts = [sh for sh in shifts if sh["shift_id"] in only]
+    return score_shifts(shifts)
 
+
+def score_shifts(shifts):
+    """정답지(근무 dict 목록)를 DB 의 이벤트와 대조한다. 화면(app/jobs.py)과 CLI 가 같은 함수를 쓴다."""
     per_shift = []
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0

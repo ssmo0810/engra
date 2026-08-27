@@ -314,7 +314,12 @@ def list_shifts(conn):
 
 def rotate_raw(conn, keep_days=RAW_RETENTION_DAYS):
     """보관 기간이 지난 원본을 지운다. 요약·이벤트·일지는 건드리지 않는다."""
-    cutoff = (datetime.now() - timedelta(days=keep_days)).isoformat(timespec="seconds")
+    # 오늘이 아니라 적재된 데이터의 마지막 시각 기준 — 생성기 파일은 날짜가 고정돼 오늘 기준이면 첫 실행 직후
+    # 전부 지워졌다(경모님 QA 2026-08-27). 데이터가 실시간이면 둘은 같다.
+    newest = conn.execute("SELECT MAX(ts) FROM raw_sample").fetchone()[0]
+    if not newest:
+        return 0
+    cutoff = (datetime.fromisoformat(newest) - timedelta(days=keep_days)).isoformat(timespec="seconds")
     cur = conn.execute("DELETE FROM raw_sample WHERE ts < ?", (cutoff,))
     return cur.rowcount
 

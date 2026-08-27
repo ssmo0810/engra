@@ -91,14 +91,14 @@ def prepare_latest(sid, redo):
         complete = db.raw_complete(conn, sid)
     if complete:
         return True
-    import jobs   # 업로드 목록(uploads/*.json) — 서버와 같은 소스 정의
-    src = next((s for s in jobs.SOURCES if s["shift_id"] == sid and s["set"] == "업로드" and Path(s["csv"]).exists()), None)
-    if src is None:
+    import jobs   # 서버와 같은 정의 — shift.source 로 uploads/ 의 원본 파일을 찾는다
+    csv = jobs.csv_for(sid)
+    if csv is None:
         print(f"  {sid} 는 적재된 원본이 없습니다(또는 보관 기간이 지나 정리됨) — 올린 파일도 없어 할 일 없음"); return False
     with db.connect() as conn:
         n = db.forget_raw(conn, sid)
-    print(f"  {sid} 원본 {n:,}점 정리됨 — 올린 파일 {Path(src['csv']).name} 에서 다시 적재")
-    collect.ingest(collect.source_for(src["csv"], collect.BadRows()))
+    print(f"  {sid} 원본 {n:,}점 정리됨 — 올린 파일 {csv.name} 에서 다시 적재")
+    collect.ingest(collect.source_for(str(csv), collect.BadRows()))
     return True
 
 

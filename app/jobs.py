@@ -23,14 +23,16 @@ import db
 import pipeline
 import score as score_mod
 
-# 화면에서 고를 수 있는 근무 = 사용자가 올린 것만. 정본(data/)을 미리 채우지 않는다 —
-# 경모님 2026-08-27: "빈 화면에서 생성 → 첨부 → 검출 → 초안 → 확정, 그 확정을 다음 근무가 쓰는지까지".
-# 정본은 tools/score.py(독립 채점)·tools/seed.py 가 직접 경로로 쓴다.
-SOURCES = []
-
+# 목록의 정본은 DB 의 shift 표다 — CSV 를 올리면 바로 적재해 그 안의 근무가 전부 목록에 뜬다.
+# 정답지 JSON 은 대조용 선택 사항(KEYS). 경모님 2026-08-27: "날짜별로 다 올리고 만들 수 있어야 한다" —
+# 전엔 정답지가 있어야 근무가 등록돼 CSV 만 올리면 "등록된 근무 없음" 이 나왔다. 임도영님 새 생성기는
+# 근무 하나짜리 JSON(shift_id·from·to·injected 최상위)을 내보내므로 두 형식을 다 받는다.
 UPLOAD_DIR = ROOT / "app" / "uploads"
-
+KEYS = {}          # shift_id -> 정답지(근무 하나) dict (+ key_file)
+_pending = []      # 실행 중에 올라온 CSV — 그 작업이 끝나면 적재 (접근은 _qlock 아래)
+_qlock = threading.Lock()
 _lock = threading.Lock()
+_last_run = {}     # 마지막으로 끝난 실행(검출·초안)의 shift_id·result — 뒤이어 적재가 돌아도 초안 링크가 남게 (Codex)
 upload_lock = threading.Lock()   # 업로드는 한 번에 하나 — 본문을 메모리에 다 올리므로 동시 2건이면 MemoryMax 를 넘는다
 _job = {"running": False, "step": None, "lines": [], "error": None, "shift_id": None, "result": None, "started": None}
 
@@ -38,6 +40,9 @@ _job = {"running": False, "step": None, "lines": [], "error": None, "shift_id": 
 def state():
     d = dict(_job)
     d["elapsed"] = (time.time() - d["started"]) if (d["running"] and d["started"]) else None   # "멈춘 건 아닐까" — 경과를 보인다
+    with _qlock:
+        d["pending"] = [Path(p).name for p in _pending]
+    d["last_run"] = dict(_last_run)
     return d
 
 
@@ -49,12 +54,42 @@ def hold():
 def _start(shift_id, step):
     if not _lock.acquire(blocking=False):
         raise RuntimeError("다른 작업이 돌고 있습니다. 끝난 뒤 다시 누르세요.")
+    _begin(shift_id, step)
+
+
+def _begin(shift_id, step):
+    """락을 잡은 뒤 작업 상태를 연다."""
     _job.update({"running": True, "step": step, "lines": [], "error": None, "shift_id": shift_id, "result": None, "started": time.time()})
 
 
 def _finish(err=None, result=None):
     _job.update({"running": False, "error": err, "result": result})
+    if _job["shift_id"] and not err:
+        _last_run.update({"shift_id": _job["shift_id"], "result": result})
     _lock.release()
+    drain()
+
+
+def drain():
+    """줄 선 CSV 가 있으면 적재를 시작한다 → 시작했으면 True. 작업 락 획득과 큐 이전을 _qlock 아래에서 한 번에 한다 —
+    큐를 비운 뒤 락을 못 잡아 되돌리는 사이에 다른 작업의 _finish→drain 이 빈 큐를 보고 지나가면 CSV 가 다음
+    작업까지 멈춰 있었다 (Codex). 락을 못 잡으면 큐는 그대로, 그 작업의 _finish 가 다시 부른다."""
+    with _qlock:
+        if not _pending:
+            return False
+        if not _lock.acquire(blocking=False):
+            return False
+        paths = _pending[:]
+        _pending.clear()
+        _begin(None, "ingest")
+    _run_ingest(paths)
+    return True
+
+
+def release_hold(lock):
+    """hold() 로 잡은 락을 놓고 줄 선 적재를 이어간다 — 리셋이 큐를 멈추게 두지 않는다 (Codex)."""
+    lock.release()
+    drain()
 
 
 def _say(msg):
@@ -71,8 +106,55 @@ def ingest_path(path):
     return counts
 
 
+def _summarize(sids):
+    """적재된 근무를 바로 요약해 둔다 — 정상(결함 없음) 데이터만 올려도 다음 근무의 기준선 재료가 된다
+    (임도영님 7일 정상 데이터, 경모님 ①). 검출·초안은 만들지 않는다."""
+    with db.connect() as conn:
+        for sid in sids:
+            series = db.load_series(conn, sid)
+            if series:
+                db.save_summaries(conn, sid, pipeline.ports.summarize(series))
+
+
+def ingest_async(paths):
+    """올라온 CSV 들을 적재한다(별도 스레드). 다른 작업이 돌고 있으면 줄을 세우고 False — 그 작업이 끝나면 이어진다."""
+    mark_qa_active()
+    with _qlock:
+        _pending.extend(str(p) for p in paths if str(p) not in _pending)
+    return drain()
+
+
+def _run_ingest(paths):
+    """작업 락을 잡은 상태에서 부른다(drain). 파일별로 적재하고 요약한다."""
+    def work():
+        got, failed = {}, []
+        try:
+            for p in paths:
+                _say(f"적재 시작 — {Path(p).name}")
+                try:
+                    for sid, n in sorted(ingest_path(p).items()):
+                        _say(f"{sid}: {n:,}점 적재")
+                        got[sid] = n
+                except Exception as exc:   # 파일 하나가 깨져도 나머지는 적재한다 (Codex). 실패는 그대로 보인다.
+                    failed.append(Path(p).name)
+                    _say(f"✗ {Path(p).name} 적재 실패 — {type(exc).__name__}: {exc}")
+            if got:
+                _summarize(list(got))
+                _say(f"요약 저장 — {len(got)}근무 (다음 근무의 기준선 재료)")
+            if failed and not got:
+                _finish(err="적재 실패: " + ", ".join(failed))
+                return
+            _say("완료 — 목록에서 근무를 골라 「검출 + AI 초안」을 누르세요" + (f" (실패 {len(failed)}개는 위 로그)" if failed else ""))
+            _finish(result={"ingested": sorted(got), "failed": failed})
+        except Exception as exc:
+            _say(f"✗ {type(exc).__name__}: {exc}")
+            _finish(err=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-600:]}")
+    threading.Thread(target=work, daemon=True).start()
+    return True
+
+
 def run_async(shift_id, csv_path=None, redo=False, reingest=False, why=None):
-    """적재(선택) → 검출·AI 초안. 별도 스레드. AI 가 5~6분 걸리므로 화면은 폴링한다."""
+    """(재)적재(선택) → 검출·AI 초안. 별도 스레드. AI 가 5~10분 걸리므로 화면은 폴링한다."""
     mark_qa_active()
     _start(shift_id, "ingest" if csv_path else "run")
 
@@ -97,93 +179,128 @@ def run_async(shift_id, csv_path=None, redo=False, reingest=False, why=None):
         except Exception as exc:  # 화면에 그대로 보인다
             _say(f"✗ {type(exc).__name__}: {exc}")
             _finish(err=f"{type(exc).__name__}: {exc}\n{traceback.format_exc()[-600:]}")
-
     threading.Thread(target=work, daemon=True).start()
 
 
-def scoreboard():
-    """정답지가 있는 근무 전부 대조. DB 에 이벤트가 있는 근무만 채점된다."""
-    keys = sorted({s["key"] for s in SOURCES})
-    out = []
-    for k in keys:
-        try:
-            r = score_mod.score(k, only={s["shift_id"] for s in SOURCES if s["key"] == k})
-            r["key"] = k
-            out.append(r)
-        except Exception as exc:
-            out.append({"key": k, "error": str(exc)})
+def csv_for(shift_id):
+    """이 근무의 원본 파일 — shift.source('csv:<이름>') 로 uploads/ 에서 찾는다. 없으면 None(회전 뒤 재적재 불가)."""
+    with db.connect() as conn:
+        row = conn.execute("SELECT source FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    if row and row["source"] and str(row["source"]).startswith("csv:"):
+        p = UPLOAD_DIR / Path(row["source"][4:]).name
+        if p.exists():
+            return p
+    return None
+
+
+def sources():
+    """드롭박스 = 적재된 근무 전부. 정답지 유무와 초안 상태를 붙인다."""
+    with db.connect() as conn:
+        rows = [dict(r) for r in db.list_shifts(conn)]
+    out = [{"shift_id": r["id"], "has_key": r["id"] in KEYS, "status": r.get("draft_status"), "source": r.get("source")} for r in rows]
+    out.sort(key=lambda s: s["shift_id"])
     return out
 
 
-_last_upload = {"files": [], "added": [], "warn": []}
+def scoreboard():
+    """올라온 정답지 전부를 한 표로 대조. DB 에 이벤트가 있는 근무만 채점된다. 정답지가 없으면 None."""
+    if not KEYS:
+        return None
+    try:
+        return score_mod.score_shifts([KEYS[s] for s in sorted(KEYS)])
+    except Exception as exc:
+        return {"error": str(exc)}
+
+
+_last_upload = {"files": [], "added": [], "warn": [], "info": []}
 
 
 def last_upload():
     return dict(_last_upload)
 
 
-def note_upload(saved):
-    """업로드 결과를 화면이 읽는다. 정답지 없이 CSV 만 오면 그 사실을 말한다 — 조용히 목록에서 빠지지 않게."""
+def note_upload(saved, key_sids, queued):
+    """업로드 결과를 화면이 읽는다 — 조용히 목록에서 빠지는 일이 없게 무엇이 왔고 무엇이 빠졌는지 말한다."""
     csvs = [f for f in saved if f.endswith(".csv")]
     jsons = [f for f in saved if f.endswith(".json")]
-    added = [s["shift_id"] for s in SOURCES if s["set"] == "업로드" and Path(s["csv"]).name in csvs]
-    warn = []
-    if csvs and not jsons and not added:
-        warn.append("CSV 만 올라왔고 정답지 JSON 이 없습니다. 정답지가 있어야 목록에 뜨고 대조가 됩니다 — 생성기의 asu_answer_*.json 도 같이 올리세요.")
-    for s in SOURCES:
-        if s["set"] == "업로드" and not Path(s["csv"]).exists():
-            warn.append(f"정답지는 {Path(s['csv']).name} 을 가리키는데 그 CSV 가 안 올라왔습니다 ({s['shift_id']}).")
-    _last_upload.update({"files": saved, "added": added, "warn": warn})
+    warn, info = [], []
+    if csvs:
+        info.append("적재가 시작됐습니다 — 끝나면 목록에 그 근무가 뜹니다." if not queued else "다른 작업이 끝나면 자동으로 적재합니다.")
+    if csvs and not jsons:
+        info.append("정답지 JSON 은 없습니다 — 초안 생성은 되고, 정답지 대조는 그 근무의 asu_answer_*.json 을 올리면 됩니다.")
+    if jsons:
+        with db.connect() as conn:
+            have = {r["id"] for r in db.list_shifts(conn)}
+        for sid in key_sids:
+            if sid not in have and not csvs:
+                warn.append(f"정답지 {sid} 만 왔습니다 — 그 근무의 CSV 를 올리면 목록에 뜹니다.")
+    _last_upload.update({"files": saved, "added": key_sids, "warn": warn, "info": info})
 
 
 def mark_qa_active():
     """사용자가 리셋·실행을 누른 시각. 정시 리셋 타이머는 이 마커가 2시간 이내면 건너뛴다 —
     QA 중 04:00 리셋이 돌아 빈 상태가 기준선으로 되돌아간 사고(2026-08-27, 경모님 재현)."""
-    import time
     (ROOT / "app" / ".qa_active").write_text(str(int(time.time())))
 
 
 def save_upload(name, data):
-    """임도영님 생성기가 내려준 CSV/정답지 JSON 을 받는다. 파일명은 그대로, 폴더만 고정."""
+    """생성기가 내려준 CSV/정답지 JSON 을 받는다. 파일명은 그대로, 폴더만 고정. → (경로, 정답지의 근무 ID 들)"""
     UPLOAD_DIR.mkdir(exist_ok=True)
     safe = Path(name).name.replace("..", "_")
     p = UPLOAD_DIR / safe
     p.write_bytes(data)
-    if safe.endswith(".json"):
-        _register_key(p)
-    return p
+    sids = _register_key(p) if safe.endswith(".json") else []
+    return p, sids
 
 
 def _register_key(p):
-    """정답지 JSON 하나를 SOURCES 에 올린다. 업로드 직후와 서버 시작 시(재시작 뒤에도 목록에 남게) 둘 다 여기로."""
+    """정답지 JSON 하나를 KEYS 에 올린다. 두 형식 — 근무 하나짜리(shift_id·injected 최상위, 새 생성기) /
+    묶음(shift_list, asu_answer_all.json). 업로드 직후와 서버 시작 시 둘 다 여기로."""
     d = json.loads(p.read_bytes().decode("utf-8"))
-    if True:
-        for sh in d.get("shift_list", []):
-            csv = UPLOAD_DIR / Path(sh["csv_file"]).name   # 절대경로·../ 로 uploads 밖을 못 가리킨다 (Codex 반증 2026-08-27)
-            if not csv.exists():
-                cand = [c for c in UPLOAD_DIR.glob("*.csv") if sh["shift_id"] in c.name]   # 이름이 달라도 근무 ID 로 붙인다
-                if cand:
-                    csv = cand[0]
-            # 같은 근무 ID 는 세트 불문 교체 — 실행이 shift_id 로 소스를 찾으므로 정본이 남아 있으면 업로드 CSV 가 안 돈다 (Codex 반증)
-            SOURCES[:] = [s for s in SOURCES if s["shift_id"] != sh["shift_id"]]
-            SOURCES.append({"shift_id": sh["shift_id"], "csv": str(csv), "key": str(p),
-                            "injected": len(sh["injected"]), "set": "업로드"})
-        SOURCES.sort(key=lambda s: s["shift_id"])
+    if isinstance(d, dict) and isinstance(d.get("shift_list"), list):
+        shifts = d["shift_list"]
+    elif isinstance(d, dict) and "shift_id" in d and isinstance(d.get("injected"), list):
+        shifts = [d]
+    else:
+        raise ValueError(f"{p.name}: 정답지 형식이 아닙니다 (shift_id·injected 또는 shift_list 가 없음)")
+    sids = []
+    for sh in shifts:
+        KEYS[sh["shift_id"]] = {**sh, "key_file": p.name}
+        sids.append(sh["shift_id"])
+    return sids
 
 
 def _reload_uploads():
-    """서버 시작 시 이전에 올라온 정답지를 다시 등록한다 — 재시작(배포·타이머) 뒤 업로드 근무가 목록에서
-    사라지던 것(라이브 실측 2026-08-27). 깨진 JSON 하나가 공개 서비스 기동을 막지 않게 건너뛰고 크게 남긴다."""
+    """서버 시작 시 이전에 올라온 정답지를 다시 등록한다 — 재시작(배포·타이머) 뒤 목록에서 사라지지 않게.
+    깨진 JSON 하나가 공개 서비스 기동을 막지 않게 건너뛰고 크게 남긴다. CSV 는 DB(shift 표)가 기억한다."""
     try:
         files = sorted(UPLOAD_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime)
     except OSError as exc:
-        print(f"  !! uploads/ 를 읽지 못함 — 업로드 근무 없이 시작: {exc}", file=sys.stderr)
+        print(f"  !! uploads/ 를 읽지 못함 — 정답지 없이 시작: {exc}", file=sys.stderr)
         return
     for j in files:
         try:
             _register_key(j)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             print(f"  !! 업로드 정답지 {j.name} 등록 실패 — 건너뜀: {exc}", file=sys.stderr)
+
+
+def reconcile_uploads():
+    """서버 시작 시: uploads/ 에 있는데 DB(shift.source)에 없는 CSV 를 적재한다 — 정답지 등록 실패로 목록에 못 오른
+    파일(경모님 라이브 3근무, 2026-08-27)과 적재 도중 재시작된 경우를 살린다. 서버(serve)만 부른다."""
+    try:
+        csvs = sorted(UPLOAD_DIR.glob("*.csv"), key=lambda x: x.stat().st_mtime)
+    except OSError:
+        return []
+    if not csvs:
+        return []
+    with db.connect() as conn:
+        known = {Path(str(r["source"])[4:]).name for r in db.list_shifts(conn) if str(r["source"] or "").startswith("csv:")}
+    todo = [p for p in csvs if p.name not in known]
+    if todo:
+        print(f"  uploads/ 에 적재 안 된 CSV {len(todo)}개 — 적재 시작: {[p.name for p in todo]}", flush=True)
+        ingest_async(todo)
+    return todo
 
 
 _reload_uploads()
