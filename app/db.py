@@ -300,7 +300,14 @@ def find_gaps(conn, shift_id, min_minutes=GAP_MIN_MINUTES):
     gaps = []
     tags = [r[0] for r in conn.execute("SELECT DISTINCT tag FROM raw_sample WHERE ts >= ? AND ts < ?", (row["window_start"], row["window_end"]))]
     # 지난 근무들에 있었는데 이 근무엔 한 점도 없는 태그 — 계측이 통째로 빠진 것. 갭 탐색은 있는 태그만 돌아 조용히 지나갔다 (홀리스틱 Codex).
-    expected = {r[0] for r in conn.execute("SELECT DISTINCT tag FROM shift_summary WHERE shift_id != ?", (shift_id,))}
+    # 기대 태그 = 직전 근무 3개 중 2개 이상에서 관측된 태그. 전 이력 합집합을 쓰면 정상적으로 퇴역한 태그가 영원히 결측으로 뜬다 (Codex).
+    recent = [r[0] for r in conn.execute("SELECT DISTINCT shift_id FROM shift_summary WHERE shift_id < ? ORDER BY shift_id DESC LIMIT 3", (shift_id,))]
+    expected = set()
+    if recent:
+        need = 2 if len(recent) >= 2 else 1
+        for tag, n in conn.execute(f"SELECT tag, COUNT(DISTINCT shift_id) FROM shift_summary WHERE shift_id IN ({','.join('?' * len(recent))}) GROUP BY tag", recent):
+            if n >= need:
+                expected.add(tag)
     for tag in sorted(expected - set(tags)):
         gaps.append({"tag": tag, "start": row["window_start"], "end": row["window_end"], "minutes": round((we - ws).total_seconds() / 60), "whole": True})
     for tag in tags:
