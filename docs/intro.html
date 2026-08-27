@@ -72,9 +72,11 @@
   .badge i { font-style:normal; color:#4e4e57; }
 
   /* ── 본문: 전부 가운데 정렬 ── */
+  /* 아래쪽 여백(padding-bottom) 은 효과 3칸을 한 줄 정도 띄우기 위한 것이다.
+     없으면 화면 맨 밑에 붙어 보인다. */
   .mid { position:relative; flex:1 1 auto; display:flex; flex-direction:column; align-items:center;
          justify-content:space-between; text-align:center;
-         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 0; }
+         gap:clamp(16px,2.4vh,34px); padding:clamp(12px,2.4vh,36px) 0 clamp(20px,3.4vh,44px); }
 
   .lead { display:flex; flex-direction:column; align-items:center; gap:clamp(18px,3.2vh,44px); }
   h1 { margin:0; font-size:clamp(44px,9.9vh,125px); font-weight:300; line-height:1.18;
@@ -180,7 +182,7 @@
     <div class="res">
       <div>
         <b>놓치지 않는다</b>
-        <span>심어둔 이상 48건 중 <em>47건 검출</em></span>
+        <span>심어둔 이상 <em>97.9% 검출</em></span>
       </div>
       <div>
         <b>시간이 줄어든다</b>
