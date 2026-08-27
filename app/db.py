@@ -123,7 +123,8 @@ CREATE TABLE IF NOT EXISTS draft_item (
     precedent_note   TEXT,                   -- AI 가 과거 사례를 채택/기각한 이유
     related_tags_ai  TEXT,                   -- AI 가 같은 사건으로 묶은 다른 항목의 태그 (JSON 배열)
     related_note     TEXT,                   -- 그렇게 묶은 이유
-    precedent_json   TEXT,                   -- 근거로 삼은 과거 일지
+    precedent_json   TEXT,                   -- 근거로 삼은 과거 일지(AI 가 적합 판정한 것)
+    precedents_all_json TEXT,                -- 같은 태그로 찾은 과거 일지 전부 — 기각 사실을 나중에도 보이게 (Codex)
     adopted          INTEGER,                -- NULL 미결정 / 1 채택 / 0 제외
     comment          TEXT,
     decided_at       TEXT,
@@ -179,7 +180,7 @@ def connect():
 def _migrate(conn):
     """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게."""
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT")):
         if col not in have:
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}

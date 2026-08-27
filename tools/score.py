@@ -67,7 +67,6 @@ def score_shifts(shifts):
             detail[sid] = dshift
             trk = 0
             for inj in sh["injected"]:
-                inj_ids.add(inj["scenario_id"])
                 a0, a1 = _ts(inj["start"]), _ts(inj["end"])
                 tags = set(inj["affected_tags"]) | {inj["trigger_tag"]}
                 found = [
@@ -80,6 +79,7 @@ def score_shifts(shifts):
                 status = "hit" if found else ("tracking" if inj.get("continues_next") else "miss")
                 if status != "tracking":
                     total_inj += 1
+                    inj_ids.add(inj["scenario_id"])   # 추적 중은 종 커버 분모에도 안 넣는다 — 다음 근무에서 센다 (Codex)
                 dshift["injected"].append({**inj, "hit": bool(found), "status": status,
                                            "matched": [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"],
                                                         "start": e["start_ts"][11:16], "end": e["end_ts"][11:16],
