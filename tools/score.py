@@ -42,6 +42,18 @@ def _overlap(a0, a1, b0, b1):
     return not (a1 < b0 or b1 < a0)
 
 
+# 「관찰 창」 을 적는 검출과 「사건 구간」 을 적는 검출을 나눈다.
+#
+# 드리프트는 창(60·120·240·720분)을 통째로 놓고 회귀선을 그어 기울기를 보는 방식이라,
+# 결과 구간이 **그 창 전체**가 된다. "12시간 내내 이상이었다" 가 아니라 "12시간 창으로
+# 봤다" 는 뜻이다. 그래서 103분짜리 정답과 IoU 를 재면 원리상 낮게 나온다 — 엔진이
+# 시각을 못 짚은 것이 아니라 자를 잘못 댄 것이다.
+#
+# 실측 구간 길이(2026-08-29): 드리프트 평균 247분·최대 720분, 나머지는 전부 최대 120분.
+# 그래서 드리프트만 추세형으로 본다.
+TREND_KINDS = ("드리프트",)
+
+
 def _iou(a0, a1, b0, b1):
     """두 구간의 겹침 비율. 1.0 이면 시각까지 정확히 맞은 것."""
     inter = (min(a1, b1) - max(a0, b0)).total_seconds()
@@ -124,11 +136,15 @@ def score_shifts(shifts):
                     iou_best = max(_iou(a0, a1, b0, b1) for b0, b1 in ivs)
                     iou_uni = _iou_union(a0, a1, ivs)
                     # 시작 오차는 「가장 잘 맞은」 이벤트 기준 — 근무 전체 드리프트가 아니라 그 구간을 짚은 이벤트를 본다
-                    best = max(ivs, key=lambda iv: _iou(a0, a1, iv[0], iv[1]))
+                    best_i = max(range(len(ivs)), key=lambda k: _iou(a0, a1, ivs[k][0], ivs[k][1]))
+                    best = ivs[best_i]
                     start_err = (best[0] - a0).total_seconds() / 60
-                    ious.append((inj["scenario_id"], iou_best, iou_uni, start_err))
+                    best_kind = found[best_i][1]["kind"]
+                    is_trend = best_kind in TREND_KINDS
+                    ious.append((inj["scenario_id"], iou_best, iou_uni, start_err, best_kind, is_trend))
                 dshift["injected"].append({**inj, "hit": bool(found), "status": status,
                                            "iou": iou_best, "iou_union": iou_uni, "start_err_min": start_err,
+                                           "iou_kind": (locals().get("best_kind") if found else None),
                                            "matched": [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"],
                                                         "start": e["start_ts"][11:16], "end": e["end_ts"][11:16],
                                                         "evidence": e.get("evidence")} for _, e in found]})
@@ -189,18 +205,34 @@ def main(argv):
     miss_ids = sorted(set(r["cov_inj"]) - set(r["cov_hit"]))
     print(f"시나리오 종 커버  {cov_n}/{cov_d} 종" + (f"  · 놓친 종: {miss_ids}" if miss_ids else ""))
     if r.get("iou"):
-        best = sorted(x[1] for x in r["iou"])
-        mean = sum(best) / len(best)
-        mid = best[len(best) // 2] if len(best) % 2 else (best[len(best)//2 - 1] + best[len(best)//2]) / 2
-        tight = sum(1 for v in best if v >= 0.5)
-        uni = sum(x[2] for x in r["iou"]) / len(r["iou"])
-        print(f"시각 일치도 IoU  평균 {mean:.2f} · 중앙 {mid:.2f} · IoU≥0.5 {tight}/{len(best)}건"
-              f"   (검출 묶음 전체 {uni:.2f})")
-        loose = sorted((v, sid, e) for sid, v, _u, e in r["iou"] if v < 0.5)
+        def _agg(rows):
+            v = sorted(x[1] for x in rows)
+            if not v:
+                return None
+            mid = v[len(v)//2] if len(v) % 2 else (v[len(v)//2 - 1] + v[len(v)//2]) / 2
+            return len(v), sum(v)/len(v), mid, sum(1 for x in v if x >= 0.5)
+
+        allr = r["iou"]
+        epis = [x for x in allr if not x[5]]        # 국소형 — 사건 구간을 적는 검출
+        trnd = [x for x in allr if x[5]]            # 추세형 — 관찰 창을 적는 검출
+
+        a = _agg(allr)
+        print(f"시각 일치도 IoU  전체 {a[0]}건 평균 {a[1]:.2f} · 중앙 {a[2]:.2f} · IoU≥0.5 {a[3]}/{a[0]}")
+        e = _agg(epis)
+        if e:
+            print(f"  ├ 국소형 {e[0]}건  평균 {e[1]:.2f} · 중앙 {e[2]:.2f} · IoU≥0.5 {e[3]}/{e[0]}"
+                  f"   ← 시각까지 짚는다")
+        t = _agg(trnd)
+        if t:
+            print(f"  └ 추세형 {t[0]}건  평균 {t[1]:.2f} · 중앙 {t[2]:.2f} · IoU≥0.5 {t[3]}/{t[0]}"
+                  f"   ← 관찰 창을 적으므로 IoU 로 재는 지표가 아니다")
+            for sid, v, _u, err, kind, _ in sorted(trnd, key=lambda x: x[1]):
+                print(f"      #{sid:<3} IoU {v:.2f}  시작 오차 {err:+.0f}분  [{kind}]")
+        loose = sorted((v, sid, err) for sid, v, _u, err, _k, tr in allr if v < 0.5 and not tr)
         if loose:
-            print(f"  시각이 헐거운 건 {len(loose)}건 — 태그는 맞았지만 구간이 어긋남")
-            for v, sid, e in loose[:6]:
-                print(f"    #{sid:<3} IoU {v:.2f}  시작 오차 {e:+.0f}분")
+            print(f"  국소형인데 시각이 헐거운 건 {len(loose)}건 — 태그는 맞았지만 구간이 어긋남")
+            for v, sid, err in loose[:6]:
+                print(f"    #{sid:<3} IoU {v:.2f}  시작 오차 {err:+.0f}분")
             if len(loose) > 6:
                 print(f"    … 외 {len(loose) - 6}건")
     per = r["fp"] / r["shifts"] if r["shifts"] else 0
