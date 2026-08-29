@@ -38,6 +38,15 @@ import db  # noqa: E402
 # 그보다 짧은 조각은 원리상 검출 대상이 아니다.
 MIN_DETECTABLE_SEC = 600
 
+# 주입이 끝나고 값이 원래대로 돌아오는 구간. 정답지는 「주입 시작~종료」 만 적지만 실제
+# 신호는 복귀까지가 한 사건이라, 복귀를 잡은 이벤트가 오탐으로 집계된다. 실측(2026-08-29)
+# 에서 `data/sim` 6근무 오탐 7건이 **전부** 주입 종료 0~8분 뒤 같은 태그에서 나왔고,
+# 시나리오를 하나도 안 넣은 14근무는 이벤트가 0건이었다 — 엔진 오작동이 아니다.
+#
+# 오탐 수를 줄여 보이려는 것이 아니라 **성격을 나눠 보여주려는 것**이다. 전체 오탐 수는
+# 그대로 내고, 그중 복귀가 몇 건인지를 함께 낸다.
+RECOVERY_WINDOW_SEC = 600
+
 
 def _ts(s):
     return datetime.fromisoformat(s)
@@ -190,10 +199,22 @@ def score_shifts(shifts):
                                    inj["start"][11:16], inj["end"][11:16]))
             total_hit += hits
             fp = [e for i, e in enumerate(events) if i not in used]
+            # 복귀 구간 표시 — 같은 태그의 주입이 끝난 직후에 시작한 이벤트
+            ends = []
+            for inj2 in sh["injected"]:
+                tg = set(inj2["affected_tags"]) | {inj2["trigger_tag"]}
+                ends.append((_ts(inj2["end"]), tg, inj2["scenario_id"]))
+            for e in fp:
+                e_start = _ts(e["start_ts"])
+                e["_recovery"] = next(
+                    (sid_ for t_end, tg, sid_ in ends
+                     if e["tag"] in tg and 0 <= (e_start - t_end).total_seconds() <= RECOVERY_WINDOW_SEC),
+                    None)
             dshift["fp"] = [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"], "start": e["start_ts"][11:16],
                             "end": e["end_ts"][11:16], "evidence": e.get("evidence")} for e in fp]
             total_fp += len(fp)
-            false_pos.extend((sid, e["tag"], e["kind"], e["start_ts"][11:16], e["end_ts"][11:16]) for e in fp)
+            false_pos.extend((sid, e["tag"], e["kind"], e["start_ts"][11:16], e["end_ts"][11:16],
+                              e.get("_recovery")) for e in fp)
             per_shift_trk[sid] = trk
             per_shift.append((sid, len(events), len(sh["injected"]) - trk, hits, len(fp)))
 
@@ -260,7 +281,13 @@ def main(argv):
             if len(loose) > 6:
                 print(f"    … 외 {len(loose) - 6}건")
     per = r["fp"] / r["shifts"] if r["shifts"] else 0
-    print(f"오탐             {r['fp']}건 / 이벤트 {r['events']}건  (근무당 {per:.1f}건)")
+    rec = sum(1 for x in r["false_pos"] if len(x) > 5 and x[5] is not None)
+    line = f"오탐             {r['fp']}건 / 이벤트 {r['events']}건  (근무당 {per:.1f}건)"
+    if rec:
+        rest = r["fp"] - rec
+        line += (f"\n  └ 그중 {rec}건이 주입 종료 직후 복귀 — "
+                 f"복귀를 빼면 {rest}건 (근무당 {rest/r['shifts']:.1f}건)")
+    print(line)
     if r["lead"]:
         early = [m for _, m in r["lead"] if m > 0]
         print(f"알람 선행 검출    {len(early)}/{len(r['lead'])} 건이 알람선 도달보다 먼저 잡힘"
@@ -280,8 +307,10 @@ def main(argv):
             print(f"  {sid}  #{n:<3}{name:<22}{tag:<9}{s}~{e}")
     if r["false_pos"]:
         print(f"\n오탐 {len(r['false_pos'])}건 (어느 주입 구간·영향 태그와도 안 겹침)")
-        for sid, tag, kind, s, e in r["false_pos"][:12]:
-            print(f"  {sid}  {tag:<9}{kind:<12}{s}~{e}")
+        for row in r["false_pos"][:12]:
+            sid, tag, kind, s, e = row[:5]
+            note = f"  ← #{row[5]} 복귀" if len(row) > 5 and row[5] is not None else ""
+            print(f"  {sid}  {tag:<9}{kind:<12}{s}~{e}{note}")
         if len(r["false_pos"]) > 12:
             print(f"  … 외 {len(r['false_pos']) - 12}건")
     return 0
