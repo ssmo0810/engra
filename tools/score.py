@@ -34,6 +34,11 @@ sys.path.insert(0, str(ROOT / "app"))
 import db  # noqa: E402
 
 
+# 엔진이 판정하려면 30초 블록이 최소 20개(10분) 있어야 한다 (engine/detectors.py 의 n < 20 가드).
+# 그보다 짧은 조각은 원리상 검출 대상이 아니다.
+MIN_DETECTABLE_SEC = 600
+
+
 def _ts(s):
     return datetime.fromisoformat(s)
 
@@ -98,6 +103,7 @@ def score_shifts(shifts):
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0
     lead_times, missed, false_pos, tracking = [], [], [], []
+    tails = []          # 앞 근무에서 넘어온, 검출 최소 길이보다 짧은 조각
     ious = []           # (시나리오, 최선 IoU, 합집합 IoU, 시작오차분) — 시각까지 맞혔는지
     per_shift_trk = {}   # shift_id -> 추적 중 건수
     detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
@@ -125,8 +131,21 @@ def score_shifts(shifts):
                 ]
                 # 근무 끝까지 이어지는 주입(continues_next)을 이 근무에서 못 잡았으면 '놓침' 이 아니라 '추적 중' —
                 # 다음 근무의 carried_in 항목에서 판정된다 (경모님 2026-08-27: "실제로 검출 못 해도 놓침이라 뜨면 오답").
-                status = "hit" if found else ("tracking" if inj.get("continues_next") else "miss")
-                if status != "tracking":
+                #
+                # 그 반대쪽도 같은 이유로 세지 않는다. 앞 근무에서 넘어온 조각(carried_in)이 검출
+                # 최소 길이보다 짧으면 **원리상 잡을 수 없다** — 엔진은 30초 블록 20개(10분)가
+                # 있어야 판정한다. 실측 예: #1 순도 헌팅이 주간에 17:30:38~18:00 으로 잡혀 일지에
+                # 들어갔는데, 야간으로 넘어온 38초 꼬리를 정답지가 별도 주입 1건으로 세어
+                # 미탐지로 집계했다(2026-08-29). 이미 앞 근무에서 판정된 건이다.
+                too_short = (
+                    inj.get("carried_in")
+                    and (a1 - a0).total_seconds() < MIN_DETECTABLE_SEC
+                )
+                status = ("hit" if found
+                          else "carried_tail" if too_short
+                          else "tracking" if inj.get("continues_next")
+                          else "miss")
+                if status not in ("tracking", "carried_tail"):
                     total_inj += 1
                     inj_ids.add(inj["scenario_id"])   # 추적 중은 종 커버 분모에도 안 넣는다 — 다음 근무에서 센다 (Codex)
                 iou_best = iou_uni = None
@@ -158,6 +177,10 @@ def score_shifts(shifts):
                         if alarm_hits:
                             alarm_at = min(_ts(e["start_ts"]) for e in alarm_hits)
                             lead_times.append((inj["scenario_id"], (alarm_at - first).total_seconds() / 60))
+                elif status == "carried_tail":
+                    tails.append((sid, inj["scenario_id"], inj["name"], inj["trigger_tag"],
+                                  inj["start"][11:19], inj["end"][11:19],
+                                  (a1 - a0).total_seconds()))
                 elif status == "tracking":
                     trk += 1
                     tracking.append((sid, inj["scenario_id"], inj["name"], inj["trigger_tag"],
@@ -179,6 +202,7 @@ def score_shifts(shifts):
         "cov_inj": sorted(inj_ids), "cov_hit": sorted(hit_ids),
         "events": total_events, "fp": total_fp,
         "missed": missed, "false_pos": false_pos, "lead": lead_times, "shifts": len(shifts),
+        "tails": tails,
         "iou": ious,
         "detail": detail, "shift_list": shifts,
     }
@@ -241,6 +265,11 @@ def main(argv):
         early = [m for _, m in r["lead"] if m > 0]
         print(f"알람 선행 검출    {len(early)}/{len(r['lead'])} 건이 알람선 도달보다 먼저 잡힘"
               + (f"  (최대 +{max(early):.0f}분)" if early else ""))
+    if r.get("tails"):
+        print(f"이월 꼬리 {len(r['tails'])}건 (앞 근무에서 넘어온 {MIN_DETECTABLE_SEC//60}분 미만 조각 — "
+              f"엔진 최소 판정 길이 미달이라 분모에서 제외, 앞 근무에서 이미 판정됨)")
+        for sid, no, name, tag, s_, e_, dur in r["tails"]:
+            print(f"  {sid}  #{no} {name:<18} {tag:<8} {s_}~{e_}  {dur:.0f}초")
     if r.get("tracking"):
         print(f"추적 중 {len(r['tracking'])}건 (근무 끝까지 이어지는 주입 — 다음 근무에서 판정, 포함률 분모에서 제외)")
         for sid, no, name, tag, s_, e_ in r["tracking"]:
