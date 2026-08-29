@@ -244,7 +244,10 @@ def level_shift(view):
     """
     n = len(view)
     w = PARAMS["step_min_blocks"]
-    if n < 2 * w:
+    # 아래 탐색이 range(w, n - w, ...) 라 n 이 2w 와 같으면 후보가 하나도 안 나온다.
+    # 가드가 `<` 였을 때 그 경계에서 best 가 None 인 채로 언팩돼 적재 직후 run 이
+    # TypeError 로 죽었다 (짧은 근무·부분 업로드에서 재현).
+    if n <= 2 * w:
         return []
     best = None
     for c in range(w, n - w, max(1, w // 4)):
