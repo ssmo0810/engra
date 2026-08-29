@@ -157,6 +157,14 @@ def _rows(fh, label, bad=None):
             bad.total += 1
         try:
             ts = datetime.fromisoformat(row["timestamp"])
+            # 연결 규약은 **무시간대 현지시각**이다. 시간대가 붙어 오면 근무 배정에서
+            # offset-naive 와 비교하다 TypeError 로 죽었다. 조용히 떼어내면 UTC 표기를
+            # 현지시각으로 오인해 9시간 밀린 근무에 넣게 되므로, 추측하지 않고 이유를
+            # 밝혀 거부한다.
+            if ts.tzinfo is not None:
+                raise ValueError(
+                    f"시간대가 붙어 있습니다: {row['timestamp']!r}. "
+                    f"연결 규약은 시간대 없는 현지시각입니다 (예: 2026-08-28T06:00:00)")
             value = float(row["value"])
             # float() 은 NaN·Infinity 를 예외 없이 통과시킨다. NaN 은 저장 단계에서 NOT NULL 로
             # 죽고 Infinity 는 조용히 저장되므로, 여기서 깨진 값으로 함께 잡는다 (#20).
