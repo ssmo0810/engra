@@ -331,7 +331,11 @@ def rewrite(shift, items, say=None):
         for k in loc:
             j = base + k
             if 0 <= j < len(rewritten) and j != i:
-                tags.append(rewritten[j]["tag"])
+                # 태그 없는 항목(정지 확인 질문 등)은 뺀다 — 섞이면 정렬이 TypeError 로 죽는다.
+                # 정지 근무에서 실제로 터졌다 (2026-08-29).
+                t = rewritten[j].get("tag")
+                if t:
+                    tags.append(t)
         new["related_tags_ai"] = sorted(set(tags))
         if not tags:
             new["related_note"] = ""

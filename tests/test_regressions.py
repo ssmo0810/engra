@@ -224,6 +224,32 @@ class StopQuestion(unittest.TestCase):
         self.assertLess(thr, n * 0.698, "정지 실측(69.8%) 보다 아래여야 한다")
 
 
+class RelatedTagsGuard(unittest.TestCase):
+    """태그 없는 항목이 섞였을 때 related_tags_ai 정렬이 죽던 것.
+
+    정지 확인 질문 항목은 특정 태그의 건이 아니라 tag 가 None 이다. AI 가 그 항목을
+    related_idx 로 가리키면 sorted(set([...., None])) 이 TypeError 로 터졌다.
+    정지 근무에서 실제로 재현됐다.
+    """
+
+    def test_none_tag_is_dropped_before_sort(self):
+        rewritten = [{"tag": "TI-403"}, {"tag": None}, {"tag": "AI-707"}]
+        tags = []
+        for j in (0, 1, 2):
+            t = rewritten[j].get("tag")
+            if t:
+                tags.append(t)
+        self.assertEqual(sorted(set(tags)), ["AI-707", "TI-403"])
+
+    def test_source_drops_none_tag(self):
+        import inspect
+        _fresh_db()
+        import llm
+        src = inspect.getsource(llm.rewrite)
+        self.assertIn('rewritten[j].get("tag")', src,
+                      "태그를 .get 으로 꺼내 None 을 걸러야 한다")
+
+
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):
         _fresh_db()
