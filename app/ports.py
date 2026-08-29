@@ -156,9 +156,88 @@ def detect(series, baselines):
     return validate_events(_impl.detect(series, baselines))
 
 
+# 정지 확인 질문 (프로토타입 · 2026-08-29)
+#
+# 플랜트가 정지하면 모든 Unit 이 동시에 범위를 벗어나 초안이 22~40항목으로 불어난다.
+# 사고 직후에 그걸 다 읽을 사람은 없다. 그렇다고 시스템이 "정지다" 라고 단정해 묶어
+# 버리면 틀렸을 때 되돌릴 수가 없다 — 계획 정지인지 Trip 인지 대규모 계측 장애인지는
+# 사람만 안다. 그래서 **묻는다**. 답은 코멘트로 일지에 남아 다음 근무의 맥락이 된다.
+#
+# 문턱은 실측으로 정했다. 근무 전체의 이상 태그 비율로는 안 갈린다 — 이상 12종을 넣은
+# 정상 근무가 32%, 정지가 87% 로 겹친다. **10분 창 안에 동시에 시작된 태그 비율**로
+# 보면 정지 69.8~90.6% 대 이상 주입 7.5% 로 62%p 가 벌어진다.
+#
+# 검출 엔진은 건드리지 않는다. 여기는 초안을 조립하는 자리다.
+STOP_WINDOW_MIN = 10
+STOP_TAG_RATIO = 0.30
+
+
+def _stop_burst(events):
+    """10분 창 안에 함께 시작된 태그가 가장 많았던 지점. (태그 수, 시각, 먼저 움직인 태그)"""
+    from datetime import datetime, timedelta
+    rows = []
+    for e in events:
+        ts = e.get("start_ts")
+        if ts:
+            rows.append((e["tag"], datetime.fromisoformat(ts)))
+    rows.sort(key=lambda r: r[1])
+    best, at = 0, None
+    for _, t0 in rows:
+        tags = {t for t, ts in rows if t0 <= ts < t0 + timedelta(minutes=STOP_WINDOW_MIN)}
+        if len(tags) > best:
+            best, at = len(tags), t0
+    if at is None:
+        return 0, None, []
+    return best, at, [t for t, ts in rows if ts < at + timedelta(seconds=30)][:4]
+
+
+def _tag_count():
+    """태그 마스터 점수. 엔진이 있으면 그쪽 것을 쓴다."""
+    tags = getattr(_impl, "TAGS", None)
+    if tags is None:
+        try:
+            from engine.core import TAGS as tags
+        except Exception:
+            return 0
+    return len(tags)
+
+
+def _stop_question(events):
+    n_tags = _tag_count()
+    burst, at, first = _stop_burst(events)
+    if not n_tags or burst < n_tags * STOP_TAG_RATIO:
+        return None
+    pct = 100.0 * burst / n_tags
+    when = at.strftime("%H:%M")
+    head = ", ".join(first) if first else "확인 필요"
+    body = (
+        "{w} 부터 10분 안에 태그 {b}개(전체의 {p:.0f}%)가 한꺼번에 정상 범위를 벗어났습니다. "
+        "계획 정지·Trip·대규모 계측 장애 중 어느 것인지는 데이터만으로 판단할 수 없어 여쭙니다.\n"
+        "가장 먼저 움직인 태그: {h}\n"
+        "· 정지가 맞다면 — 아래 항목들은 정지에 따른 결과입니다. 「정지 사건」으로 한 번에 "
+        "처리하시고 정지 사유와 first-out 을 코멘트에 남겨 주십시오.\n"
+        "· 정지가 아니라면 — 동시 다발 이탈이라 계측·통신 계통을 먼저 확인해 주십시오."
+    ).format(w=when, b=burst, p=pct, h=head)
+    return {
+        "event_id": None,
+        "origin": "question",
+        "tag": None,
+        "severity": "상",
+        "title": "플랜트를 정지하셨습니까? — {} 경 {}개 태그가 동시에 이탈".format(when, burst),
+        "body": body,
+        "evidence": "10분 창 동시 이탈 {}/{} 태그 ({:.0f}%) · 문턱 {:.0f}%".format(
+            burst, n_tags, pct, STOP_TAG_RATIO * 100),
+        "precedents": [],
+    }
+
+
 def compose(shift, events, find_precedents):
     """이벤트 + 과거 사례 -> 초안 항목 목록.
 
     find_precedents(tag, query) 를 넘겨 준다. 엔진은 저장소를 몰라도 된다.
     """
-    return validate_items(_impl.compose(shift, events, find_precedents))
+    items = validate_items(_impl.compose(shift, events, find_precedents))
+    q = _stop_question(events)
+    if q:
+        items = [q] + items      # 40항목을 읽기 전에 이 한 줄을 먼저 본다
+    return items

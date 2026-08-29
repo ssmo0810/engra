@@ -174,6 +174,56 @@ class ApproveIntegrity(unittest.TestCase):
         self.assertIn("없는 항목", str(cm.exception))
 
 
+class StopQuestion(unittest.TestCase):
+    """정지로 보일 때만 「플랜트를 정지하셨습니까?」 를 띄우는가.
+
+    문턱은 실측으로 정했다. 근무 전체의 이상 태그 비율로는 안 갈린다 — 이상 12종을 넣은
+    정상 근무가 32%, 정지가 87% 로 겹친다. 10분 창 안 동시 발생으로 보면 정지 69.8~90.6%
+    대 이상 주입 7.5% 로 62%p 가 벌어진다 (2026-08-29 실측). 이 여유를 지키는 시험이다.
+    """
+
+    def _events(self, n_tags, spread_min):
+        """태그 n_tags 개가 spread_min 분에 걸쳐 고르게 시작하는 이벤트."""
+        t0 = datetime.datetime(2026, 8, 29, 18, 0, 0)
+        step = (spread_min * 60.0 / n_tags) if n_tags else 0
+        return [{"tag": "T-%03d" % i, "kind": "이탈",
+                 "start_ts": (t0 + datetime.timedelta(seconds=step * i)).isoformat(),
+                 "end_ts": (t0 + datetime.timedelta(seconds=step * i + 60)).isoformat()}
+                for i in range(n_tags)]
+
+    def test_burst_asks_the_question(self):
+        """48개 태그가 10분 안에 함께 무너지면 묻는다 (Trip 실측 모양)."""
+        _fresh_db()
+        import ports
+        q = ports._stop_question(self._events(48, 8))
+        self.assertIsNotNone(q, "정지 모양인데 안 물었다")
+        self.assertIn("정지하셨습니까", q["title"])
+        self.assertEqual(q["origin"], "question")
+        self.assertIsNone(q["tag"], "특정 태그의 항목이 아니다")
+
+    def test_scattered_anomalies_do_not_ask(self):
+        """이상 12종이 12시간에 흩어져 있으면 묻지 않는다 (오작동 방지)."""
+        _fresh_db()
+        import ports
+        self.assertIsNone(ports._stop_question(self._events(17, 720)))
+
+    def test_quiet_shift_does_not_ask(self):
+        """이벤트가 없으면 묻지 않는다."""
+        _fresh_db()
+        import ports
+        self.assertIsNone(ports._stop_question([]))
+
+    def test_threshold_keeps_margin_on_both_sides(self):
+        """실측한 두 무리(7.5% / 69.8%) 사이에 문턱이 있어야 한다."""
+        _fresh_db()
+        import ports
+        n = ports._tag_count()
+        self.assertGreater(n, 0, "태그 마스터를 못 읽었다")
+        thr = n * ports.STOP_TAG_RATIO
+        self.assertGreater(thr, n * 0.075, "이상 주입 실측(7.5%) 보다 위여야 한다")
+        self.assertLess(thr, n * 0.698, "정지 실측(69.8%) 보다 아래여야 한다")
+
+
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):
         _fresh_db()
