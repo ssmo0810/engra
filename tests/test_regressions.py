@@ -8,6 +8,10 @@
 
 DB 는 시험마다 임시 파일을 쓴다. ENGRA_DB 를 바꿔 끼우므로 실제 저장소를 건드리지 않는다.
 AI 는 부르지 않는다(ENGRA_LLM=off) — 시험이 네트워크와 구독에 의존하면 안 된다.
+
+**시험을 추가하면 일부러 되돌려 보고 실패하는지 확인한다.** 통과만 보고 넣으면 아무것도
+안 지키는 시험이 쌓인다. 실제로 CUSUM 시험이 처음에 함수만 불러서, `drift()` 안의 호출
+한 줄을 지워도 통과했다 — 호출부까지 보도록 고쳤다.
 """
 import datetime
 import inspect
@@ -222,6 +226,129 @@ class StopQuestion(unittest.TestCase):
         thr = n * ports.STOP_TAG_RATIO
         self.assertGreater(thr, n * 0.075, "이상 주입 실측(7.5%) 보다 위여야 한다")
         self.assertLess(thr, n * 0.698, "정지 실측(69.8%) 보다 아래여야 한다")
+
+
+class ShiftBoundary(unittest.TestCase):
+    """근무 배정이 시각 경계에서 흔들리지 않는가.
+
+    자정·월말·연말·윤일에서 근무가 쪼개지거나 창이 12시간이 아니게 되면 그 근무의 채점이
+    통째로 어긋난다. 5차에서 12건을 손으로 확인했는데, 손으로 한 것은 다음에 또 해야 한다.
+    """
+
+    CASES = [
+        ("2026-08-21T05:59:59", "2026-08-20-night", "주간 시작 직전"),
+        ("2026-08-21T06:00:00", "2026-08-21-day", "주간 시작"),
+        ("2026-08-21T17:59:59", "2026-08-21-day", "주간 끝"),
+        ("2026-08-21T18:00:00", "2026-08-21-night", "야간 시작"),
+        ("2026-08-21T23:59:59", "2026-08-21-night", "자정 직전"),
+        ("2026-08-22T00:00:00", "2026-08-21-night", "자정 — 같은 근무"),
+        ("2026-08-31T18:00:00", "2026-08-31-night", "월말 야간"),
+        ("2026-09-01T05:59:59", "2026-08-31-night", "월 넘김 — 같은 근무"),
+        ("2026-12-31T18:00:00", "2026-12-31-night", "연말 야간"),
+        ("2027-01-01T05:00:00", "2026-12-31-night", "해 넘김 — 같은 근무"),
+        ("2026-02-28T18:00:00", "2026-02-28-night", "2월 말"),
+        ("2028-02-29T06:00:00", "2028-02-29-day", "윤일"),
+    ]
+
+    def test_every_boundary(self):
+        _fresh_db()
+        import collect
+        for ts, want, label in self.CASES:
+            with self.subTest(label=label):
+                t = datetime.datetime.fromisoformat(ts)
+                sid, kind, a, b = collect.shift_id_for(t)
+                self.assertEqual(sid, want, label)
+                self.assertTrue(a <= t < b, f"{label}: 시각이 창 밖")
+                self.assertAlmostEqual((b - a).total_seconds(), 12 * 3600, places=3,
+                                       msg=f"{label}: 창이 12시간이 아니다")
+
+
+class ScoringRules(unittest.TestCase):
+    """채점 규칙 — 여기가 틀리면 모든 수치가 틀린다.
+
+    4차에서 두 가지를 고쳤다. 앞 근무에서 넘어온 짧은 조각을 미탐지로 세던 것과,
+    주입이 끝나고 값이 돌아오는 구간을 그냥 오탐으로만 세던 것이다.
+    """
+
+    def _score(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "sc", os.path.join(ROOT, "tools", "score.py"))
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
+
+    def test_min_detectable_matches_engine_guard(self):
+        """분모에서 빼는 기준이 엔진의 최소 판정 길이와 맞아야 한다."""
+        _fresh_db()
+        sc = self._score()
+        from engine.core import BLOCK_SEC
+        from engine.detectors import PARAMS
+        need = 20 * BLOCK_SEC          # 검출기 n < 20 가드
+        self.assertEqual(sc.MIN_DETECTABLE_SEC, need,
+                         "엔진이 20블록을 요구하면 채점도 그 길이를 기준으로 해야 한다")
+        self.assertLess(38, sc.MIN_DETECTABLE_SEC,
+                        "실측으로 나온 38초 꼬리는 이 기준 아래여야 한다")
+
+    def test_recovery_window_is_reasonable(self):
+        """복귀 판정 창 — 실측 간격(0~8분)을 담되 지나치게 넓으면 안 된다."""
+        _fresh_db()
+        sc = self._score()
+        self.assertGreaterEqual(sc.RECOVERY_WINDOW_SEC, 8 * 60,
+                                "실측 최대 간격 8분을 담아야 한다")
+        self.assertLessEqual(sc.RECOVERY_WINDOW_SEC, 15 * 60,
+                             "너무 넓으면 진짜 오탐까지 복귀로 덮는다")
+
+    def test_only_drift_is_trend_kind(self):
+        """추세형으로 분류되는 것은 드리프트뿐이다.
+
+        드리프트만 관찰 창을 적는다(실측 평균 247분·최대 720분, 나머지는 최대 120분).
+        여기에 다른 종류를 넣으면 IoU 를 유리하게 나누는 것이 된다.
+        """
+        _fresh_db()
+        sc = self._score()
+        self.assertEqual(tuple(sc.TREND_KINDS), ("드리프트",))
+
+
+class DriftWindowNarrowing(unittest.TestCase):
+    """드리프트 보고 구간을 CUSUM 으로 좁히는 것.
+
+    검출 여부는 안 바꾸고 보고 구간만 좁힌다. 좁히지 못하면 원래 구간을 그대로 돌려준다 —
+    부가 기능이지 판정이 아니기 때문이다.
+    """
+
+    def test_narrows_when_change_starts_late(self):
+        """앞은 평평하고 뒤에서 오르면 오른 지점부터 보고한다."""
+        from engine.detectors import _cusum_narrow
+        n = 240
+        src = [0.0] * 160 + [(k + 1) * 0.5 for k in range(n - 160)]
+        i, j = _cusum_narrow(src, 0, n, s_adj=1.0)
+        self.assertGreater(i, 100, "변화가 시작된 뒤로 시작점이 밀려야 한다")
+        self.assertEqual(j, n, "끝은 그대로 둔다")
+
+    def test_keeps_window_when_flat(self):
+        """움직임이 없으면 원래 구간을 그대로 돌려준다."""
+        from engine.detectors import _cusum_narrow
+        src = [0.0] * 200
+        self.assertEqual(_cusum_narrow(src, 0, 200, s_adj=1.0), (0, 200))
+
+    def test_keeps_window_when_too_short(self):
+        """블록이 너무 적으면 손대지 않는다."""
+        from engine.detectors import _cusum_narrow
+        self.assertEqual(_cusum_narrow([0.0] * 10, 0, 10, s_adj=1.0), (0, 10))
+
+    def test_drift_actually_uses_the_narrowed_window(self):
+        """호출부가 살아 있는가.
+
+        함수만 시험하면 `drift()` 안의 호출 한 줄을 지워도 통과한다 — 실제로 그렇게
+        되돌려 보고 안 잡히는 것을 확인했다. 좁힌 결과가 이벤트 구간으로 나가는지까지 본다.
+        """
+        import inspect
+        from engine import detectors
+        src = inspect.getsource(detectors.drift)
+        self.assertIn("_cusum_narrow(src, i, j", src, "drift 가 좁히기를 불러야 한다")
+        self.assertIn("view, ri, rj", src,
+                      "좁힌 구간(ri, rj)이 이벤트로 나가야 한다 — i, j 를 그대로 쓰면 의미가 없다")
 
 
 class RelatedTagsGuard(unittest.TestCase):
