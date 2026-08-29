@@ -1312,7 +1312,7 @@
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
       D['TI-205'][i] += 0.68*x/3600; } }},
 
-   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601','FI-602','PI-604','LI-701','FI-710','PDI-702','TI-704'], dur:14460,
+   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601', 'FI-602', 'PI-604'], dur:14460,
     desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
     pre:function(D,s,e,c){ var hr=headroom('ZI-601'), a=[6,9,13];
       for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/7200), r=x-k*7200;
@@ -1359,7 +1359,7 @@
       for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
       D['LI-806'][i] = 87.3 + (D['LI-806'][i]-c.memo.b)*0.25 + 2.2*clamp01((x-c.tot*0.6)/(c.tot*0.2)); } }},
 
-   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602','ZI-601','PI-604','LI-701','FI-710','PDI-702','TI-704'], dur:3600,
+   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602', 'ZI-601', 'PI-604'], dur:3600,
     desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
     pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['ZI-601'][i] += 4*Math.sin(2*Math.PI*(c.off+(i-s)*STEP)/900); },
     post:function(D,s,e,c){
