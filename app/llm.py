@@ -199,9 +199,16 @@ def _call_cli(system, user):
     args = [exe, "-p", "--no-session-persistence", "--permission-mode", "dontAsk",
             "--output-format", "json", "--json-schema", json.dumps(ITEM_SCHEMA),
             "--system-prompt", system, user]
-    r = subprocess.run(args, capture_output=True, text=True, timeout=TIMEOUT_SEC)
+    # encoding 을 안 주면 text=True 가 윈도우 로케일(cp949)로 디코딩한다. CLI 응답은 UTF-8
+    # 한글이라 리더 스레드에서 UnicodeDecodeError 가 나는데, 그 예외가 삼켜져 returncode 는
+    # 0 인데 stdout 만 None 으로 온다. 그 다음 json.loads(None) 이 TypeError 로 터진다.
+    r = subprocess.run(args, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=TIMEOUT_SEC)
     if r.returncode != 0:
         raise LLMUnavailable(f"claude CLI 실패 (exit {r.returncode}): {(r.stderr or r.stdout)[-400:]}")
+    if not r.stdout:
+        raise LLMUnavailable(
+            f"claude CLI 가 빈 응답을 돌려줬습니다 (exit {r.returncode}). stderr: {(r.stderr or '')[-300:]}")
     env = json.loads(r.stdout)
     if env.get("is_error"):
         raise LLMUnavailable(f"claude CLI 오류 응답: {str(env.get('result'))[:300]}")
