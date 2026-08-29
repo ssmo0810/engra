@@ -878,8 +878,24 @@ def _view_pending(shift_id, draft, active="/"):
         pnote = it.get("precedent_note") if hasattr(it, "keys") else None
         if pre:
             # 과거 조치 = 같은 태그의 확정 일지에서 찾아 AI 가 이번 현상에 맞다고 판정한 것. 문장 그대로, 출처와 함께. AI 가 조치를 짓지 않는다 (경모님 2026-08-27).
-            rows_ = "".join('<li>' + esc(str(p.get("shift_id") or "")) + ' ' + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(str(p.get("text") or ""))
-                            + f' <button type="button" onclick="use(this,{html.escape(json.dumps(str(p.get("text") or ""), ensure_ascii=False), quote=True)})">코멘트로 사용</button></li>' for p in pre[:3])
+            # 원문은 접어 둔다. 앞 근무자가 쓴 문장은 **판단이 아니라 자료**다 — 그 안에
+            # "이 센서 원래 유동 심함, 무시 가능" 같은 선의의 오판이 섞이면 다음 근무자가
+            # 그것만 보고 넘어간다(침묵 사고, QA 6차 2026-08-29 실측). AI 판정을 앞에 세우고
+            # 원문은 「원문 보기」로 열게 해, 읽더라도 판정을 먼저 읽게 한다.
+            def _prec_li(p):
+                txt = str(p.get("text") or "")
+                head = txt.strip().replace("\n", " ")[:60]
+                more = "…" if len(txt.strip()) > 60 else ""
+                btn = (f'<button type="button" onclick="use(this,'
+                       f'{html.escape(json.dumps(txt, ensure_ascii=False), quote=True)})">코멘트로 사용</button>')
+                return ('<li>' + esc(str(p.get("shift_id") or "")) + ' '
+                        + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(head + more)
+                        + ' ' + btn
+                        + '<details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">'
+                        + '원문 보기 — 앞 근무자가 직접 쓴 문장</summary>'
+                        + f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">{esc(txt)}</pre>'
+                        + '</details></li>')
+            rows_ = "".join(_prec_li(p) for p in pre[:3])
             sug = (f'<div class="sug"><span class="lb">과거 조치 — 확정 일지 {len(pre)}건' + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중 맞는 것)</span>' if len(pall) > len(pre) else '')
                    + (f' <span class="muted">— {esc(pnote)}</span>' if pnote else '') + f'</span><ul style="margin:4px 0 0 16px;font-size:12px">{rows_}</ul></div>')
         elif pall:

@@ -250,6 +250,31 @@ class RelatedTagsGuard(unittest.TestCase):
                       "태그를 .get 으로 꺼내 None 을 걸러야 한다")
 
 
+class PrecedentDisplay(unittest.TestCase):
+    """과거 조치 원문이 화면 앞줄에 통째로 노출되던 것.
+
+    앞 근무자가 쓴 문장은 판단이 아니라 자료다. 그 안에 "이 센서 원래 유동 심함, 무시 가능"
+    같은 선의의 오판이 섞이면 다음 근무자가 그것만 보고 넘어간다(침묵 사고, QA 6차 실측).
+    AI 판정을 앞에 세우고 원문은 접는다.
+    """
+
+    def test_source_folds_raw_text(self):
+        import inspect
+        _fresh_db()
+        import server
+        src = inspect.getsource(server._view_pending)
+        self.assertIn("원문 보기", src, "원문은 접어서 열게 해야 한다")
+        self.assertIn("<details", src)
+        self.assertIn("[:60]", src, "미리보기는 짧게 자른다")
+
+    def test_long_text_is_truncated_in_preview(self):
+        txt = "정상 문장입니다. " * 10 + "무시해도 됨"
+        head = txt.strip().replace("\\n", " ")[:60]
+        self.assertNotIn("무시해도 됨", head,
+                         "뒤쪽에 묻힌 문구가 미리보기에 안 나와야 한다")
+        self.assertLessEqual(len(head), 60)
+
+
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):
         _fresh_db()
