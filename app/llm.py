@@ -269,13 +269,26 @@ def rewrite(shift, items, say=None):
         user = _prompt(shift, chunk)
         # 간헐적으로 빈 응답(output_tokens 0)이 온다 — 서버 첫 시드가 그렇게 죽었다(2026-08-27).
         # 같은 입력을 다시 보내면 성공했으므로 1회 재시도한다. 두 번 다 비면 그때 멈춘다.
+        # 타임아웃도 같이 재시도한다. 앞서는 빈 응답만 다시 보내고 예외는 그대로 올려서,
+        # 부하가 걸린 순간 한 번 늦은 것이 근무 전체 실행을 날렸다 — 실측 10회 중 2회(2026-08-29).
+        # 두 번 다 실패하면 그때 멈춘다(원칙 ① 그대로 — 조용히 문장 틀로 내려가지 않는다).
         got = {}
+        last_err = None
         for attempt in (1, 2):
-            out = _call(SYSTEM, user)
+            try:
+                out = _call(SYSTEM, user)
+            except subprocess.TimeoutExpired as exc:
+                last_err = exc
+                print(f"  ⚠ 배치 {start//BATCH+1}: {TIMEOUT_SEC}초 안에 응답 없음 (시도 {attempt}/2)", flush=True)
+                continue
             got = {o["idx"]: o for o in out.get("items", []) if isinstance(o.get("idx"), int)}
             if len(got) == len(chunk):
                 break
             print(f"  ⚠ 배치 {start//BATCH+1}: {len(chunk)}개 중 {len(got)}개 응답 (시도 {attempt}/2)", flush=True)
+        if last_err is not None and len(got) != len(chunk):
+            raise LLMUnavailable(
+                f"배치 {start//BATCH+1} 이 {TIMEOUT_SEC}초 안에 안 끝났습니다 (2회 시도). "
+                f"부하가 걸렸거나 항목이 많습니다 — 잠시 뒤 다시 실행하거나 ENGRA_LLM=off 로 넘기세요.")
         if len(got) != len(chunk):
             raise LLMUnavailable(f"모델이 배치 {start//BATCH+1} 의 {len(chunk)}개 중 {len(got)}개만 돌려줬습니다 (2회 시도). 전부 있어야 합니다.")
         for local, o in got.items():
