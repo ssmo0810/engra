@@ -148,6 +148,39 @@ def limit_crossings(view):
 
 # --- 2. 드리프트 ------------------------------------------------------
 
+def _cusum_narrow(src, i, j, s_adj):
+    """넓은 창에서 잡은 드리프트의 **보고 구간**만 좁힌다. 검출 여부는 안 바꾼다.
+
+    드리프트 검출은 창을 통째로 놓고 회귀선을 그어 판정하므로, 결과 구간이 그 창 전체가
+    된다 — 「12시간 내내 이상」 이 아니라 「12시간 창으로 봤다」 는 뜻인데 읽는 사람에게는
+    구분이 안 된다. 실측(2026-08-29)으로 검출 구간이 정답의 2.2배를 덮었다(시간축 정밀도 0.40).
+
+    창 앞쪽을 기준선으로 잡고 CUSUM 을 누적해, **한 방향으로 벌어지기 시작한 지점**을 찾는다.
+    O(n) 이고 난수가 없어 재현성이 깨지지 않는다.
+
+    못 좁히겠으면 원래 구간을 그대로 돌려준다 — 좁히는 것은 부가 기능이지 판정이 아니다.
+    """
+    n = j - i
+    if n < 20 or s_adj <= 0:
+        return i, j
+    head = max(5, n // 8)                       # 창 앞 1/8 을 기준선으로 본다
+    base = median(src[i:i + head])
+    slack = 0.5 * s_adj                         # 이 정도 흔들림은 흘려보낸다
+    up = src[j - 1] >= base
+    pos = 0.0
+    start = None
+    for t in range(i + head, j):
+        d = (src[t] - base) if up else (base - src[t])
+        pos = max(0.0, pos + d - slack)
+        if start is None and pos > 0:
+            start = t                           # 벌어지기 시작한 자리 후보
+        elif pos == 0.0:
+            start = None                        # 되돌아왔으면 후보 취소
+        if pos > 4.0 * s_adj and start is not None:
+            return start, j                     # 확실히 벌어진 시점부터 보고한다
+    return i, j
+
+
 def drift(view):
     """서서히 이동해 한 시점에도 알람이 울리지 않는 변화.
 
@@ -222,8 +255,9 @@ def drift(view):
             amb_note = (f" · 실측 변화는 {_fmt(raw_delta, unit)} 이나 "
                         f"외기로 설명되는 몫 {_fmt(amb_delta, unit)} 을 제외한 값")
 
+    ri, rj = _cusum_narrow(src, i, j, view.s_adj)
     return [_event(
-        view, i, j, "드리프트", sev, k,
+        view, ri, rj, "드리프트", sev, k,
         {"delta": round(delta, 4), "per_hour": round(per_hour, 4), "r": round(r, 3),
          "k_sigma": round(k, 2), "eta_to_limit_h": eta, "limit": limit, "unit": unit,
          **extra},
