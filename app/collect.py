@@ -7,6 +7,7 @@
 RTDB 는 데이터를 넘겨주는 통로이지 보관하는 곳이 아니다. 값을 쌓고 지난
 근무와 비교하는 주체는 ENGRA 다 — 그래서 수집한 것을 여기서 저장소에 적재한다.
 """
+import math
 import csv
 import io
 import urllib.request
@@ -157,6 +158,10 @@ def _rows(fh, label, bad=None):
         try:
             ts = datetime.fromisoformat(row["timestamp"])
             value = float(row["value"])
+            # float() 은 NaN·Infinity 를 예외 없이 통과시킨다. NaN 은 저장 단계에서 NOT NULL 로
+            # 죽고 Infinity 는 조용히 저장되므로, 여기서 깨진 값으로 함께 잡는다 (#20).
+            if not math.isfinite(value):
+                raise ValueError(f"유한한 값이 아닙니다: {row['value']!r}")
         except (ValueError, TypeError) as exc:
             if bad is None:
                 raise ValueError(f"{label}:{lineno} 읽기 실패 — {exc}") from exc

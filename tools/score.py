@@ -15,6 +15,12 @@
 오탐은 "어느 주입 구간·영향 태그와도 겹치지 않는 이벤트" 다. 동시 발생(overlaps)
 구간은 정답지 note 대로 두 시나리오 어느 쪽에 붙어도 탐지로 인정한다.
 
+**포함률은 「태그를 맞혔는가」에 가까운 값이다.** 구간이 1초라도 겹치면 세기 때문에,
+정답지를 60분 옮겨도 100% 가 나온다(적대적 시험 B, 2026-08-29). 인계 목적으로는 그것으로
+충분하지만 숫자를 쓸 때는 정의를 밝혀야 하므로 **IoU 를 함께 낸다** — 정답 구간과 검출
+구간의 겹침 비율이고, 1.0 이면 시각까지 맞은 것이다. 이 지표가 10번 시나리오의 가짜
+탐지(IoU 0.03)를 드러냈다.
+
 DB 는 이미 `ingest → run` 이 끝난 상태여야 한다. 이 도구는 읽기만 한다.
 """
 import json
@@ -36,6 +42,36 @@ def _overlap(a0, a1, b0, b1):
     return not (a1 < b0 or b1 < a0)
 
 
+def _iou(a0, a1, b0, b1):
+    """두 구간의 겹침 비율. 1.0 이면 시각까지 정확히 맞은 것."""
+    inter = (min(a1, b1) - max(a0, b0)).total_seconds()
+    if inter <= 0:
+        return 0.0
+    union = (max(a1, b1) - min(a0, b0)).total_seconds()
+    return inter / union if union > 0 else 0.0
+
+
+def _iou_union(a0, a1, ivs):
+    """정답 구간과 매칭 이벤트 **전체의 합집합** 사이의 IoU.
+
+    `_iou` 가 「가장 잘 맞은 이벤트 하나」를 보는 값이라면 이쪽은 검출 묶음 전체가
+    얼마나 군더더기 없는지를 본다. 근무 전체에 걸친 드리프트 이벤트가 같이 붙으면
+    이 값이 크게 떨어진다 — 그것이 의도한 신호다.
+    """
+    merged = []
+    for b0, b1 in sorted(ivs):
+        if merged and b0 <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b1)
+        else:
+            merged.append([b0, b1])
+    inter = sum(max(0.0, (min(a1, b1) - max(a0, b0)).total_seconds()) for b0, b1 in merged)
+    if inter <= 0:
+        return 0.0
+    cover = sum((b1 - b0).total_seconds() for b0, b1 in merged)
+    union = (a1 - a0).total_seconds() + cover - inter
+    return inter / union if union > 0 else 0.0
+
+
 def score(answer_path, only=None):
     key = json.loads(Path(answer_path).read_text(encoding="utf-8"))
     shifts = key["shift_list"] if "shift_list" in key else [key]   # 묶음 / 근무 하나짜리(새 생성기) 둘 다
@@ -50,6 +86,7 @@ def score_shifts(shifts):
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0
     lead_times, missed, false_pos, tracking = [], [], [], []
+    ious = []           # (시나리오, 최선 IoU, 합집합 IoU, 시작오차분) — 시각까지 맞혔는지
     per_shift_trk = {}   # shift_id -> 추적 중 건수
     detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
 
@@ -80,7 +117,18 @@ def score_shifts(shifts):
                 if status != "tracking":
                     total_inj += 1
                     inj_ids.add(inj["scenario_id"])   # 추적 중은 종 커버 분모에도 안 넣는다 — 다음 근무에서 센다 (Codex)
+                iou_best = iou_uni = None
+                start_err = None
+                if found:
+                    ivs = [(_ts(e["start_ts"]), _ts(e["end_ts"])) for _, e in found]
+                    iou_best = max(_iou(a0, a1, b0, b1) for b0, b1 in ivs)
+                    iou_uni = _iou_union(a0, a1, ivs)
+                    # 시작 오차는 「가장 잘 맞은」 이벤트 기준 — 근무 전체 드리프트가 아니라 그 구간을 짚은 이벤트를 본다
+                    best = max(ivs, key=lambda iv: _iou(a0, a1, iv[0], iv[1]))
+                    start_err = (best[0] - a0).total_seconds() / 60
+                    ious.append((inj["scenario_id"], iou_best, iou_uni, start_err))
                 dshift["injected"].append({**inj, "hit": bool(found), "status": status,
+                                           "iou": iou_best, "iou_union": iou_uni, "start_err_min": start_err,
                                            "matched": [{"id": e.get("id"), "tag": e["tag"], "kind": e["kind"],
                                                         "start": e["start_ts"][11:16], "end": e["end_ts"][11:16],
                                                         "evidence": e.get("evidence")} for _, e in found]})
@@ -115,6 +163,7 @@ def score_shifts(shifts):
         "cov_inj": sorted(inj_ids), "cov_hit": sorted(hit_ids),
         "events": total_events, "fp": total_fp,
         "missed": missed, "false_pos": false_pos, "lead": lead_times, "shifts": len(shifts),
+        "iou": ious,
         "detail": detail, "shift_list": shifts,
     }
 
@@ -139,6 +188,21 @@ def main(argv):
     cov_n, cov_d = len(r["cov_hit"]), len(r["cov_inj"])
     miss_ids = sorted(set(r["cov_inj"]) - set(r["cov_hit"]))
     print(f"시나리오 종 커버  {cov_n}/{cov_d} 종" + (f"  · 놓친 종: {miss_ids}" if miss_ids else ""))
+    if r.get("iou"):
+        best = sorted(x[1] for x in r["iou"])
+        mean = sum(best) / len(best)
+        mid = best[len(best) // 2] if len(best) % 2 else (best[len(best)//2 - 1] + best[len(best)//2]) / 2
+        tight = sum(1 for v in best if v >= 0.5)
+        uni = sum(x[2] for x in r["iou"]) / len(r["iou"])
+        print(f"시각 일치도 IoU  평균 {mean:.2f} · 중앙 {mid:.2f} · IoU≥0.5 {tight}/{len(best)}건"
+              f"   (검출 묶음 전체 {uni:.2f})")
+        loose = sorted((v, sid, e) for sid, v, _u, e in r["iou"] if v < 0.5)
+        if loose:
+            print(f"  시각이 헐거운 건 {len(loose)}건 — 태그는 맞았지만 구간이 어긋남")
+            for v, sid, e in loose[:6]:
+                print(f"    #{sid:<3} IoU {v:.2f}  시작 오차 {e:+.0f}분")
+            if len(loose) > 6:
+                print(f"    … 외 {len(loose) - 6}건")
     per = r["fp"] / r["shifts"] if r["shifts"] else 0
     print(f"오탐             {r['fp']}건 / 이벤트 {r['events']}건  (근무당 {per:.1f}건)")
     if r["lead"]:
