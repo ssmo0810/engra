@@ -188,7 +188,7 @@
     <h1>ASU <b>DCS Overview</b></h1>
     <span>ENGRA 기준 도면 · v3.0</span>
     <span class="pill amber">Tag Point 53점</span>
-    <span class="pill">시나리오 주입 15종</span>
+    <span class="pill" id="pillScen">시나리오 주입 —</span>
   </div>
 
   <div class="disc"><b>모의 화면</b> — 사내 실제 태그 체계·시스템 화면과 무관하게 작성한 데모용 도면입니다. 표시된 값은 정상 운전 기준 목데이터입니다.</div>
@@ -1882,6 +1882,10 @@
   }
 
   /* ── 이벤트 연결 ───────────────────────────────────────── */
+  // 상단 배지는 실제 개수로 채운다 — 하드코딩해 두었더니 시나리오가 20→24종이 되도록
+  // 15종에 머물러 있었다(2026-08-29 발견). 화면이 스스로 세게 한다.
+  (function(){ var p=$('pillScen'); if(p) p.textContent='시나리오 주입 '+SCEN.length+'종'; })();
+
   buildScenList(); renderHist();
   if(RUN.chStartMs!==null && RUN.hist.length){
     // 날짜 선택을 마지막 근무의 다음 근무로 맞춰둔다 — 그대로 누르면 이어진다
