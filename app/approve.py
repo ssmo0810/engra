@@ -52,6 +52,13 @@ def decide(shift_id, decisions, confirmed_by="근무자"):
         excluded = [it for it in final["items"] if it["adopted"] == 0]
 
         body = render(final["shift_id"], adopted)
+        # 이미 확정된 근무를 다시 승인하는 경우 이전 확정본을 이력으로 남긴다.
+        # confirm_handover 는 DELETE 후 INSERT 라 그냥 두면 이전 판이 흔적 없이 사라진다 —
+        # 기획서 4-3 "확정 일지는 변경 이력이 남는 구조" 가 화면(재검토)에서만 지켜지고
+        # 명령줄에서는 깨져 있었다.
+        round_no = None
+        if db.load_handover(conn, shift_id) is not None:
+            round_no = db.reopen_handover(conn, shift_id, reason=f"재승인 — {confirmed_by}")
         db.confirm_handover(conn, shift_id, confirmed_by, body, len(adopted), len(excluded))
         db.index_handover(conn, shift_id, adopted)
 
@@ -60,6 +67,7 @@ def decide(shift_id, decisions, confirmed_by="근무자"):
         "adopted": len(adopted),
         "excluded": len(excluded),
         "body": body,
+        "prev_round": round_no,      # 재승인이면 이력으로 남긴 회차. 처음이면 None
     }
 
 

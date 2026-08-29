@@ -147,10 +147,22 @@ def cmd_approve(args):
         print(f"{args.shift_id} 의 초안이 없습니다.")
         return
 
+    known = {it["id"] for it in d["items"]}
     if args.all:
-        chosen = {it["id"] for it in d["items"]}
+        chosen = set(known)
     elif args.items:
-        chosen = {int(x) for x in args.items.split(",") if x.strip()}
+        try:
+            chosen = {int(x) for x in args.items.split(",") if x.strip()}
+        except ValueError:
+            print(f"--items 는 쉼표로 구분한 항목 번호입니다. 받은 것: {args.items!r}")
+            return
+        # 없는 번호를 그냥 두면 아무것도 채택되지 않은 빈 일지가 조용히 확정된다.
+        # 오타 하나로 인수인계가 통째로 비는 것이 가장 나쁜 결과라 여기서 막는다.
+        unknown = sorted(chosen - known)
+        if unknown:
+            print(f"이 초안에 없는 항목입니다: {unknown}")
+            print(f"이 근무의 항목 번호: {sorted(known)}   (python3 app/cli.py draft {args.shift_id} 로 확인)")
+            return
     else:
         print("--all 또는 --items 1,3 으로 채택할 항목을 지정하세요.")
         return
@@ -160,6 +172,8 @@ def cmd_approve(args):
         for it in d["items"]
     }
     r = approve_mod.decide(args.shift_id, decisions, confirmed_by=args.by)
+    if r.get("prev_round"):
+        print(f"※ 이미 확정된 근무입니다. 이전 확정본을 이력 {r['prev_round']}회차로 남기고 다시 확정합니다.")
     print(f"확정: 채택 {r['adopted']}건 · 제외 {r['excluded']}건\n")
     print(r["body"])
 
