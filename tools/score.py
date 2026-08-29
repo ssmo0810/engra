@@ -113,6 +113,8 @@ def score_shifts(shifts):
     total_inj = total_hit = total_events = total_fp = 0
     lead_times, missed, false_pos, tracking = [], [], [], []
     tails = []          # 앞 근무에서 넘어온, 검출 최소 길이보다 짧은 조각
+    lags = []           # (시나리오, 첫 검출까지 걸린 분) — 검출 지연
+    pw = [0.0, 0.0, 0.0]   # 시간축 [맞게 덮은 초, 정답 총 초, 검출 총 초]
     ious = []           # (시나리오, 최선 IoU, 합집합 IoU, 시작오차분) — 시각까지 맞혔는지
     per_shift_trk = {}   # shift_id -> 추적 중 건수
     detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
@@ -170,6 +172,23 @@ def score_shifts(shifts):
                     best_kind = found[best_i][1]["kind"]
                     is_trend = best_kind in TREND_KINDS
                     ious.append((inj["scenario_id"], iou_best, iou_uni, start_err, best_kind, is_trend))
+                    # 검출 지연(MTTD) — 주입이 시작되고 몇 분 뒤에 처음 잡았나.
+                    # 외부 검토(2026-08-29)에서 "이상이 터지고 몇 분 뒤에 잡는지 안 재고 있다" 는
+                    # 지적을 받아 넣었다. 음수면 주입 전부터 잡은 것(추세형 창이 앞서 열린 경우).
+                    first = min(b0 for b0, _ in ivs)
+                    lags.append((inj["scenario_id"], (first - a0).total_seconds() / 60.0))
+                    # 시간축 겹침 — 초 단위로 맞춘 양/놓친 양/넘친 양
+                    merged = []
+                    for b0, b1 in sorted(ivs):
+                        if merged and b0 <= merged[-1][1]:
+                            merged[-1][1] = max(merged[-1][1], b1)
+                        else:
+                            merged.append([b0, b1])
+                    inter = sum(max(0.0, (min(a1, b1) - max(a0, b0)).total_seconds()) for b0, b1 in merged)
+                    cover = sum((b1 - b0).total_seconds() for b0, b1 in merged)
+                    pw[0] += inter                      # 맞게 덮은 시간
+                    pw[1] += (a1 - a0).total_seconds()  # 정답 시간
+                    pw[2] += cover                      # 검출이 덮은 시간
                 dshift["injected"].append({**inj, "hit": bool(found), "status": status,
                                            "iou": iou_best, "iou_union": iou_uni, "start_err_min": start_err,
                                            "iou_kind": (locals().get("best_kind") if found else None),
@@ -223,7 +242,7 @@ def score_shifts(shifts):
         "cov_inj": sorted(inj_ids), "cov_hit": sorted(hit_ids),
         "events": total_events, "fp": total_fp,
         "missed": missed, "false_pos": false_pos, "lead": lead_times, "shifts": len(shifts),
-        "tails": tails,
+        "tails": tails, "lags": lags, "pointwise": pw,
         "iou": ious,
         "detail": detail, "shift_list": shifts,
     }
@@ -280,6 +299,19 @@ def main(argv):
                 print(f"    #{sid:<3} IoU {v:.2f}  시작 오차 {err:+.0f}분")
             if len(loose) > 6:
                 print(f"    … 외 {len(loose) - 6}건")
+    if r.get("lags"):
+        L = sorted(v for _, v in r["lags"])
+        mid = L[len(L)//2] if len(L) % 2 else (L[len(L)//2 - 1] + L[len(L)//2]) / 2
+        late = [v for v in L if v > 0]
+        print(f"검출 지연 (MTTD)  중앙 {mid:+.0f}분 · 평균 {sum(L)/len(L):+.0f}분 · "
+              f"주입 뒤에 잡은 것 {len(late)}/{len(L)}건" + (f" (최대 +{max(late):.0f}분)" if late else ""))
+    pw = r.get("pointwise") or [0, 0, 0]
+    if pw[1] > 0:
+        rec = pw[0] / pw[1]
+        prec = pw[0] / pw[2] if pw[2] else 0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0
+        print(f"시간축 겹침       재현율 {rec:.2f} · 정밀도 {prec:.2f} · F1 {f1:.2f}"
+              f"   (정답 {pw[1]/3600:.1f}h · 검출 {pw[2]/3600:.1f}h · 겹침 {pw[0]/3600:.1f}h)")
     per = r["fp"] / r["shifts"] if r["shifts"] else 0
     rec = sum(1 for x in r["false_pos"] if len(x) > 5 and x[5] is not None)
     line = f"오탐             {r['fp']}건 / 이벤트 {r['events']}건  (근무당 {per:.1f}건)"
