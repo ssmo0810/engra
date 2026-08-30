@@ -144,20 +144,12 @@ def minutes(iss):
 # ── 난관과 극복 ───────────────────────────────────────────────────────
 
 def troubles(cs):
+    """난관과 극복 — 사람이 쓴 기록을 앞에, 커밋에서 자동 수집한 목록은 부록으로.
+    자동 수집 100여 건을 앞에 두면 심사위원이 5요소가 갖춰진 기록에 닿기 전에 지친다(경모님 2026-08-30)."""
     hits = [c for c in cs if TROUBLE.search(c["subject"] + c["body"])]
     L = [h(1, "난관과 극복 사례"),
-         "개발 중 문제를 만나 해결한 기록입니다. 커밋 메시지에서 문제·수정 관련 서술이 "
-         "있는 건을 뽑았고, 내용은 당시 기록 그대로입니다.\n",
-         f"총 {len(hits)}건 / 전체 커밋 {len(cs)}건\n"]
-    for c in hits:
-        L.append(h(2, c["subject"]))
-        L.append(f"{c['date']} · {c['author']} · `{c['hash']}`\n\n")
-        if c["body"]:
-            L.append("\n".join("> " + ln if ln.strip() else ">"
-                               for ln in c["body"].splitlines()) + "\n\n")
-    # 팀원이 직접 쓴 기록 — 커밋 메시지에 없는 과정의 디테일(시도 순서·뒤집힌 판단). 원문 그대로 붙인다.
-    L.append(h(1, "팀원이 직접 쓴 기록"))
-    L.append("커밋 본문에 담기지 않은 과정을 담당자가 직접 정리한 것입니다. 자동 수집분과 사실이 겹치더라도 관점이 다르므로 원문 그대로 둡니다.\n\n")
+         "앞부분은 담당자가 직접 정리한 기록(무엇이 예상과 달랐나 → 시도 순서 → 각 결과 → 남긴 것과 포기한 것 → 새로 알게 된 것)이고, "
+         "부록은 커밋 메시지에서 문제·수정 서술이 있는 건을 자동으로 뽑은 원문입니다.\n\n"]
     eng = ROOT / "engine" / "난관기록.md"
     if eng.exists():
         L.append(h(2, "검출 엔진 — 정기영 (engine/난관기록.md)"))
@@ -169,6 +161,17 @@ def troubles(cs):
             L.append(raw.strip() + "\n\n")
     except Exception as exc:   # gh 없이도 문서는 만들어진다 — 그 사실을 남긴다
         L.append(f"(이슈 #15 본문을 읽지 못했습니다: {exc})\n\n")
+    L.append(h(2, "배선·AI 계층·사용자 QA — 박경모 (과제 기획서 5-3)"))
+    L.append("과제 기획서 5-3 절에 6건을 5요소 형식으로 정리했습니다(공개 URL 배포 실패의 오진과 정정 · 물리 불가능 값 · 수치 복사 사고 · "
+             "사용자 QA 가 뒤집은 구조 4건 등). 여기서는 중복하지 않고 그 문서를 가리킵니다.\n\n")
+    L.append(h(1, "부록 — 커밋에서 자동 수집한 문제·수정 기록"))
+    L.append(f"총 {len(hits)}건 / 전체 커밋 {len(cs)}건. 내용은 당시 커밋 본문 그대로입니다.\n\n")
+    for c in hits:
+        L.append(h(2, c["subject"]))
+        L.append(f"{c['date']} · {c['author']} · `{c['hash']}`\n\n")
+        if c["body"]:
+            L.append("\n".join("> " + ln if ln.strip() else ">"
+                               for ln in c["body"].splitlines()) + "\n\n")
     return "".join(L)
 
 
