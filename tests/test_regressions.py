@@ -402,6 +402,183 @@ class PrecedentDisplay(unittest.TestCase):
         self.assertLessEqual(len(head), 60)
 
 
+class PrevExclusionParking(unittest.TestCase):
+    """제외한 항목이 다음 근무에 그대로 다시 올라오던 것 (#30).
+
+    같은 것을 5근무 연속 제외해도 6번째에 또 떴다. 경모님 결정(2026-08-30)은
+    **최하단 노출만** — 승격 조건도 만료 시간도 넣지 않는다. 숨기는 것이 아니라
+    자리를 옮기는 것이라서, 항목이 사라지지 않는지까지 확인한다.
+    """
+
+    def _shift(self, conn, sid, start, end):
+        import db
+        conn.execute(
+            "INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+            "VALUES (?,?,?,?,'test',?)", (sid, sid.rsplit("-", 1)[1], start, end, db.now()))
+
+    def _excluded(self, conn, sid, tag="TI-403", kind="드리프트", confirm=True, comment=None):
+        """그 근무에서 태그·종류 하나를 제외한 채 확정한다."""
+        import db
+        cur = conn.execute(
+            "INSERT INTO event (shift_id, tag, kind, severity, detector, created_at) "
+            "VALUES (?,?,?,'중','test',?)", (sid, tag, kind, db.now()))
+        eid = cur.lastrowid
+        cur = conn.execute(
+            "INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,?,'test',?)",
+            (sid, "confirmed" if confirm else "pending", db.now()))
+        did = cur.lastrowid
+        conn.execute(
+            "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, "
+            "severity, adopted, comment) VALUES (?,?,1,'detected',?,?,'본문','중',0,?)",
+            (did, eid, tag, tag + " 드리프트", comment))
+        if confirm:
+            conn.execute(
+                "INSERT INTO handover (shift_id, draft_id, confirmed_by, confirmed_at, "
+                "adopted_count, excluded_count, body) VALUES (?,?,?,?,0,1,'')",
+                (sid, did, "운전원A", "2026-08-25T18:05:00"))
+
+    def test_confirmed_exclusion_is_found(self):
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            self._shift(conn, "2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+            self._shift(conn, "2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
+            self._excluded(conn, "2026-08-25-day")
+            got = db.recent_exclusions(conn, "2026-08-25-night")
+        self.assertIn(("TI-403", "드리프트"), got, "지난 근무의 제외를 찾아야 한다")
+        self.assertEqual(got[("TI-403", "드리프트")]["by"], "운전원A")
+
+    def test_unconfirmed_draft_is_not_counted(self):
+        """확정되지 않은 초안의 제외는 결정이 아니다 — 아직 아무도 승인하지 않았다."""
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            self._shift(conn, "2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+            self._shift(conn, "2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
+            self._excluded(conn, "2026-08-25-day", confirm=False)
+            got = db.recent_exclusions(conn, "2026-08-25-night")
+        self.assertEqual(got, {}, "확정 전 초안의 제외는 세면 안 된다")
+
+    def test_later_shift_does_not_leak_backwards(self):
+        """뒤 근무의 판단이 앞 근무의 초안에 영향을 주면 안 된다."""
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            self._shift(conn, "2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+            self._shift(conn, "2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
+            self._excluded(conn, "2026-08-25-night")
+            got = db.recent_exclusions(conn, "2026-08-25-day")
+        self.assertEqual(got, {})
+
+    def test_repeat_count(self):
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            self._shift(conn, "2026-08-24-day", "2026-08-24T06:00:00", "2026-08-24T18:00:00")
+            self._shift(conn, "2026-08-24-night", "2026-08-24T18:00:00", "2026-08-25T06:00:00")
+            self._shift(conn, "2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+            self._excluded(conn, "2026-08-24-day")
+            self._excluded(conn, "2026-08-24-night")
+            got = db.recent_exclusions(conn, "2026-08-25-day")
+        self.assertEqual(got[("TI-403", "드리프트")]["times"], 2, "연속 제외 횟수를 센다")
+        self.assertEqual(got[("TI-403", "드리프트")]["shift_id"], "2026-08-24-night",
+                         "가장 최근 제외를 보여야 한다")
+
+    # --- 화면 ---------------------------------------------------------
+
+    def _pending(self, prev_excluded_json, adopted="NULL", sev="중"):
+        """항목 두 개짜리 초안. 두 번째만 이전 제외 표시가 붙는다."""
+        _fresh_db()
+        import db
+        sid = "2026-08-26-day"
+        with db.connect() as conn:
+            self._shift(conn, sid, "2026-08-26T06:00:00", "2026-08-26T18:00:00")
+            cur = conn.execute(
+                "INSERT INTO draft (shift_id, status, generator, generated_at) "
+                "VALUES (?, 'pending','test',?)", (sid, db.now()))
+            did = cur.lastrowid
+            rows = [("PI-604", "보통 항목", None), ("TI-403", "내려갈 항목", prev_excluded_json)]
+            for seq, (tag, title, pj) in enumerate(rows, 1):
+                conn.execute(
+                    "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, "
+                    "evidence, severity, prev_excluded_json, adopted) "
+                    "VALUES (?, NULL, ?, 'detected', ?, ?, '본문', '근거', ?, ?, " + adopted + ")",
+                    (did, seq, tag, title, sev if pj else "중", pj))
+            ids = [r[0] for r in conn.execute(
+                "SELECT id FROM draft_item WHERE draft_id = ? ORDER BY seq", (did,))]
+            draft = db.load_draft(conn, sid)
+        import server
+        return server._view_pending(sid, draft), ids
+
+    def test_screen_parks_at_bottom_and_does_not_hide(self):
+        import json
+        pj = json.dumps({"shift_id": "2026-08-25-day", "by": "운전원A",
+                         "at": "2026-08-25T18:05:00", "times": 3, "comment": None},
+                        ensure_ascii=False)
+        page, ids = self._pending(pj)
+        box = "이전에 제외한 것 —"   # 최하단 칸 제목. 머리글의 안내 문구와 구별한다
+        self.assertIn(box, page, "최하단 칸이 있어야 한다")
+        self.assertIn("내려갈 항목", page, "숨기면 안 된다 — 항목은 그대로 남는다")
+        self.assertLess(page.index("보통 항목"), page.index(box),
+                        "보통 항목이 먼저, 제외했던 것이 최하단")
+        self.assertLess(page.index(box), page.index("내려갈 항목"),
+                        "내려간 항목은 최하단 칸 안에 들어가야 한다")
+        self.assertIn("3근무 연속", page, "반복 제외 횟수를 보인다")
+        self.assertIn("운전원A", page, "누가 제외했는지 밝힌다")
+
+    def test_parked_item_defaults_unchecked(self):
+        import json
+        pj = json.dumps({"shift_id": "2026-08-25-day", "by": "운전원A", "times": 1},
+                        ensure_ascii=False)
+        page, ids = self._pending(pj)
+        self.assertIn('value="%d" onchange=' % ids[1], page,
+                      "미결정 + 이전 제외면 앞 근무자의 결정을 이어받아 꺼져 있어야 한다")
+        self.assertIn('value="%d" checked onchange=' % ids[0], page,
+                      "보통 항목은 그대로 켜져 있어야 한다")
+        self.assertIn('채택 <b id="n">1</b> / <span>2</span>건', page,
+                      "채택 카운터가 켜진 개수와 맞아야 한다")
+
+    def test_worker_decision_beats_previous_shift(self):
+        """근무자가 이번에 채택했으면 그 값이 우선한다 — 지난 결정이 덮으면 안 된다."""
+        import json
+        pj = json.dumps({"shift_id": "2026-08-25-day", "by": "운전원A", "times": 1},
+                        ensure_ascii=False)
+        page, ids = self._pending(pj, adopted="1")
+        self.assertIn('value="%d" checked onchange=' % ids[1], page)
+
+    def test_high_severity_is_named_in_the_folded_summary(self):
+        """접힌 채로도 무거운 것이 들었는지는 보여야 한다.
+
+        실측: 근무 A 에서 제외한 MI-804 HH 초과(중요도 상)가 근무 B 에서 최하단으로
+        내려갔다. 「중요도 상이면 본문으로 올린다」 는 판정 규칙이라 넣지 않기로 했으므로
+        (#30 결정), 자리는 그대로 두고 제목에 밝히는 것으로 대신한다.
+        """
+        import json
+        pj = json.dumps({"shift_id": "2026-08-25-day", "by": "운전원A", "times": 1},
+                        ensure_ascii=False)
+        page, ids = self._pending(pj, sev="상")
+        self.assertIn("중요도 상 1건 포함", page, "접힌 제목에 중요도를 밝혀야 한다")
+        # 그래도 자리는 최하단이다 — 승격 규칙을 넣은 것이 아니다
+        self.assertLess(page.index("이전에 제외한 것 —"), page.index("내려갈 항목"))
+
+    def test_ai_is_not_told_about_previous_exclusion(self):
+        """AI 가 이전 제외를 알면 "전에 제외됐으니 괜찮다" 로 판정을 접는다(침묵 사고).
+
+        표시는 반드시 llm.rewrite 뒤에 붙어야 한다.
+        """
+        _fresh_db()
+        import pipeline
+        src = inspect.getsource(pipeline)
+        self.assertIn("recent_exclusions", src, "표시 단계가 있어야 한다")
+        self.assertLess(src.index("llm.rewrite("), src.index("db.recent_exclusions("),
+                        "이전 제외 표시는 AI 호출 뒤에 와야 한다")
+        self.assertLess(src.index("db.recent_exclusions("), src.index("db.save_draft("),
+                        "표시한 뒤에 저장해야 한다")
+        import llm
+        self.assertNotIn("prev_excluded", inspect.getsource(llm),
+                         "프롬프트·스키마에 이전 제외가 들어가면 안 된다")
+
+
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):
         _fresh_db()

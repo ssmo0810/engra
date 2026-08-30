@@ -200,6 +200,22 @@ def run(shift_id, verbose=True, redo=False, say=None):
         result["ai"] = ai_status
         say(f"서술 작성 — {ai_status}")
 
+        # 4-2) 지난 근무에서 근무자가 제외한 것과 같은 (태그, 종류) 에 표시를 단다.
+        # AI 호출 **뒤**에 붙인다 — 프롬프트에 넣으면 AI 가 "전에 제외됐으니 괜찮다" 로
+        # 판정을 접는다(침묵 사고와 같은 경로). 화면과 조립만의 관심사다.
+        # 항목을 지우거나 빼지 않는다. 초안 최하단으로 자리만 옮긴다 (#30).
+        prev_ex = db.recent_exclusions(conn, shift_id)
+        kind_of = {e["id"]: e.get("kind") for e in stored}
+        marked = 0
+        for it in items:
+            info = prev_ex.get((it.get("tag"), kind_of.get(it.get("event_id"))))
+            if info:
+                it["prev_excluded"] = info
+                marked += 1
+        result["prev_excluded"] = marked
+        if marked:
+            say(f"지난 근무에서 제외했던 항목 {marked}개 — 최하단으로 내립니다 (숨기지 않음)")
+
         db.save_draft(conn, shift_id, items, ports.engine_source(), model=(llm.MODEL if llm.mode() != "off" else None))
         result["items"] = len(items)
         say(f"초안 {len(items)}개 항목 생성 — 승인 대기")

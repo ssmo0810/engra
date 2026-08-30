@@ -846,9 +846,26 @@ def _waves(shift_id):
     return out
 
 
+def _prev_ex_note(pe):
+    """지난 근무에서 누가·언제 제외했는지. 판단이 아니라 자료로 보인다."""
+    who = str(pe.get("by") or "앞 근무자")
+    sid = str(pe.get("shift_id") or "")
+    when = str(pe.get("at") or "")[:10]
+    times = int(pe.get("times") or 1)
+    rep = f' · <b>{times}근무 연속</b>' if times > 1 else ""
+    cmt = pe.get("comment")
+    tail = f' <span class="muted">— 남긴 코멘트: {esc(str(cmt))}</span>' if cmt else ""
+    return ('<div class="note" style="margin:6px 0 4px"><b>이전 제외</b> — '
+            + esc(sid) + ' ' + esc(when) + ' ' + esc(who) + ' 님이 이 태그·종류를 제외했습니다'
+            + rep + tail + '</div>')
+
+
 def _view_pending(shift_id, draft, active="/"):
     waves = _waves(shift_id)
     items = []
+    low = []            # 지난 근무에서 제외한 것 — 지우지 않고 최하단으로 내린다 (#30)
+    low_hi = 0          # 그중 중요도 '상' 건수
+    on_n = 0
     quality = None
     with db.connect() as conn:
         quality = db.load_quality(conn, shift_id)
@@ -900,8 +917,21 @@ def _view_pending(shift_id, draft, active="/"):
                    + (f' <span class="muted">— {esc(pnote)}</span>' if pnote else '') + f'</span><ul style="margin:4px 0 0 16px;font-size:12px">{rows_}</ul></div>')
         elif pall:
             sug = f'<div class="sug muted" style="font-size:12px"><span class="lb">과거 조치 없음</span>같은 태그 확정 일지 {len(pall)}건이 있었지만 이 현상에 맞지 않다고 판단' + (f' — {esc(pnote)}' if pnote else '') + '</div>'
-        items.append(f"""<div class="item">
-<div class="row1"><input type="checkbox" name="item" value="{it['id']}"{"" if it.get("adopted") == 0 else " checked"} onchange="tg(this)">
+        # 지난 근무에서 제외한 것과 같은 (태그·종류) 는 최하단 칸으로 내린다.
+        # 숨기지 않는다 — 한 번의 제외가 영구 삭제가 되면 안 된다 (#30, 경모님 결정 2026-08-30).
+        # 승격 조건·만료 시간 규칙은 넣지 않는다(마감 앞 판정 규칙을 하나 덜기로 함).
+        pe = it.get("prev_excluded") if hasattr(it, "keys") else None
+        if pe:
+            judged += _prev_ex_note(pe)
+        # 근무자가 이미 정한 것이 있으면 그 값이 우선한다. 미결정이면 앞 근무자의
+        # 제외 결정을 이어받아 꺼진 채로 둔다 — 보이되 기본으로 일지에 들어가진 않는다.
+        on = it.get("adopted") == 1 or (it.get("adopted") is None and not pe)
+        if on:
+            on_n += 1
+        if pe and it.get("severity") == "상":
+            low_hi += 1
+        (low if pe else items).append(f"""<div class="item{"" if on else " off"}">
+<div class="row1"><input type="checkbox" name="item" value="{it['id']}"{" checked" if on else ""} onchange="tg(this)">
 <div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
 <div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
 <div class="body">
@@ -910,7 +940,7 @@ def _view_pending(shift_id, draft, active="/"):
 <textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
 
-    if not items:
+    if not items and not low:
         items.append('<div class="card"><div class="empty">감지된 항목이 없습니다. '
                      '아래에서 직접 추가할 수 있습니다.</div></div>')
 
@@ -919,6 +949,25 @@ def _view_pending(shift_id, draft, active="/"):
         disc = ('<div class="disc">임시 엔진으로 돌고 있습니다. 알람 한계를 넘은 것만 잡히고, '
                 '헌팅·드리프트·상관 붕괴 같은 신호는 감지되지 않습니다. '
                 '검출 엔진이 연결되면 이 목록이 달라집니다.</div>')
+
+    # 최하단 「이전에 제외한 것」 — 접혀 있지만 건수는 항상 보인다.
+    # 접힘은 읽기 부담을 줄이려는 것이지 감추려는 것이 아니다.
+    lowbox = ""
+    if low:
+        lowbox = (
+            '<details class="card" style="padding:10px 16px">'
+            '<summary style="cursor:pointer;font-weight:600">이전에 제외한 것 — '
+            + str(len(low)) + '건'
+            # 접힌 채로도 무거운 것이 들었는지는 보여야 한다. 자리를 바꾸지는 않는다 —
+            # 「중요도 상이면 본문으로 올린다」 는 판정 규칙이라 넣지 않기로 했다 (#30 결정).
+            + (' <b style="color:var(--bad,#c0392b)">중요도 상 ' + str(low_hi) + '건 포함</b>'
+               if low_hi else '')
+            + '<span class="muted" style="font-weight:400;font-size:12px"> · 지난 근무에서 '
+            '근무자가 제외한 것과 같은 태그·종류입니다</span></summary>'
+            '<p class="note" style="margin:8px 0 10px">숨기지 않고 여기에 계속 둡니다. '
+            '체크하면 이번 일지에 들어갑니다 — <b style="color:var(--ink)">한 번의 제외가 '
+            '영구 삭제가 되지 않게</b> 하려는 자리입니다.</p>'
+            + "".join(low) + '</details>')
 
     date, kind = shift_id.rsplit("-", 1)
     n = len(draft["items"])
@@ -932,18 +981,20 @@ def _view_pending(shift_id, draft, active="/"):
 <p class="note" style="margin:0">감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다.
 적을 것을 고르고, 필요하면 코멘트를 답니다. 최종 판단은 근무자가 합니다.</p></div>
 <div class="muted" style="font-size:12px;text-align:right">감지
-<b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)</div>
+<b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)
+{f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}</div>
 </div>
 <form method="post" action="/approve">
 <input type="hidden" name="shift_id" value="{esc(shift_id)}">
 {"".join(items)}
+{lowbox}
 <div id="mans"></div>
 <div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;
      gap:12px;flex-wrap:wrap;align-items:center">
 <span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다.
 여러 건을 넣을 수 있습니다.</span>
 <button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>
-<div class="bar"><div class="cnt">채택 <b id="n">{n}</b> / <span>{n}</span>건
+<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건
 <span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span></div>
 <button type="submit" class="btn">승인하고 확정</button></div>
 </form>""", active=active)

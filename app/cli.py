@@ -138,6 +138,12 @@ def cmd_draft(args):
             print(f"      근거: {it['evidence']}")
         if it["suggested_action"]:
             print(f"      과거 조치: {it['suggested_action']}")
+        # 화면에서 최하단으로 내려가는 항목은 명령줄에서도 그 사실이 보여야 한다 (#30)
+        pe = it.get("prev_excluded")
+        if pe:
+            rep = f" · {pe['times']}근무 연속" if (pe.get("times") or 1) > 1 else ""
+            print(f"      이전 제외: {pe.get('shift_id') or '-'} "
+                  f"{(pe.get('by') or '앞 근무자')} 님{rep} — 최하단 「이전에 제외한 것」")
 
 
 def cmd_approve(args):

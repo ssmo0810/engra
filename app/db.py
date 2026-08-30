@@ -181,7 +181,7 @@ def connect():
 def _migrate(conn):
     """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게."""
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT")):
         if col not in have:
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
@@ -533,8 +533,8 @@ def save_draft(conn, shift_id, items, generator, model=None):
     conn.executemany(
         """INSERT INTO draft_item
            (draft_id, event_id, seq, origin, tag, title, body, evidence,
-            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, precedents_all_json, adopted)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
+            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, precedents_all_json, prev_excluded_json, adopted)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
         [
             (
                 draft_id, it.get("event_id"), i, it.get("origin", "detected"),
@@ -546,6 +546,7 @@ def save_draft(conn, shift_id, items, generator, model=None):
                 json.dumps(it.get("related_tags_ai") or [], ensure_ascii=False), it.get("related_note"),
                 json.dumps(it.get("precedents", []), ensure_ascii=False),
                 json.dumps(it.get("precedents_all", []), ensure_ascii=False),   # 기각한 사례도 남긴다 — 라벨이 "없음" 과 "맞지 않음" 을 구분 (Codex)
+                (json.dumps(it["prev_excluded"], ensure_ascii=False) if it.get("prev_excluded") else None),
             )
             for i, it in enumerate(items, start=1)
         ],
@@ -566,11 +567,60 @@ def load_draft(conn, shift_id):
         it["precedents"] = json.loads(it.pop("precedent_json") or "[]")
         it["precedents_all"] = json.loads(it.pop("precedents_all_json", None) or "[]")
         try:
+            it["prev_excluded"] = json.loads(it.pop("prev_excluded_json", None) or "null")
+        except (TypeError, ValueError):
+            it["prev_excluded"] = None
+        try:
             it["related_tags_ai"] = json.loads(it.get("related_tags_ai") or "[]")
         except (TypeError, ValueError):
             it["related_tags_ai"] = []
         draft["items"].append(it)
     return draft
+
+
+
+def recent_exclusions(conn, before_shift):
+    """확정된 지난 근무에서 근무자가 **제외한** 항목을 (태그, 종류) 별로 모은다.
+
+    쓰는 곳은 화면과 초안 조립뿐이다. 검출 엔진도 AI 도 이 값을 보지 않는다 —
+    보면 "전에 제외했으니 이번에도 아니다" 로 판정을 접는 경로가 생긴다
+    (침묵 사고, QA 6차 2026-08-29 실측과 같은 계열).
+
+    억제가 아니라 **자리 옮김**이다. 항목은 지워지지 않고 초안 최하단
+    「이전에 제외한 것」 칸으로 내려갈 뿐이다 (#30, 경모님 결정 2026-08-30 —
+    승격 조건·만료 시간은 넣지 않는다).
+    """
+    row = conn.execute(
+        "SELECT window_start FROM shift WHERE id = ?", (before_shift,)
+    ).fetchone()
+    if row is None or row["window_start"] is None:
+        return {}
+    out = {}
+    for r in conn.execute(
+        """SELECT e.tag AS tag, e.kind AS kind, d.shift_id AS shift_id,
+                  di.comment AS comment, h.confirmed_by AS by_who,
+                  h.confirmed_at AS at_when
+             FROM draft_item di
+             JOIN draft d    ON d.id = di.draft_id
+             JOIN event e    ON e.id = di.event_id
+             JOIN shift s    ON s.id = d.shift_id
+             JOIN handover h ON h.shift_id = d.shift_id
+            WHERE di.adopted = 0
+              AND s.window_start < ?
+            ORDER BY s.window_start""",
+        (row["window_start"],),
+    ):
+        key = (r["tag"], r["kind"])
+        prev = out.get(key)
+        out[key] = {
+            "shift_id": r["shift_id"],
+            "by": r["by_who"],
+            "at": r["at_when"],
+            "comment": r["comment"],
+            # 몇 근무 연속으로 제외됐는지. 숨기지는 않지만 반복은 보인다 (#21 과 같은 뿌리)
+            "times": (prev["times"] + 1) if prev else 1,
+        }
+    return out
 
 
 # --- 확정 일지와 색인 -------------------------------------------------
