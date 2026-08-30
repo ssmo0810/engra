@@ -561,6 +561,29 @@ class PrevExclusionParking(unittest.TestCase):
         # 그래도 자리는 최하단이다 — 승격 규칙을 넣은 것이 아니다
         self.assertLess(page.index("이전에 제외한 것 —"), page.index("내려갈 항목"))
 
+    def test_old_database_gets_the_new_column(self):
+        """라이브 seed.db 는 새 컬럼이 없는 202MB 짜리다. 재시작만으로 붙어야 한다.
+
+        붙지 않으면 초안 저장이 "no such column" 으로 죽는다 — 배포가 통째로 멈춘다.
+        """
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            conn.execute("ALTER TABLE draft_item DROP COLUMN prev_excluded_json")
+            self.assertNotIn("prev_excluded_json",
+                             {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")})
+        db.init()                      # 서버 기동·cli 가 하는 것과 같은 호출
+        with db.connect() as conn:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
+        self.assertIn("prev_excluded_json", cols, "재시작 한 번으로 컬럼이 붙어야 한다")
+
+    def test_scheduled_run_migrates_by_itself(self):
+        """교대 타이머(`cli.py run --latest`)는 무인으로 돈다. 혼자 서야 한다."""
+        import cli
+        src = inspect.getsource(cli.cmd_run)
+        self.assertIn("db.init()", src,
+                      "배포와 서버 재시작 사이에 타이머가 먼저 돌면 새 컬럼 없이 저장한다")
+
     def test_ai_is_not_told_about_previous_exclusion(self):
         """AI 가 이전 제외를 알면 "전에 제외됐으니 괜찮다" 로 판정을 접는다(침묵 사고).
 
