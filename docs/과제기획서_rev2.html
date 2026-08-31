@@ -34,38 +34,38 @@ code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
 .p-eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
   color:var(--muted); margin-bottom:16px; }
 .p-eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
-.p-title{ font-size:29pt; line-height:1.22; font-weight:800; color:var(--ink);
+.p-title{ font-size:26pt; line-height:1.21; font-weight:800; color:var(--ink);
   letter-spacing:-.022em; margin:0 0 10px; text-wrap:balance; }
 .p-title .accent{ color:var(--sk); }
-.p-lead{ font-size:14pt; color:var(--body); margin:0; font-weight:500; }
+.p-lead{ font-size:12.6pt; color:var(--body); margin:0; font-weight:500; }
 .p-lead b{ color:var(--sk); font-weight:800; }
 .p-rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
-  margin:16px 0 18px; }
+  margin:12px 0 13px; }
 
 .p-flow{ display:flex; align-items:center; justify-content:space-between; gap:4px;
-  border:1px solid var(--rule); background:var(--wash); padding:12px 14px; font-size:9.4pt;
-  color:var(--body); margin:0 0 32px; }
+  border:1px solid var(--rule); background:var(--wash); padding:10px 13px; font-size:8.9pt;
+  color:var(--body); margin:0 0 24px; }
 .p-flow span{ text-align:center; line-height:1.4; }
 .p-flow b{ color:var(--sk-deep); }
 .p-flow i{ color:var(--sk); font-style:normal; font-weight:700; font-size:10pt; flex:none; }
 
-.p-h{ font-size:9.4pt; font-weight:800; color:var(--sk); letter-spacing:.1em;
-  margin:0 0 12px; padding-bottom:5px; border-bottom:1.5px solid var(--rule); }
-.p-why-lead{ font-size:11pt; line-height:1.62; color:var(--ink); margin:0 0 16px; }
+.p-h{ font-size:8.8pt; font-weight:800; color:var(--sk); letter-spacing:.1em;
+  margin:0 0 9px; padding-bottom:4px; border-bottom:1.5px solid var(--rule); }
+.p-why-lead{ font-size:10.3pt; line-height:1.58; color:var(--ink); margin:0 0 14px; }
 
-.p-two{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:0 0 34px; }
-.p-two h4{ margin:0 0 5px; font-size:10.6pt; color:var(--ink); font-weight:700;
+.p-two{ display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; margin:0 0 26px; }
+.p-two h4{ margin:0 0 4px; font-size:9.9pt; color:var(--ink); font-weight:700;
   padding-left:9px; border-left:3px solid var(--sk); }
-.p-two p{ margin:0; font-size:9.8pt; line-height:1.62; color:var(--body); padding-left:12px; }
+.p-two p{ margin:0; font-size:8.9pt; line-height:1.56; color:var(--body); padding-left:12px; }
 
-.p-three{ display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin:0 0 22px; }
-.p-three > div{ border:1px solid var(--rule); border-top:2.5px solid var(--sk); padding:14px 13px 15px; }
-.p-three h4{ margin:0 0 8px; font-size:9.8pt; color:var(--muted); font-weight:700; }
-.p-three .big{ font-size:17pt; font-weight:800; color:var(--sk); line-height:1.16;
-  letter-spacing:-.02em; margin:0 0 7px; }
-.p-three p{ margin:0; font-size:9.1pt; line-height:1.58; color:var(--body); }
+.p-three{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin:0 0 16px; }
+.p-three > div{ border:1px solid var(--rule); border-top:2.5px solid var(--sk); padding:11px 11px 12px; }
+.p-three h4{ margin:0 0 6px; font-size:9pt; color:var(--muted); font-weight:700; }
+.p-three .big{ font-size:13.6pt; font-weight:800; color:var(--sk); line-height:1.16;
+  letter-spacing:-.02em; margin:0 0 5px; }
+.p-three p{ margin:0; font-size:8.3pt; line-height:1.52; color:var(--body); }
 
-.p-foot{ margin-top:auto; font-size:8pt; color:var(--muted); line-height:1.6;
+.p-foot{ margin-top:auto; font-size:7.8pt; color:var(--muted); line-height:1.6;
   border-left:2.5px solid var(--sk); padding-left:10px; }
 
 /* 표지의 짧은 문단은 양끝맞춤을 끈다 — 폭이 좁아 낱말 사이가 벌어진다 */
@@ -142,26 +142,47 @@ ul.tight li{ margin:.16em 0; }
     <div><h4>기억에 의존한다</h4>
       <p>12시간 · 태그 수백 점이 기록되지만, 다음 근무로 넘어가는 것은 기억한 몇 줄입니다.</p></div>
     <div><h4>알람 밖은 사라진다</h4>
-      <p>한계선에 닿지 않은 느린 변화는 기록이 없어 다음 조가 모릅니다. 우리가 정의한
-      특이 시나리오 <b>24종 중 알람이 울리는 것은 7종</b>뿐입니다.</p></div>
+      <p>한계선에 닿지 않은 느린 변화는 기록이 없어 다음 조가 모릅니다. 정의한 시나리오
+      <b>24종 중 알람이 울리는 것은 7종</b>뿐입니다.</p></div>
+    <div><h4>사람마다 기준이 다르다</h4>
+      <p>무엇이 인계할 만한 특이사항인지 공통 기준이 없어, 같은 근무를 보고도 조마다 다른
+      문장이 남습니다.</p></div>
+    <div><h4>지난 일지가 잠들어 있다</h4>
+      <p>지금 이 현상이 반복 이슈인지, 과거에 어떻게 조치했는지는 사람이 기억해서 찾아야
+      합니다.</p></div>
   </div>
 
   <h2 class="p-h">무엇이 달라지나</h2>
   <div class="p-three">
     <div>
       <h4>놓치지 않는다</h4>
-      <div class="big">미탐지 0건</div>
-      <p>가상 DCS 6근무 · 심어둔 이상 46건. 알람이 울리지 않는 13종까지 포함 <span class="tag m">실측</span></p>
+      <div class="big">시험 탐지율 100%</div>
+      <p>독립 정답지 대조 22/22 · 46/46 — 미탐지 0건. 알람이 울리지 않는 13종까지 포함 <span class="tag m">실측</span></p>
     </div>
     <div>
-      <h4>시간이 줄어든다</h4>
-      <div class="big">빈 종이 → 초안</div>
-      <p>태그 53점 · 12시간 · 114만 점을 되짚는 일이 사람의 시간에서 사라집니다 <span class="tag m">실측</span></p>
+      <h4>모두가 일관된 인수인계</h4>
+      <div class="big">같은 기준 · 같은 초안</div>
+      <p>기억이 아니라 태그 53점 전수 통계 검토로 후보를 뽑습니다. 누가 근무해도 같은 기준에서 시작합니다</p>
+    </div>
+    <div>
+      <h4>헛알람이 없다</h4>
+      <div class="big">오탐 0건</div>
+      <p>결함 없는 정상 14근무(690만 점)에서 검출 0건. 주입 뒤 복귀 구간을 빼면 오탐도 0건 <span class="tag m">실측</span></p>
     </div>
     <div>
       <h4>경험이 쌓인다</h4>
       <div class="big">승인 → 다음 초안</div>
       <p>근무자가 남긴 코멘트가 다음 근무 초안의 「과거 조치」로 되돌아옵니다 <span class="tag m">실측</span></p>
+    </div>
+    <div>
+      <h4>근거가 남는다</h4>
+      <div class="big">환각 0개</div>
+      <p>항목마다 태그·시각·수치가 연결됩니다. AI 본문의 숫자 423개 중 지어낸 것 0개 <span class="tag m">실측</span></p>
+    </div>
+    <div>
+      <h4>시간이 줄어든다</h4>
+      <div class="big">빈 종이 → 초안</div>
+      <p>태그 53점 · 12시간 · 114만 점을 되짚는 일이 사람의 시간에서 사라집니다 <span class="tag m">실측</span></p>
     </div>
   </div>
 
