@@ -65,7 +65,9 @@ code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
   letter-spacing:-.02em; margin:0 0 5px; }
 .p-three p{ margin:0; font-size:8.3pt; line-height:1.52; color:var(--body); }
 
-.p-tier{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin:0 0 16px; }
+.p-tier{ display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:0 7px; margin:0 0 16px; }
+.p-tier > i{ align-self:center; color:var(--sk); font-style:normal; font-weight:800;
+  font-size:13pt; line-height:1; }
 .p-tier > div{ border:1px solid var(--rule); border-left:2.5px solid var(--sk);
   padding:10px 11px 11px; background:var(--wash); }
 .p-tier .lv{ font-size:8pt; font-weight:800; color:var(--sk); letter-spacing:.06em; margin-bottom:2px; }
@@ -184,7 +186,7 @@ ul.tight li{ margin:.16em 0; }
     </div>
   </div>
 
-  <h2 class="p-h">앞으로 확장성 — 우리의 확장 계획</h2>
+  <h2 class="p-h">앞으로의 성장성 — 우리의 확장 계획</h2>
   <div class="p-tier">
     <div>
       <div class="lv">1층</div>
@@ -192,12 +194,14 @@ ul.tight li{ margin:.16em 0; }
       <p>소속 파트의 교대 근무조 — 기존 일지관리 시스템 사용자 <b>약 30명</b>이 직접 대상.
       새로 만들 것은 실제 태그 명세와 RTDB 어댑터 하나뿐입니다.</p>
     </div>
+    <i>→</i>
     <div>
       <div class="lv">2층</div>
       <h4>동일 구조의 교대 사업장</h4>
       <p>반도체 팹·정유·화학·발전·배터리 등 24시간 교대 사업장. <b>검출 알고리즘까지 그대로</b>
       쓰고 태그 명세와 데이터 소스 어댑터만 바꿉니다.</p>
     </div>
+    <i>→</i>
     <div>
       <div class="lv">3층</div>
       <h4>교대 현장 너머</h4>
