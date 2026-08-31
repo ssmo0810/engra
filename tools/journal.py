@@ -164,14 +164,18 @@ def troubles(cs):
     L.append(h(2, "배선·AI 계층·사용자 QA — 박경모 (과제 기획서 5-3)"))
     L.append("과제 기획서 5-3 절에 6건을 5요소 형식으로 정리했습니다(공개 URL 배포 실패의 오진과 정정 · 물리 불가능 값 · 수치 복사 사고 · "
              "사용자 QA 가 뒤집은 구조 4건 등). 여기서는 중복하지 않고 그 문서를 가리킵니다.\n\n")
+    # 부록은 목록만 둔다 — 커밋 본문 전문은 「개발 일지」에 날짜별로 같은 글이 실려 있어
+    # 전문을 다시 실으면 이 문서의 83% 가 중복이 된다(임도영 이슈 #32 실측, 2026-08-31).
     L.append(h(1, "부록 — 커밋에서 자동 수집한 문제·수정 기록"))
-    L.append(f"총 {len(hits)}건 / 전체 커밋 {len(cs)}건. 내용은 당시 커밋 본문 그대로입니다.\n\n")
+    L.append(f"총 {len(hits)}건 / 전체 커밋 {len(cs)}건입니다. "
+             "각 건의 경위(무엇이 문제였고 무엇으로 확인했는지)는 커밋 본문에 그대로 남아 있고, "
+             "그 원문은 같은 폴더의 「개발 일지」에 날짜순으로 실려 있습니다. "
+             "여기서는 문제축으로 한눈에 보도록 목록만 둡니다.\n\n")
+    L.append("| 날짜 | 문제·수정 | 커밋 |\n| --- | --- | --- |\n")
     for c in hits:
-        L.append(h(2, c["subject"]))
-        L.append(f"{c['date']} · {c['author']} · `{c['hash']}`\n\n")
-        if c["body"]:
-            L.append("\n".join("> " + ln if ln.strip() else ">"
-                               for ln in c["body"].splitlines()) + "\n\n")
+        subj = c["subject"].replace("|", "\\|")
+        L.append(f"| {c['date']} | {subj} | `{c['hash']}` |\n")
+    L.append("\n")
     return "".join(L)
 
 

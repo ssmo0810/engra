@@ -8,6 +8,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 MODE="${1:-dry}"; VIDEO="${2:-}"; FLAG="--dry-run"; [ "$MODE" = "go" ] && FLAG=""
 R="gdrive:254. 앙그라쥬"
+# 파생물을 먼저 최신화한다(zip 해시·데이터세트·04) — 손으로 맞추면 어긋난다(이슈 #33)
+[ "$MODE" = "go" ] && [ "${SKIP_REFRESH:-}" != "1" ] && bash tools/refresh_submission.sh
 for d in "01. 과제 기획서" "02. 결과물" "03. 데이터 세트" "04. 제작 과정"; do
   echo "== $d"
   F=(--filter "- README_*.docx" --filter "+ 데이터세트/README_데이터세트.md" --filter "+ 데이터세트/scenarios.md" --filter "- *.md" --filter "- *.html")
