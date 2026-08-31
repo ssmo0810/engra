@@ -28,49 +28,51 @@ strong,b{ color:var(--ink); font-weight:700; }
 code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
   background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
 
-/* ───────── 포스터 (1면) ───────── */
-.poster{ page-break-after:always; }
-.p-eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.6pt; letter-spacing:.13em;
-  color:var(--muted); text-transform:uppercase; margin-bottom:8px; }
-.p-eyebrow::before{ content:""; width:22px; height:2.5px; background:var(--sk); flex:none; }
-.p-title{ font-size:18.5pt; line-height:1.18; font-weight:800; color:var(--ink);
-  letter-spacing:-.02em; margin:0 0 6px; text-wrap:balance; }
+/* ───────── 표지 (1면) — PPT 느낌: 전달할 말과 결과만 ───────── */
+.poster{ page-break-after:always; padding-top:5mm;
+  display:flex; flex-direction:column; min-height:250mm; }
+.p-eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:16px; }
+.p-eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.p-title{ font-size:29pt; line-height:1.22; font-weight:800; color:var(--ink);
+  letter-spacing:-.022em; margin:0 0 10px; text-wrap:balance; }
 .p-title .accent{ color:var(--sk); }
-.p-sub{ font-size:8.6pt; color:var(--muted); margin:0 0 3px; line-height:1.5; }
-.p-rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 34%,var(--rule) 34% 100%);
-  margin:9px 0 10px; }
+.p-lead{ font-size:14pt; color:var(--body); margin:0; font-weight:500; }
+.p-lead b{ color:var(--sk); font-weight:800; }
+.p-rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:16px 0 18px; }
 
-.p-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px 8px; }
-.p-card{ border:1px solid var(--rule); border-top:2.5px solid var(--sk);
-  padding:6px 8px 7px; background:#fff; }
-.p-card.wide{ grid-column:1 / -1; }
-.p-card h3{ margin:0 0 3px; font-size:8.6pt; color:var(--ink); font-weight:700;
-  display:flex; gap:7px; align-items:baseline; }
-.p-card h3 .n{ color:var(--sk); font-weight:800; font-size:9.8pt; font-variant-numeric:tabular-nums; }
-.p-card p{ margin:0 0 .26em; font-size:7.4pt; line-height:1.4; }
-.p-card p:last-child{ margin-bottom:0; }
-.p-card ul{ margin:.12em 0 0; padding-left:.86em; font-size:7.4pt; line-height:1.38; }
-.p-card li{ margin:.09em 0; }
-.p-why{ color:var(--sk-deep); font-weight:700; }
+.p-flow{ display:flex; align-items:center; justify-content:space-between; gap:4px;
+  border:1px solid var(--rule); background:var(--wash); padding:12px 14px; font-size:9.4pt;
+  color:var(--body); margin:0 0 32px; }
+.p-flow span{ text-align:center; line-height:1.4; }
+.p-flow b{ color:var(--sk-deep); }
+.p-flow i{ color:var(--sk); font-style:normal; font-weight:700; font-size:10pt; flex:none; }
 
-table.mini{ width:100%; border-collapse:collapse; font-size:6.9pt; margin:.18em 0 0; }
-table.mini th{ background:var(--wash); color:var(--sk-deep); font-weight:700;
-  text-align:left; padding:2px 4px; border-bottom:1.2px solid var(--sk); font-size:6.9pt; }
-table.mini td{ padding:2px 4px; border-bottom:1px solid var(--rule-soft);
-  vertical-align:top; line-height:1.42; }
-table.mini td:first-child{ color:var(--muted); white-space:nowrap; }
+.p-h{ font-size:9.4pt; font-weight:800; color:var(--sk); letter-spacing:.1em;
+  margin:0 0 12px; padding-bottom:5px; border-bottom:1.5px solid var(--rule); }
+.p-why-lead{ font-size:11pt; line-height:1.62; color:var(--ink); margin:0 0 16px; }
 
-.p-metrics{ margin-top:8px; border-top:1px solid var(--rule); padding-top:6px;
-  display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-.p-metrics div{ text-align:center; }
-.p-metrics .v{ font-size:11.4pt; font-weight:800; color:var(--sk); line-height:1.16;
-  font-variant-numeric:tabular-nums; }
-.p-metrics .k{ font-size:6.8pt; color:var(--muted); line-height:1.3; margin-top:1px; }
-.p-foot{ margin-top:7px; font-size:7.3pt; color:var(--muted); line-height:1.48;
-  border-left:2.5px solid var(--sk); padding-left:8px; }
+.p-two{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:0 0 34px; }
+.p-two h4{ margin:0 0 5px; font-size:10.6pt; color:var(--ink); font-weight:700;
+  padding-left:9px; border-left:3px solid var(--sk); }
+.p-two p{ margin:0; font-size:9.8pt; line-height:1.62; color:var(--body); padding-left:12px; }
+
+.p-three{ display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin:0 0 22px; }
+.p-three > div{ border:1px solid var(--rule); border-top:2.5px solid var(--sk); padding:14px 13px 15px; }
+.p-three h4{ margin:0 0 8px; font-size:9.8pt; color:var(--muted); font-weight:700; }
+.p-three .big{ font-size:17pt; font-weight:800; color:var(--sk); line-height:1.16;
+  letter-spacing:-.02em; margin:0 0 7px; }
+.p-three p{ margin:0; font-size:9.1pt; line-height:1.58; color:var(--body); }
+
+.p-foot{ margin-top:auto; font-size:8pt; color:var(--muted); line-height:1.6;
+  border-left:2.5px solid var(--sk); padding-left:10px; }
+
+/* 표지의 짧은 문단은 양끝맞춤을 끈다 — 폭이 좁아 낱말 사이가 벌어진다 */
+.p-two p,.p-three p,.p-flow,.p-foot,.p-lead{ text-align:left; }
 
 /* ───────── 본문 ───────── */
-h1.sec{ font-size:15.4pt; font-weight:800; color:var(--ink); letter-spacing:-.01em;
+h1.sec{ font-size:15.4pt; page-break-before:avoid; font-weight:800; color:var(--ink); letter-spacing:-.01em;
   margin:0 0 12px; padding-bottom:7px; border-bottom:2.5px solid var(--sk);
   page-break-after:avoid; }
 h1.sec .n{ color:var(--sk); margin-right:9px; }
@@ -78,7 +80,9 @@ h2.sub{ font-size:11.4pt; font-weight:700; color:var(--ink); margin:20px 0 7px;
   padding-left:11px; border-left:3.5px solid var(--sk); page-break-after:avoid; }
 h3.ss{ font-size:10.2pt; font-weight:700; color:var(--sk-deep); margin:14px 0 5px;
   page-break-after:avoid; }
-.sec-wrap{ page-break-before:always; }
+/* 장마다 새 면에서 시작하게 하면 앞 장의 꼬리가 두 줄만 남고 한 면이 통째로 빈다
+   (실측: 8개 면이 24~91% 공란). 흐르게 두고, 제목이 면 끝에 혼자 남는 것만 막는다. */
+.sec-wrap{ margin-top:26px; }
 
 table.d{ width:100%; border-collapse:collapse; font-size:8.9pt; margin:9px 0 12px; }
 table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
@@ -97,15 +101,14 @@ table.d tr{ page-break-inside:avoid; }
 .plain{ border-left:3px solid var(--rule); padding:7px 12px; margin:10px 0;
   font-size:9.2pt; color:var(--muted); }
 
-.tag{ display:inline-block; font-size:7.6pt; font-weight:700; padding:.1em .46em;
-  border-radius:2.5px; vertical-align:.1em; margin-right:3px; letter-spacing:.02em; }
+.tag{ display:inline-block; font-size:5.6pt; font-weight:700; padding:.05em .3em;
+  border-radius:2px; vertical-align:.16em; letter-spacing:.02em; white-space:nowrap; }
 .tag.m{ background:var(--sk); color:#fff; }                       /* 실측 */
 .tag.e{ background:#EEEFF2; color:#5C5F68; }                      /* 추정 */
-.tag.x{ border:1px solid var(--sk); color:var(--sk); }            /* 미측정 */
+.tag.x{ border:.7px solid var(--sk); color:var(--sk); }            /* 미측정 */
 
 ol.hard{ counter-reset:hd; list-style:none; margin:0; padding:0; }
-ol.hard > li{ counter-increment:hd; position:relative; padding-left:26px; margin:0 0 13px;
-  page-break-inside:avoid; }
+ol.hard > li{ counter-increment:hd; position:relative; padding-left:26px; margin:0 0 13px; }
 ol.hard > li::before{ content:counter(hd); position:absolute; left:0; top:.06em;
   width:18px; height:18px; border-radius:50%; background:var(--sk); color:#fff;
   font-size:8.4pt; font-weight:800; display:flex; align-items:center; justify-content:center; }
@@ -116,107 +119,55 @@ ul.tight li{ margin:.16em 0; }
 </head>
 <body>
 
-<!-- ══════════════════ 1면 · 포스터 ══════════════════ -->
+<!-- ══════════════════ 1면 · 표지 ══════════════════ -->
 <section class="poster">
   <div class="p-eyebrow">SK AI 해커톤 2026 · AI Solution 리그 본선 · 과제 기획서</div>
+
   <h1 class="p-title">AI <span class="accent">ENGRA</span>,<br>교대 인수인계의 혁신의 틀을 구축하다.</h1>
-  <p class="p-sub">팀 <b>앙그라쥬</b> · 서비스 <b>ENGRA</b> — 플랜트 운전 데이터에서 AI가 근무 구간의 특이사항을 분석·요약해
-  교대 인수인계 초안을 자동으로 작성하고, 근무자는 선택·보완·승인만 합니다.</p>
+  <p class="p-lead">교대 인수인계를, <b>데이터가 먼저 쓴다.</b></p>
   <div class="p-rule"></div>
 
-  <div class="p-grid">
-
-    <div class="p-card">
-      <h3><span class="n">01</span> 누구의 어떠한 문제를 해결하는가</h3>
-      <p><b>24시간 연속 공정의 교대 운전원</b>입니다. 설비는 멈추지 않는데 사람은 12시간마다 바뀌므로,
-      근무 중 무엇이 특이했는지를 <b>교대 말미에 기억으로 재구성해</b> 적습니다.</p>
-      <p class="p-why">그렇게 판단한 근거 세 가지</p>
-      <ul>
-        <li>정의한 특이 시나리오 <b>24종 중 DCS 알람이 울리는 것은 7종</b>뿐 — 나머지는 알람 체계
-        안에서 조용히 다음 근무로 넘어갑니다.</li>
-        <li>태그 100개를 12시간 추이로 되짚으면 <b>근무당 약 100분</b><span class="tag e">추정</span> —
-        교대 준비 시간에 불가능하므로 선별 확인으로 대체됩니다.</li>
-        <li>세 사람 모두 <b>같은 교대 현장 근무자</b>입니다 — 문제를 겪는 사람이 곧 만드는 사람입니다.</li>
-      </ul>
-    </div>
-
-    <div class="p-card">
-      <h3><span class="n">02</span> 목표 수치와 그 수치의 산출 근거</h3>
-      <table class="mini">
-        <tr><th>목표</th><th>산출 근거</th><th>현재</th></tr>
-        <tr><td>알람 미발생<br>포함률 <b>90%↑</b></td>
-            <td>20종 중 18종 = 알람 미발생 13종 <b>전부</b> + 알람 발생 7종 중 5종</td>
-            <td><b>100%</b><br>22/22·46/46</td></tr>
-        <tr><td>초안 생성<br><b>5분</b> 이내</td>
-            <td>교대 <b>1시간 전</b> 생성이라는 운영 조건의 10%</td>
-            <td>5.4초<br>+AI 7~10분</td></tr>
-        <tr><td>채택률 <b>50%↑</b></td>
-            <td>초안의 절반이 일지에 남으면 신뢰하고 쓴다는 하한선</td>
-            <td><span class="tag x">미측정</span></td></tr>
-      </table>
-      <p style="margin-top:5px">모든 목표치가 <b>셀 수 있는 근거</b>에서 역산한 값입니다. 100%를 걸지 않은 것에도
-      근거가 있습니다 — 상관 붕괴·3초 스파이크처럼 원리적으로 검출되지 않는 유형을 <b>일부러 넣었기</b> 때문입니다.</p>
-    </div>
-
-    <div class="p-card wide">
-      <h3><span class="n">03</span> 현재 방식(AS-IS)과 제안 방식(TO-BE)</h3>
-      <table class="mini">
-        <tr><th style="width:15%"></th><th style="width:40%">AS-IS — 현재 방식</th><th>TO-BE — ENGRA</th></tr>
-        <tr><td>기록 대상 선정</td><td>근무자의 기억과 재량. 공통 기준 없음</td>
-            <td>태그 53점 <b>전수</b> 통계 검토 후 후보 추출</td></tr>
-        <tr><td>알람에 안 걸리는 변화</td><td>구조적 누락 — 24종 중 알람 7종</td>
-            <td>알람 미발생 13종을 베이스라인 상대 편차로 검출 — <b>포함률 100%</b><span class="tag m">실측</span></td></tr>
-        <tr><td>전수 검토 시간</td><td>근무당 약 100분<span class="tag e">추정</span></td>
-            <td>적재 3.2초 + 검출 2.2초, AI 포함 7~10분<span class="tag m">실측</span></td></tr>
-        <tr><td>과거 조치</td><td>사람이 기억해서 찾아야 함</td>
-            <td>확정 일지가 다음 초안의 「과거 조치」로 <b>자동 회수</b><span class="tag m">실측</span></td></tr>
-      </table>
-    </div>
-
-    <div class="p-card">
-      <h3><span class="n">04</span> AI가 어느 단계에서 무엇을 판단·실행하는가</h3>
-      <p>통계 검출기는 <b>후보 추출에만</b> 쓰고 그 위에 AI 판단 계층을 얹은 <b>2층 구조</b>입니다.
-      판단 지점 네 곳 모두 구현해 7근무로 실측했습니다.</p>
-      <table class="mini">
-        <tr><th>AI가 하는 판단</th><th>7근무 실측</th></tr>
-        <tr><td><b>중요도 재판정</b> — 통계 크기가 아니라 결과 기준</td><td>52항목 중 10건(19%) 뒤집음</td></tr>
-        <tr><td><b>사례 적합성</b> — 태그가 같아도 증상이 다르면 기각</td><td>후보 50건 → 채택 33 · 기각 17</td></tr>
-        <tr><td><b>의미 묶음</b> — 정의에 없는 조합을 공정 지식으로 잇기</td><td>판정 사유 31/31 (100%)</td></tr>
-        <tr><td><b>서술</b> — 근거 수치로 항목별 문장</td><td>숫자 환각 <b>423개 중 0개</b></td></tr>
-      </table>
-      <p style="margin-top:4px"><b>조치 문장은 AI가 쓰지 않습니다</b> — 절차를 모르므로 과거 일지의 문장만
-      인용하고, 없는 조치를 지어낸 건 <b>0건</b>입니다. AI가 끊기면 초안 생성이 <b>멈춥니다</b>(폴백 없음).</p>
-    </div>
-
-    <div class="p-card">
-      <h3><span class="n">05</span> 누구에게, 어디까지 쓰일 수 있는가</h3>
-      <table class="mini">
-        <tr><th>층</th><th>대상</th><th>새로 만들 것</th></tr>
-        <tr><td><b>1층</b></td><td>우리 현장 — 기존 일지관리 시스템 사용자 약 30명</td>
-            <td>실제 태그 명세, RTDB 어댑터 1개</td></tr>
-        <tr><td><b>2층</b></td><td>반도체 팹·정유·화학·발전·배터리 등 교대 사업장</td>
-            <td>사업장별 태그 명세, 데이터 소스 어댑터</td></tr>
-        <tr><td><b>3층</b></td><td>교대 너머 — 사무의 인수인계·업무 일지·주간 보고</td>
-            <td>업무 데이터 소스 연결, 특이사항 정의</td></tr>
-      </table>
-      <p style="margin-top:4px">사업장이 바뀌면 태그의 이름·단위·범위가 달라질 뿐 <b>문제 구조는 그대로</b>
-      입니다. 설비 고유 정보를 <b>태그 마스터 한 파일</b>로 빼고 태그별 베이스라인으로 판정하므로
-      <b>사업장마다 문턱값을 다시 튜닝할 필요가 없습니다.</b></p>
-    </div>
-
+  <div class="p-flow">
+    <span>운전 데이터 <b>12시간</b></span><i>→</i>
+    <span>검출</span><i>→</i>
+    <span><b>AI 초안</b> · 교대 1시간 전</span><i>→</i>
+    <span>사람이 승인</span><i>↻</i>
+    <span>다음 근무 초안으로</span>
   </div>
 
-  <div class="p-metrics">
-    <div><div class="v">100%</div><div class="k">주입 건 포함률<br>22/22 · 46/46</div></div>
-    <div><div class="v">0건</div><div class="k">정상 14근무<br>(690만 점) 오탐</div></div>
-    <div><div class="v">114만</div><div class="k">태그 53점 × 12시간<br>실제 근무 1구간</div></div>
-    <div><div class="v">18.3초</div><div class="k">50일 100근무 뒤<br>검출 시간</div></div>
-    <div><div class="v">0</div><div class="k">외부 라이브러리<br>의존</div></div>
+  <h2 class="p-h">왜 만들었나</h2>
+  <p class="p-why-lead">같은 현상이 조마다 다른 문장으로 남거나, 아예 남지 않았습니다.
+  그래서 <b>데이터가 먼저 쓰게</b> 했습니다.</p>
+  <div class="p-two">
+    <div><h4>기억에 의존한다</h4>
+      <p>12시간 · 태그 수백 점이 기록되지만, 다음 근무로 넘어가는 것은 기억한 몇 줄입니다.</p></div>
+    <div><h4>알람 밖은 사라진다</h4>
+      <p>한계선에 닿지 않은 느린 변화는 기록이 없어 다음 조가 모릅니다. 우리가 정의한
+      특이 시나리오 <b>24종 중 알람이 울리는 것은 7종</b>뿐입니다.</p></div>
   </div>
 
-  <p class="p-foot"><b>모든 데이터는 가상입니다</b> — 사내 원본 데이터·실제 태그 체계·시스템 화면을 일절
-  쓰지 않았습니다. 수치에 <span class="tag m">실측</span><span class="tag e">추정</span><span class="tag x">미측정</span>을
-  표시했고 기준일은 2026-08-31, 단일 출처는 <code>docs/공식수치.md</code>입니다.</p>
+  <h2 class="p-h">무엇이 달라지나</h2>
+  <div class="p-three">
+    <div>
+      <h4>놓치지 않는다</h4>
+      <div class="big">미탐지 0건</div>
+      <p>가상 DCS 6근무 · 심어둔 이상 46건. 알람이 울리지 않는 13종까지 포함 <span class="tag m">실측</span></p>
+    </div>
+    <div>
+      <h4>시간이 줄어든다</h4>
+      <div class="big">빈 종이 → 초안</div>
+      <p>태그 53점 · 12시간 · 114만 점을 되짚는 일이 사람의 시간에서 사라집니다 <span class="tag m">실측</span></p>
+    </div>
+    <div>
+      <h4>경험이 쌓인다</h4>
+      <div class="big">승인 → 다음 초안</div>
+      <p>근무자가 남긴 코멘트가 다음 근무 초안의 「과거 조치」로 되돌아옵니다 <span class="tag m">실측</span></p>
+    </div>
+  </div>
+
+  <p class="p-foot"><b>모든 데이터는 가상입니다</b> — 사내 원본 데이터·실제 태그 체계·시스템 화면을
+  일절 쓰지 않았습니다. 문제 정의와 근거는 2장, 목표 수치와 산출 근거는 5-1, AI 가 무엇을 판단하는지는
+  3-5, 확장 범위는 6-3 에 있습니다. 수치의 단일 출처는 <code>docs/공식수치.md</code>이며 기준일은 2026-08-31입니다.</p>
 </section>
 
 <!-- ══════════════════ 1. 팀 소개 ══════════════════ -->
@@ -252,7 +203,7 @@ ul.tight li{ margin:.16em 0; }
 
   <h3 class="ss">팀원 임도영 — 현장 도메인 정의 · QA</h3>
   <p>SK에어플러스 용인생산팀에서 ASU Operator Board로 근무하며 축적한 공정 운영 경험을 바탕으로,
-  본선 기간에 <b>특이 시나리오 24종</b>과 계측 태그 53점의 명세를 완성하고 <b>적대적 QA 7회</b>를
+  본선 기간에 <b>특이 시나리오 24종</b>과 계측 태그 53점의 명세를 완성하고 <b>다방면 QA 7회</b>를
   수행했습니다. <b>①</b> 시나리오 24종 — 헌팅·드리프트·파과·고착·서지 전조·상관 붕괴 등 실제 ASU
   공정에서 문제가 되는 유형을 형태·크기·지속·중요도·판단 근거까지 정의했습니다. 알람에 걸리지 않는
   13종과 알람이 울리는 7종으로 나누어 두 경로를 모두 시험할 수 있게 구성했고, 이후 계획된 정상 운전
@@ -262,22 +213,10 @@ ul.tight li{ margin:.16em 0; }
   재현됩니다. 태그 간 연동을 적용해 주입한 변화가 다른 태그로 전파되게 만들었습니다.
   <b>④</b> 전파 경로와 기대 탐지 결과 정의 — "어느 태그에서 몇 분 안에 잡혀야 하는가"를 시나리오마다
   명시해, 통합 테스트의 합격 기준으로 그대로 쓸 수 있게 했습니다.</p>
-  <p><b>⑤ 적대적 QA 7회 — 만든 사람의 시험지로 재지 않기 위한 독립 검증.</b> 검출기를 만든 사람과
-  무관하게 데이터와 정답지를 따로 만들어 채점하고, 회차마다 각도를 바꿔 흔들었습니다. 이 과정에서
-  <b>결함 6건</b>을 찾아 고쳤습니다.</p>
-  <table class="d">
-    <tr><th style="width:13%">회차</th><th style="width:32%">무엇을 흔들었나</th><th>드러난 것</th></tr>
-    <tr><td>1차</td><td>독립 정답지 대조</td><td>외기 일주기를 드리프트로 오인하는 오탐 근무당 10건, 근무 경계 드리프트 미검출 — 자체 점검(20/20·오탐 0.8건)과 달랐다</td></tr>
-    <tr><td>2차</td><td>AI 경로·승인 워크플로</td><td>한글 윈도우에서 AI 초안 생성이 100% 실패(인코딩 미지정). 재승인이 확정 일지를 흔적 없이 덮어씀</td></tr>
-    <tr><td>3차</td><td>발표 근거의 출처</td><td>발표 첫 화면 수치에 출처가 없었다 → <code>docs/공식수치.md</code>를 단일 출처로 신설</td></tr>
-    <tr><td>4차</td><td>정답지 자체가 맞는가</td><td>정답지가 실제 전파보다 <b>넓게</b> 적혀 있었다(2개 시나리오). 자를 먼저 검증한 것</td></tr>
-    <tr><td>5차</td><td>규모와 경계</td><td>태그 16배(848점)에서도 검출 108초 — 진짜 제약은 CPU가 아니라 메모리임을 확인</td></tr>
-    <tr><td>6차</td><td>침묵 사고 — 선의로 쓴 틀린 코멘트</td><td>AI는 오염 코멘트에 넘어가지 않았으나 <b>화면은 그 문장을 그대로 통과</b>시켰다 → 과거 조치 원문을 접고 AI 판정을 앞세우도록 수정</td></tr>
-    <tr><td>7차</td><td>시연에서 실제로 보이는가</td><td>확정 일지가 0건이면 「과거 조치」 블록이 <b>통째로 렌더링되지 않는다</b>. 구현했는데 시연에서 안 보이면 없는 것과 같다는 것을 확인</td></tr>
-  </table>
-  <p>QA에서 나온 것 중 회귀 시험이 없던 항목은 시험으로 고정했습니다 — 현재 <b>회귀 시험 36건</b>이
-  같은 결함의 재발을 막습니다. 시험을 추가할 때는 일부러 되돌려 실패하는지까지 확인했습니다.
-  통과만 보고 넣으면 아무것도 지키지 않는 시험이 쌓이기 때문입니다.</p>
+  <p><b>⑤ QA — 만든 사람의 시험지로 재지 않기 위한 독립 검증.</b> 검출기를 만든 사람과 무관하게
+  데이터와 정답지를 따로 만들어 채점하고, 회차마다 각도를 바꿔 <b>7회</b> 확인했습니다. 이 과정에서
+  결함 6건을 찾아 고쳤고, 회귀 시험이 없던 항목은 시험으로 고정했습니다 — 현재 <b>36건</b>이 같은
+  결함의 재발을 막습니다. 회차별 내용은 「04. 제작 과정」에, 수정 경위는 5-3 에 있습니다.</p>
 
   <h3 class="ss">팀원 정기영 — 통계 기반 데이터 분석 · 검출 엔진</h3>
   <p>알람 미발생 13종을 담당하는 검출 알고리즘을 맡았습니다. 알고리즘과 시나리오의 대응 관계를
@@ -331,7 +270,7 @@ ul.tight li{ margin:.16em 0; }
   안에서는 조용히 지나갑니다.</p>
   <p><b>셋째, 되돌아보고 기록하는 일 자체가 물리적으로 불가능한 부담입니다.</b> 태그를 하나씩 열어
   12시간 추이를 확인하고 수기로 옮겨 적는 작업은, 태그 100개를 개당 1분으로 가정하면 근무당 약
-  100분에 해당합니다<span class="tag e">추정</span>. 교대 말미의 짧은 시간에 그것을 할 수 없으므로
+  100분에 해당합니다 <span class="tag e">추정</span>. 교대 말미의 짧은 시간에 그것을 할 수 없으므로
   선별 확인으로 대체되어 왔습니다.</p>
   <p><b>넷째, 인계받은 뒤에 생긴 의문을 물어볼 상대가 이미 퇴근하고 없습니다.</b> 일지에 적힌 한 줄의
   배경을 확인할 수단이 없어, 다음 근무자는 같은 상황을 처음부터 다시 판단합니다.</p>
@@ -355,12 +294,12 @@ ul.tight li{ margin:.16em 0; }
         <td>태그별 베이스라인 대비 상대 편차. 관리 기준에 미달해도 그 태그로서 이례적이면 후보</td></tr>
     <tr><td>작성 시점과 방식</td><td>교대 말미에 기억을 재구성해 작성</td>
         <td>교대 전 초안이 먼저 준비되고, 사람은 검토·판단만</td></tr>
-    <tr><td>전수 검토에 드는 시간</td><td>태그 100개 기준 근무당 약 100분 상당<span class="tag e">추정</span> — 현실에서는 선별 확인으로 대체</td>
-        <td>적재 3.2초 + 검출 2.2초 = 약 5.4초, AI 서술·판정 포함 7~10분<span class="tag m">실측</span> (태그 53점 · 12시간 · 114만 점 · 16항목)</td></tr>
+    <tr><td>전수 검토에 드는 시간</td><td>태그 100개 기준 근무당 약 100분 상당 <span class="tag e">추정</span> — 현실에서는 선별 확인으로 대체</td>
+        <td>적재 3.2초 + 검출 2.2초 = 약 5.4초, AI 서술·판정 포함 7~10분 <span class="tag m">실측</span> (태그 53점 · 12시간 · 114만 점 · 16항목)</td></tr>
     <tr><td>기록의 근거</td><td>문장으로만 남아 사후 확인이 어려움</td>
-        <td>검출에서 생성된 항목마다 태그·시각·수치가 연결됨<span class="tag m">실측</span>. 근무자가 손으로 추가한 항목은 사람이 쓴 것이라 별도</td></tr>
+        <td>검출에서 생성된 항목마다 태그·시각·수치가 연결됨 <span class="tag m">실측</span>. 근무자가 손으로 추가한 항목은 사람이 쓴 것이라 별도</td></tr>
     <tr><td>과거 조치의 재사용</td><td>사람이 기억해서 찾아야 함</td>
-        <td>확정 일지가 다음 근무 초안의 「과거 조치」로 자동 회수<span class="tag m">실측</span></td></tr>
+        <td>확정 일지가 다음 근무 초안의 「과거 조치」로 자동 회수 <span class="tag m">실측</span></td></tr>
     <tr><td>근무자 간 기준 편차</td><td>측정할 방법이 없음</td>
         <td>채택·제외가 항목 단위로 기록되어 정량화 가능 (구조 구현 완료, 실사용 데이터는 <span class="tag x">미측정</span>)</td></tr>
   </table>
@@ -481,7 +420,7 @@ ul.tight li{ margin:.16em 0; }
   조치로 회수되어 AI가 참조합니다. 근무자가 제외한 항목도 제외 사실과 함께 남아 감도 조정의 근거가
   됩니다. 사람이 AI를 쓰는 것이 아니라, <b>사람의 판단이 AI를 가르치고 그 결과가 다시 사람에게
   돌아오는 순환</b>입니다.</p>
-  <div class="note">이 순환이 실제로 동작하는 것을 확인했습니다<span class="tag m">실측</span>.
+  <div class="note">이 순환이 실제로 동작하는 것을 확인했습니다 <span class="tag m">실측</span>.
   주간조 근무자가 초안을 승인하며 코멘트 "샘플링 재확인 후 필터 교체 의뢰"를 남긴 뒤, 같은 태그에
   이상이 재발한 야간조 근무의 초안을 생성했습니다. 야간조 초안의 해당 항목에 「과거 조치」로 그
   코멘트가 그대로 회수되어 표시되었습니다. <b>사람이 넣어 둔 예시 문구가 아니라, 앞 근무자의 판단이
@@ -547,7 +486,7 @@ ul.tight li{ margin:.16em 0; }
     <tr><td>모의 데이터 생성<br>(태그 53점 · 시나리오 24종 · seed 고정)</td><td>동작</td>
         <td>태그 마스터 53점 명세 완료. 생성기는 브라우저 단일 파일로 동작하며 seed 고정 시 재현</td></tr>
     <tr><td>데이터 적재<br>(기간 지정 CSV 조회)</td><td>동작</td>
-        <td>태그 53점 · 12시간 · 114만 점 적재 3.2초, 구간 충족률 100%<span class="tag m">실측</span></td></tr>
+        <td>태그 53점 · 12시간 · 114만 점 적재 3.2초, 구간 충족률 100% <span class="tag m">실측</span></td></tr>
     <tr><td>근무별 요약 산출 · 베이스라인 구축</td><td>동작</td>
         <td>태그 53점 요약·기준선 갱신. 첫 근무는 잠정 기준선으로 표시되고 근무가 쌓이면 갱신</td></tr>
     <tr><td>이상 검출</td><td>동작</td>
@@ -561,16 +500,16 @@ ul.tight li{ margin:.16em 0; }
         <td>항목마다 태그·시각·수치 근거가 연결됨. Claude가 서술·중요도·사례 적합성·연관을 판정(3-5 표).
         원본 결측이 있으면 「계측 결측 — 태그·시각·분」 항목이 사실 그대로(AI가 고쳐 쓰지 않음) 먼저 들어감</td></tr>
     <tr><td>과거 사례 회수</td><td>동작</td>
-        <td>같은 태그의 확정 일지를 최신순으로 회수해 「과거 조치」로 첨부<span class="tag m">실측</span>.
+        <td>같은 태그의 확정 일지를 최신순으로 회수해 「과거 조치」로 첨부 <span class="tag m">실측</span>.
         원문은 접어 두고 AI 판정을 앞에 세운다 — 앞 근무자가 선의로 쓴 틀린 판단이 다음 근무자를
-        그대로 통과시키는 경로를 막기 위한 것(적대적 QA 6차). 본문 검색은 태그 일치 건이 모자랄 때만
+        그대로 통과시키는 경로를 막기 위한 것(다방면 QA 6차). 본문 검색은 태그 일치 건이 모자랄 때만
         도는 보조 경로이며, 증상 단위 일치는 아직 구현되지 않았다</td></tr>
     <tr><td>선택·코멘트·승인 → 확정 일지</td><td>동작</td>
         <td>채택·제외를 항목 단위로 기록. 지난 근무에서 제외한 것과 같은 태그·종류는 초안 최하단
         「이전에 제외한 것」 칸으로 내려가며(숨기지 않음), 누가 언제 몇 근무 연속 제외했는지와 중요도
         '상' 포함 여부가 함께 표시됨</td></tr>
     <tr><td>확정 → 다음 근무 초안으로 순환</td><td>동작</td>
-        <td>주간조 코멘트가 야간조 초안의 「과거 조치」로 회수<span class="tag m">실측</span> (3-5 참조)</td></tr>
+        <td>주간조 코멘트가 야간조 초안의 「과거 조치」로 회수 <span class="tag m">실측</span> (3-5 참조)</td></tr>
     <tr><td>안전장치 — 확정된 근무 재실행 차단</td><td>동작</td>
         <td>제품 흐름에서는 확정 후 재실행이 거부되고, 검증용 관리 페이지의 「확정돼 있어도 다시 만들기」에서만 재실행</td></tr>
     <tr><td>원본 시계열 수명 정책<br>(단기 회전 후 폐기)</td><td>동작</td>
@@ -579,14 +518,14 @@ ul.tight li{ margin:.16em 0; }
         <td>DB 크기가 7근무째부터 <b>평평</b>해진다 — 605.8MB → 611.3MB(93근무 동안 +5.5MB).
         원본 행수도 6,868,853행에 고정(3일 보관 회전). 검출 시간은 <b>평균 18.3초</b>로 누적 저하가
         없다(1~10근무 20.5초 · 90~100근무 18.3초). 100근무 뒤 누적 이벤트 2,400건 · 초안 575항목 ·
-        확정 일지 100건<span class="tag m">실측</span></td></tr>
+        확정 일지 100건 <span class="tag m">실측</span></td></tr>
     <tr><td><b>규모 — 태그를 16배로</b></td><td>동작</td>
         <td>태그 마스터를 복제해 늘리고 검출을 돌렸다. 53점 2.8초 → 106점 6.2초 → 212점 13.6초 →
         424점 32.7초 → <b>848점 108.3초</b>. 태그 16배에 시간 39배로 대략 <code>n^1.3</code>이며
         제곱이 아니다 — 상관 검출기가 전수 조합(53점에서 1,378쌍)이 아니라 태그 마스터에 적힌
         연결 쌍(29쌍)만 보기 때문이다. 검출은 근무당 한 번 도는 작업이고 목표가 「교대 60분 전 생성」
         이라 848점에서 2분은 여유다. <b>진짜 제약은 CPU가 아니라 메모리다</b> — 848점 × 21,600점 ×
-        8바이트 ≈ 146MB에 블록·뷰가 얹히므로, 확장 시 늘려야 할 것은 메모리다<span class="tag m">실측</span></td></tr>
+        8바이트 ≈ 146MB에 블록·뷰가 얹히므로, 확장 시 늘려야 할 것은 메모리다 <span class="tag m">실측</span></td></tr>
     <tr><td>웹 화면<br>(DCS · RTDB · 파이프라인 · 초안 검토 · 일지 조회)</td><td>동작</td>
         <td>공개 주소에서 로그인 없이 전 화면 조작 가능(HTTPS, 상시 실행). 빈 상태에서 시작해 CSV
         업로드 → 검출·AI 초안 → 검토·확정 → 다음 근무에서 과거 조치 회수까지 한 주소에서.
@@ -703,7 +642,7 @@ ul.tight li{ margin:.16em 0; }
   프론트엔드 프레임워크 없이 HTML·CSS·JavaScript로, 추이 파형은 외부 차트 라이브러리 대신 인라인
   SVG로 그렸습니다. 그 결과 <b>외부 의존이 0입니다</b> — <code>app/</code>과 <code>tools/</code>의
   모든 import가 파이썬 표준 라이브러리이고, 의존성 선언 파일이 없으며, 배포되는 화면 어디에도 외부
-  호스트를 부르는 자원이 없습니다<span class="tag m">실측</span>. 설치 절차 없이 파이썬만 있으면
+  호스트를 부르는 자원이 없습니다 <span class="tag m">실측</span>. 설치 절차 없이 파이썬만 있으면
   실행되므로 재현이 쉽고, 서드파티 라이선스 의무가 발생하는 구성요소도 없습니다. 데이터는 SQLite와
   파일로 관리하며, 원본 시계열은 일괄 폐기가 쉽도록 분리했습니다. 폐쇄망 환경에서 외부 자원 없이
   동작해야 한다는 실배포 조건을 미리 반영한 선택이며, 결과적으로 심사 과정에서도 설치 절차 없이
@@ -736,7 +675,7 @@ ul.tight li{ margin:.16em 0; }
     <tr><td>초안 생성 소요 시간</td><td>5분 이내</td>
         <td>초안은 교대 1시간 전에 자동 생성된다. 생성이 끝나고 근무자가 검토할 시간이 충분히 남아야
         하므로, 그 1시간의 10%를 넘지 않는 선에서 5분을 상한으로 잡았다</td>
-        <td><b>부분 달성</b> — 적재 3.2초 + 검출·초안 틀 2.2초 = 약 5.4초<span class="tag m">실측</span>.
+        <td><b>부분 달성</b> — 적재 3.2초 + 검출·초안 틀 2.2초 = 약 5.4초 <span class="tag m">실측</span>.
         그러나 AI 서술·판정을 포함하면 16항목에 7~10분으로 5분 목표를 넘는다. 교대 1시간 전 자동
         생성에는 충분하지만 목표치는 미달 — 5항목 묶음의 순차 호출을 병렬화하면 줄일 수 있으나 미실시</td></tr>
     <tr><td>모든 서술에 근거 연결</td><td>예외 없음</td>
@@ -755,7 +694,7 @@ ul.tight li{ margin:.16em 0; }
         <td>심사위원이 같은 입력으로 같은 결과를 얻어야 검증이 성립한다. 통계 기반 검출을 택한 이유와
         같은 근거다</td>
         <td><b>달성</b> — 생성기·샘플 모두 seed 고정. 근무 식별자는 날짜 인자로 고정. AI 판단도 같은
-        근무 2회에서 중요도 9/9 · 인계 대상 9/9 일치<span class="tag m">실측</span></td></tr>
+        근무 2회에서 중요도 9/9 · 인계 대상 9/9 일치 <span class="tag m">실측</span></td></tr>
     <tr><td>문서화·모듈화</td><td>검출 로직·데이터 구조·실행 방법</td>
         <td>세 사람이 동시에 작업하고 담당 경계를 코드 구조로 나눈 구성이라, 연결 규약이 문서로 고정돼
         있지 않으면 통합 시점에 충돌한다</td>
@@ -799,7 +738,7 @@ ul.tight li{ margin:.16em 0; }
         실제 규모 성능 실측, 수치 정합 정정(5-3 ②), 검출 엔진 통합, AI 판단 계층 4종 구현</td></tr>
     <tr><td>08-27 ~ 08-31<br><span style="color:var(--muted);font-weight:400">본선 3단계</span></td>
         <td>안정화</td>
-        <td><b>독립 검증과 결함 수정 구간</b> — 사용자 관점 QA 6회로 구조를 뒤집고(5-3 ⑦), 적대적 QA
+        <td><b>독립 검증과 결함 수정 구간</b> — 사용자 관점 QA 6회로 구조를 뒤집고(5-3 ⑦), 다방면 QA
         7회로 결함 6건을 찾아 고쳤다(1-2). 시나리오에 계획 작업 2종·정지/Trip 2종을 더해 24종.
         공개 앱 배포(HTTPS 상시 실행), 회귀 시험 36건, 수치 단일 출처 신설, 50일·태그 16배 규모 시험</td></tr>
     <tr><td>09-01 ~ 09-03<br><span style="color:var(--muted);font-weight:400">마감까지</span></td>
@@ -838,7 +777,7 @@ ul.tight li{ margin:.16em 0; }
     "이 값은 시나리오 정의에서 도출한 설계값이며 측정된 포함률이 아니다"를 함께 적어 두었습니다.
     이 사례에서 정한 규칙은 <b>수치의 정본을 한 곳으로 정하고 나머지는 그것을 가리키게 한다</b>는
     것이며, 태그·단위·한계선은 태그 마스터, 파형·크기·중요도는 시나리오 정의 문서를 정본으로
-    확정했습니다. 이후 적대적 QA 3차에서 같은 문제가 발표 자료에서 재발한 것을 발견해,
+    확정했습니다. 이후 다방면 QA 3차에서 같은 문제가 발표 자료에서 재발한 것을 발견해,
     <code>docs/공식수치.md</code>를 만들어 제출·발표에 쓰는 숫자의 단일 출처로 삼았습니다 —
     「쓰면 안 되는 옛 숫자」 표까지 함께 둡니다.</li>
 
@@ -882,14 +821,14 @@ ul.tight li{ margin:.16em 0; }
     <li><span class="t">한글이 깨진 문제</span>
     단일 HTML 파일로 만든 DCS 화면에서 문서 선언과 문자 인코딩 지정이 빠져 한글이 깨졌습니다.
     브라우저가 인코딩을 추측하기 때문입니다. 골격을 복구해 해결했으며, 이후 HTML 산출물은 문서 선언과
-    인코딩 지정을 먼저 확인하도록 했습니다. 같은 계열의 문제가 뒤에 한 번 더 나왔습니다 — 적대적 QA
+    인코딩 지정을 먼저 확인하도록 했습니다. 같은 계열의 문제가 뒤에 한 번 더 나왔습니다 — 다방면 QA
     2차에서 <b>한글 윈도우 환경의 AI 초안 생성이 100% 실패</b>하는 것을 발견했는데, 하위 프로세스
     호출에 인코딩을 지정하지 않아 디코딩 실패가 조용히 삼켜지고 <b>종료 코드는 0인데 출력이 비어
     있는</b> 상태가 되었습니다. 인코딩을 명시하고, 그 한 줄이 빠지면 실패하는 회귀 시험을 붙였습니다.</li>
 
-    <li><span class="t">사용자 QA와 적대적 QA가 뒤집은 구조 — 13회</span>
+    <li><span class="t">사용자 QA와 다방면 QA가 뒤집은 구조 — 13회</span>
     두 종류의 QA를 나누어 돌렸습니다. <b>사용자 관점 QA 6회(팀장 박경모)</b>는 실제 사용자처럼 앱을
-    처음부터 써 보는 방식이고, <b>적대적 QA 7회(임도영)</b>는 만든 사람의 시험지로 재지 않기 위해
+    처음부터 써 보는 방식이고, <b>다방면 QA 7회(임도영)</b>는 만든 사람의 시험지로 재지 않기 위해
     데이터·정답지를 따로 만들어 흔드는 방식입니다. 성격이 달라 잡히는 결함도 달랐습니다.
     <table class="d" style="margin-top:8px">
       <tr><th style="width:16%">무엇을 했나</th><th>뒤집힌 것</th></tr>
@@ -913,7 +852,7 @@ ul.tight li{ margin:.16em 0; }
           <td>생성기 파일은 날짜가 고정돼 있어 원본 3일 회전이 첫 실행 직후 원본을 지웠고 재실행이
           "데이터 없음"으로 죽었습니다. 회전 기준을 오늘이 아니라 <b>데이터의 마지막 시각</b>으로 바꾸고,
           원본이 없으면 올린 파일에서 자동 재적재합니다</td></tr>
-      <tr><td><b>적대적 QA</b><br>(e) 자를 먼저 검증</td>
+      <tr><td><b>다방면 QA</b><br>(e) 자를 먼저 검증</td>
           <td>정답지를 자로 삼아 엔진을 재 왔는데 <b>그 자가 맞는지는 확인한 적이 없었습니다.</b>
           시나리오를 하나도 넣지 않은 같은 seed·같은 시각 근무를 만들어, 정답지가 「영향 태그」라고 적은
           태그가 주입 구간에서 실제로 움직이는지 24종 전수 대조했습니다. 2개 시나리오가 실제 전파보다
