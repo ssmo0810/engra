@@ -65,6 +65,13 @@ code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
   letter-spacing:-.02em; margin:0 0 5px; }
 .p-three p{ margin:0; font-size:8.3pt; line-height:1.52; color:var(--body); }
 
+.p-tier{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin:0 0 16px; }
+.p-tier > div{ border:1px solid var(--rule); border-left:2.5px solid var(--sk);
+  padding:10px 11px 11px; background:var(--wash); }
+.p-tier .lv{ font-size:8pt; font-weight:800; color:var(--sk); letter-spacing:.06em; margin-bottom:2px; }
+.p-tier h4{ margin:0 0 5px; font-size:9.4pt; color:var(--ink); font-weight:700; }
+.p-tier p{ margin:0; font-size:8.1pt; line-height:1.5; color:var(--body); text-align:left; }
+
 .p-foot{ margin-top:auto; font-size:7.8pt; color:var(--muted); line-height:1.6;
   border-left:2.5px solid var(--sk); padding-left:10px; }
 
@@ -83,6 +90,8 @@ h3.ss{ font-size:10.2pt; font-weight:700; color:var(--sk-deep); margin:14px 0 5p
 /* 장마다 새 면에서 시작하게 하면 앞 장의 꼬리가 두 줄만 남고 한 면이 통째로 빈다
    (실측: 8개 면이 24~91% 공란). 흐르게 두고, 제목이 면 끝에 혼자 남는 것만 막는다. */
 .sec-wrap{ margin-top:26px; }
+/* 5장만 새 면에서 시작한다 — 5-1 표가 머리행만 앞 면에 남기고 갈라져 읽히지 않았다 */
+.page-new{ page-break-before:always; margin-top:0; }
 
 table.d{ width:100%; border-collapse:collapse; font-size:8.9pt; margin:9px 0 12px; }
 table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
@@ -94,6 +103,7 @@ table.d td:first-child{ font-weight:600; color:var(--ink); }
 table.d.num td:last-child,table.d.num th:last-child{ text-align:right;
   font-variant-numeric:tabular-nums; white-space:nowrap; }
 table.d tr{ page-break-inside:avoid; }
+table.d thead{ display:table-header-group; }
 
 .note{ border-left:3px solid var(--sk); background:var(--wash);
   padding:8px 12px; margin:10px 0 12px; font-size:9.2pt; line-height:1.66; }
@@ -131,7 +141,7 @@ ul.tight li{ margin:.16em 0; }
     <span>운전 데이터 <b>12시간</b></span><i>→</i>
     <span>검출</span><i>→</i>
     <span><b>AI 초안</b> · 교대 1시간 전</span><i>→</i>
-    <span>사람이 승인</span><i>↻</i>
+    <span>운전원 승인</span><i>↻</i>
     <span>다음 근무 초안으로</span>
   </div>
 
@@ -157,32 +167,42 @@ ul.tight li{ margin:.16em 0; }
     <div>
       <h4>놓치지 않는다</h4>
       <div class="big">시험 탐지율 100%</div>
-      <p>독립 정답지 대조 22/22 · 46/46 — 미탐지 0건. 알람이 울리지 않는 13종까지 포함 <span class="tag m">실측</span></p>
+      <p>독립 정답지 대조 22/22 · 46/46 — 미탐지 0건. 알람이 울리지 않는 13종까지 포함.
+      결함 없는 정상 14근무(690만 점)에서는 검출 0건 <span class="tag m">실측</span></p>
     </div>
     <div>
       <h4>모두가 일관된 인수인계</h4>
       <div class="big">같은 기준 · 같은 초안</div>
-      <p>기억이 아니라 태그 53점 전수 통계 검토로 후보를 뽑습니다. 누가 근무해도 같은 기준에서 시작합니다</p>
-    </div>
-    <div>
-      <h4>헛알람이 없다</h4>
-      <div class="big">오탐 0건</div>
-      <p>결함 없는 정상 14근무(690만 점)에서 검출 0건. 주입 뒤 복귀 구간을 빼면 오탐도 0건 <span class="tag m">실측</span></p>
+      <p>기억이 아니라 태그 53점 전수 통계 검토로 후보를 뽑습니다. 누가 근무해도 같은 기준에서
+      시작하고, 항목마다 태그·시각·수치가 붙습니다</p>
     </div>
     <div>
       <h4>경험이 쌓인다</h4>
       <div class="big">승인 → 다음 초안</div>
-      <p>근무자가 남긴 코멘트가 다음 근무 초안의 「과거 조치」로 되돌아옵니다 <span class="tag m">실측</span></p>
+      <p>근무자가 남긴 코멘트가 다음 근무 초안의 「과거 조치」로 되돌아옵니다. 쓸수록 초안의
+      근거가 두터워집니다 <span class="tag m">실측</span></p>
+    </div>
+  </div>
+
+  <h2 class="p-h">앞으로 확장성 — 우리의 확장 계획</h2>
+  <div class="p-tier">
+    <div>
+      <div class="lv">1층</div>
+      <h4>우리 현장</h4>
+      <p>소속 파트의 교대 근무조 — 기존 일지관리 시스템 사용자 <b>약 30명</b>이 직접 대상.
+      새로 만들 것은 실제 태그 명세와 RTDB 어댑터 하나뿐입니다.</p>
     </div>
     <div>
-      <h4>근거가 남는다</h4>
-      <div class="big">환각 0개</div>
-      <p>항목마다 태그·시각·수치가 연결됩니다. AI 본문의 숫자 423개 중 지어낸 것 0개 <span class="tag m">실측</span></p>
+      <div class="lv">2층</div>
+      <h4>동일 구조의 교대 사업장</h4>
+      <p>반도체 팹·정유·화학·발전·배터리 등 24시간 교대 사업장. <b>검출 알고리즘까지 그대로</b>
+      쓰고 태그 명세와 데이터 소스 어댑터만 바꿉니다.</p>
     </div>
     <div>
-      <h4>시간이 줄어든다</h4>
-      <div class="big">빈 종이 → 초안</div>
-      <p>태그 53점 · 12시간 · 114만 점을 되짚는 일이 사람의 시간에서 사라집니다 <span class="tag m">실측</span></p>
+      <div class="lv">3층</div>
+      <h4>교대 현장 너머</h4>
+      <p>일반 사무의 인수인계·업무 일지·주간 보고. <b>사람이 이동해도 조직의 지식이 남는</b>
+      업무 지식 축적 구조로 넓힙니다.</p>
     </div>
   </div>
 
@@ -306,7 +326,8 @@ ul.tight li{ margin:.16em 0; }
   <span class="tag m">실측</span>은 2026-08-31 기준 프로토타입에서 실제로 측정한 값이고,
   <span class="tag x">미측정</span>은 아직 재지 못한 값입니다.</p>
   <table class="d">
-    <tr><th style="width:16%">항목</th><th style="width:36%">AS-IS — 현재 방식</th><th>TO-BE — ENGRA</th></tr>
+<thead>
+    <tr><th style="width:16%">항목</th><th style="width:36%">AS-IS — 현재 방식</th><th>TO-BE — ENGRA</th></tr></thead><tbody>
     <tr><td>기록 대상을 무엇으로 고르는가</td><td>근무자의 기억과 재량. 공통 기준 없음</td>
         <td>태그 53점을 전수 통계 검토한 뒤 후보를 추출</td></tr>
     <tr><td>알람에 걸리지 않는 변화</td><td>구조적으로 누락. 시나리오 24종 중 DCS 알람이 울리는 것은 7종</td>
@@ -323,7 +344,7 @@ ul.tight li{ margin:.16em 0; }
         <td>확정 일지가 다음 근무 초안의 「과거 조치」로 자동 회수 <span class="tag m">실측</span></td></tr>
     <tr><td>근무자 간 기준 편차</td><td>측정할 방법이 없음</td>
         <td>채택·제외가 항목 단위로 기록되어 정량화 가능 (구조 구현 완료, 실사용 데이터는 <span class="tag x">미측정</span>)</td></tr>
-  </table>
+  </tbody></table>
   <div class="note">이 대비에서 <b>가장 중요한 줄은 두 번째</b>입니다. 기존 알람 체계는 24종 중 7종만
   알려주며, 그 7종은 이미 근무자가 알고 있는 사건입니다. ENGRA가 만들어야 하는 가치는
   <b>알람 미발생 13종</b> — 알람이 울리지 않아 아무도 모르는 채로 다음 근무에 넘어가는 변화 — 에
@@ -415,8 +436,9 @@ ul.tight li{ margin:.16em 0; }
   ENGRA의 업무 흐름은 AI가 있다는 전제 위에서만 설계될 수 있는 흐름입니다.</p>
   <p>AI가 관여하는 지점은 업무의 주변이 아니라 <b>핵심 판단과 산출물 생성</b>입니다.</p>
   <table class="d">
-    <tr><th style="width:13%">업무 단계</th><th style="width:19%">기존에 사람이 하던 일</th>
-        <th style="width:45%">ENGRA에서 AI가 하는 일</th><th>사람이 남는 자리</th></tr>
+<thead>
+    <tr><th style="width:13%">업무 단계</th><th style="width:19%">기존 사람이 하던 일</th>
+        <th style="width:45%">ENGRA에서 AI가 하는 일</th><th>사람이 남는 자리</th></tr></thead><tbody>
     <tr><td>무엇을 볼지 고르기</td><td>경험으로 일부 태그를 선별</td>
         <td>태그 전수를 베이스라인과 대조해 후보 추출</td><td>—</td></tr>
     <tr><td>이상인지 판정하기</td><td>기억한 평소 감각과 비교</td>
@@ -431,7 +453,7 @@ ul.tight li{ margin:.16em 0; }
         <td>문장 보완</td></tr>
     <tr><td>기록 확정하기</td><td>작성자가 그대로 확정</td><td>—</td>
         <td>채택·제외·코멘트·승인 <b>(사람만)</b></td></tr>
-  </table>
+  </tbody></table>
   <p>사람이 승인 게이트로 남는 것은 AI 관여 수준의 후퇴가 아니라 <b>설계상의 요구</b>입니다. 인수인계
   일지는 안전에 직결되는 공식 기록이고 그 책임 주체는 사람이어야 하므로, 근거 없는 서술이 기록으로
   굳는 경로를 구조적으로 차단해야 합니다. ENGRA는 AI의 관여 범위를 최대화하면서 확정 권한만 사람에게
@@ -452,7 +474,8 @@ ul.tight li{ margin:.16em 0; }
   <b>규칙 기반으로는 나올 수 없는 판단이 실제로 나왔는지</b>를 확인했습니다. 대상은 7근무이며, AI를
   켠 결과와 끈 결과를 나란히 대조하는 방식으로 측정했습니다.</p>
   <table class="d">
-    <tr><th style="width:30%">측정 항목</th><th style="width:26%">값</th><th>무엇을 말하는가</th></tr>
+<thead>
+    <tr><th style="width:30%">측정 항목</th><th style="width:26%">값</th><th>무엇을 말하는가</th></tr></thead><tbody>
     <tr><td>과거 조치 판정</td><td>후보 <b>50건 → 채택 33 · 기각 17</b></td>
         <td>태그가 같아도 증상이 다르면 기각한다. 규칙은 "같은 태그의 최신 일지"를 무조건 붙였다</td></tr>
     <tr><td>판정 사유 기재</td><td><b>31/31 항목 (100%)</b></td>
@@ -465,7 +488,7 @@ ul.tight li{ margin:.16em 0; }
         <td>출력 스키마에 수치 필드가 없어 지어낼 자리가 구조적으로 없다</td></tr>
     <tr><td>재현성</td><td>같은 근무 2회 — 중요도 <b>9/9</b> · 인계 대상 <b>9/9</b> 일치</td>
         <td>같은 입력에 같은 판단이 나온다 — 심사 재현의 전제</td></tr>
-  </table>
+  </tbody></table>
   <p>두 가지를 정직하게 밝힙니다. <b>첫째,</b> 외기 일주기를 정상으로 보라는 기준은 프롬프트에
   명시했으므로 이것은 학습이 아니라 <b>지시 이행</b>입니다. 다만 규칙으로는 못 하던 것 — 항목 간
   교차 참조, 결과 추론, 뒤집을 수 있는 이유 제시 — 을 한다는 점은 실측으로 확인됐습니다.
@@ -503,7 +526,8 @@ ul.tight li{ margin:.16em 0; }
   <p>예선 기획서에서 이 절은 "무엇을 만들 예정인가"였습니다. 아래는 <b>2026-08-31 기준으로 실제 동작을
   확인한 것과 확인하지 못한 것</b>입니다. 확인 방법은 절 끝에 적었습니다.</p>
   <table class="d">
-    <tr><th style="width:19%">구간</th><th style="width:9%">상태</th><th>확인한 내용</th></tr>
+<thead>
+    <tr><th style="width:19%">구간</th><th style="width:9%">상태</th><th>확인한 내용</th></tr></thead><tbody>
     <tr><td>모의 데이터 생성<br>(태그 53점 · 시나리오 24종 · seed 고정)</td><td>동작</td>
         <td>태그 마스터 53점 명세 완료. 생성기는 브라우저 단일 파일로 동작하며 seed 고정 시 재현</td></tr>
     <tr><td>데이터 적재<br>(기간 지정 CSV 조회)</td><td>동작</td>
@@ -578,7 +602,7 @@ ul.tight li{ margin:.16em 0; }
         이 2종은 포함률 측정 대상에서 제외했다</td></tr>
     <tr><td>실제 RTDB 연동 · 다중 사업장 권한 · 모바일 앱</td><td>범위<br>제외</td>
         <td>사내 보안망 제약. 수집부를 인터페이스로 분리해 데이터 소스만 교체하면 되는 구조로 대비</td></tr>
-  </table>
+  </tbody></table>
 
   <div class="note"><b>시나리오 개수를 두 가지로 구분해 씁니다.</b> 시나리오 <b>정의는 24종</b>이고,
   위 <b>포함률 수치의 측정 기준은 20종</b>(랜덤 세트 21종)입니다. 이후 추가한 계획 작업 2종과
@@ -671,14 +695,15 @@ ul.tight li{ margin:.16em 0; }
 </section>
 
 <!-- ══════════════════ 5. 개발 계획 ══════════════════ -->
-<section class="sec-wrap">
+<section class="sec-wrap page-new">
   <h1 class="sec"><span class="n">5.</span>개발 계획</h1>
 
   <h2 class="sub">5-1. 개발 목표와 현재 달성 상태</h2>
   <p>예선 기획서에서 세운 정량 목표와 2026-08-31 기준 현재 상태를 나란히 적습니다.</p>
   <table class="d">
+<thead>
     <tr><th style="width:12%">목표</th><th style="width:9%">기준</th>
-        <th style="width:37%">그 값을 정한 근거</th><th>현재</th></tr>
+        <th style="width:37%">그 값을 정한 근거</th><th>현재</th></tr></thead><tbody>
     <tr><td>특이 시나리오 포함률<br>(재현율)</td><td>90% 이상</td>
         <td>시나리오 20종 중 18종에 해당한다. 알람 미발생 13종을 전부 잡고 알람 발생 7종 중 5종을
         잡으면 도달하는 값이다. 100%를 걸지 않은 이유는 상관 붕괴·순간 스파이크처럼 단일 태그로는
@@ -721,7 +746,7 @@ ul.tight li{ margin:.16em 0; }
         있지 않으면 통합 시점에 충돌한다</td>
         <td><b>달성</b> — 연결 규약·태그 명세·시나리오 정의·실행 방법 문서화. 제작 과정 문서는 커밋·이슈에서
         자동 생성. 발표·제출에 쓰는 수치는 <code>docs/공식수치.md</code> 단일 출처로 모았다</td></tr>
-  </table>
+  </tbody></table>
   <div class="note">목표 수준을 한 문장으로 정리하면, ENGRA가 성공했다고 말할 수 있는 조건은 "감지를
   많이 한다"가 아니라 <b>"알람이 울리지 않은 13종 가운데 몇 종을 다음 근무에 전달했는가"</b>입니다.
   그래서 측정 지표를 감지 건수나 정확도가 아니라 알람 미발생 시나리오의 포함률로 정의하고, 오탐은
@@ -739,7 +764,8 @@ ul.tight li{ margin:.16em 0; }
   <p>예선 기획서는 3주 계획을 제시했습니다. 실제 진행은 다음과 같습니다. 기간은 2026-08-02부터
   08-31까지이며 커밋 <b>248건</b>이 남았습니다.</p>
   <table class="d">
-    <tr><th style="width:13%">구간</th><th style="width:14%">계획</th><th>실제 결과</th></tr>
+<thead>
+    <tr><th style="width:13%">구간</th><th style="width:14%">계획</th><th>실제 결과</th></tr></thead><tbody>
     <tr><td>08-02 ~ 08-07<br><span style="color:var(--muted);font-weight:400">예선 준비</span></td>
         <td>기획과 컨셉 확정</td>
         <td>서비스 소개 페이지, 구조도·알고리즘 설명, 프론트엔드 목업, 과제 기획서 작성</td></tr>
@@ -766,7 +792,7 @@ ul.tight li{ margin:.16em 0; }
         <td>제출 정리</td>
         <td>남은 작업 — ① 시연 영상 최종 촬영 ② 제출물 재생성(데이터·소스 스냅샷·04 문서) ③ Drive
         최종 업로드 ④ 정지/Trip 초안 폭주 한계 기록 정리</td></tr>
-  </table>
+  </tbody></table>
   <p>계획과 가장 크게 달라진 점은 <b>순서</b>입니다. 예선 계획은 검출 엔진을 먼저 만들고 사용자 흐름을
   나중에 붙이는 순서였으나, 실제로는 검출 엔진 자리를 비워 둔 채 나머지 전 구간을 먼저 완성했습니다.
   세 사람이 동시에 작업하는 조건에서 한 사람의 진행이 다른 두 사람을 막지 않게 하려면, 가장 불확실한
@@ -964,8 +990,9 @@ ul.tight li{ margin:.16em 0; }
   <p>이 서비스의 임팩트는 세 층으로 넓어집니다. 각 층으로 넘어가는 데 <b>무엇을 새로 만들어야
   하는지</b>를 함께 적었습니다. 이식 비용이 임팩트 범위를 실제로 결정하기 때문입니다.</p>
   <table class="d">
+<thead>
     <tr><th style="width:8%">층</th><th style="width:34%">대상</th>
-        <th style="width:26%">새로 만들어야 하는 것</th><th>그대로 쓰는 것</th></tr>
+        <th style="width:26%">새로 만들어야 하는 것</th><th>그대로 쓰는 것</th></tr></thead><tbody>
     <tr><td><b>1층</b><br>우리 현장</td>
         <td>소속 파트의 교대 근무조. 팀장이 운영 중인 일지관리 시스템 사용자 약 30명이 직접 대상</td>
         <td>실제 태그 명세, RTDB 조회 어댑터 1개</td>
@@ -978,7 +1005,7 @@ ul.tight li{ margin:.16em 0; }
         <td>일반 사무의 인수인계·업무 일지·주간 보고</td>
         <td>업무 데이터 소스 연결, 특이사항 정의</td>
         <td>초안 → 승인 → 축적 → 재인용의 순환 구조</td></tr>
-  </table>
+  </tbody></table>
   <p>1층에서 2층으로 넘어가는 비용이 낮은 것은 우연이 아니라 <b>설계의 결과</b>입니다. 사업장이 바뀌면
   달라지는 것은 태그의 이름·단위·정상 범위·알람 한계이고, 달라지지 않는 것은 "평소 대비 이례적인 변화를
   찾아 근무 단위로 전달한다"는 <b>문제 구조</b>입니다. 그래서 설비 고유 정보를 태그 마스터라는 하나의
@@ -1028,13 +1055,14 @@ ul.tight li{ margin:.16em 0; }
   초안에는 앞 근무자가 남긴 코멘트가 「과거 조치」로 회수되어 표시됩니다. <b>모든 값은 가상
   데이터입니다.</b></div>
   <table class="d">
-    <tr><th style="width:30%">자료</th><th>주소</th></tr>
+<thead>
+    <tr><th style="width:30%">자료</th><th>주소</th></tr></thead><tbody>
     <tr><td>서비스 소개 페이지</td><td><code>https://ssmo0810.github.io/engra</code></td></tr>
     <tr><td>화면 데모 (DCS · RTDB · 초안 검토 · 일지 조회)</td><td><code>https://ssmo0810.github.io/engra/demo/</code></td></tr>
     <tr><td>프로토타입 스냅샷 (서버가 만든 화면을 그대로 뜬 정적본)</td><td><code>https://ssmo0810.github.io/engra/sample/</code></td></tr>
     <tr><td>모의 DCS Overview 화면 (태그 53점 · 데이터 생성기)</td><td><code>https://ssmo0810.github.io/engra/docs/asu_dcs_overview.html</code></td></tr>
     <tr><td>소스 저장소</td><td><code>https://github.com/ssmo0810/engra</code> · <b>비공개(Private)</b></td></tr>
-  </table>
+  </tbody></table>
   <p>대회 규정이 저장소를 비공개로 두도록 요구하고 있어 익명 접근은 차단됩니다. 위 사이트 주소는 정적
   페이지로 별도 공개되어 있어 설치 없이 열어볼 수 있으며, 소스 전체는 「02. 결과물」의 소스 스냅샷으로
   함께 제출합니다. 심사위원 열람이 필요한 경우 운영진 안내에 따라 제공하겠습니다.</p>
