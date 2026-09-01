@@ -29,7 +29,9 @@ CSS_SK = (
     "'Apple SD Gothic Neo','Noto Sans KR',sans-serif;word-break:keep-all}"
     "p{margin:0 0 .6em;text-align:justify}b,strong{color:#15161A}"
     "h1{font-size:16.5pt;font-weight:800;color:#15161A;letter-spacing:-.02em;"
-    "margin:0 0 12px;padding-bottom:7px;border-bottom:2.5px solid #EA002C}"
+    "margin:0 0 12px;padding-bottom:7px;border-bottom:2.5px solid #EA002C;"
+    "page-break-before:always}"  # h1 = 문서/회의 단위 — 회의록 병합본에서 회의마다 새 면
+    "h1:first-of-type{page-break-before:auto}"
     "h2{font-size:11.6pt;font-weight:700;color:#15161A;margin:18px 0 7px;"
     "padding-left:11px;border-left:3.5px solid #EA002C;page-break-after:avoid}"
     "h3{font-size:10.4pt;font-weight:700;color:#B00021;margin:14px 0 5px;page-break-after:avoid}"
