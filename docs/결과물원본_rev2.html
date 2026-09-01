@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>결과물 원본 — 접속 주소와 공개 설정 · 앙그라쥬</title>
+<style>
+:root{
+  --sk:#EA002C; --sk-deep:#B00021; --wash:#FFF4F6;
+  --ink:#15161A; --body:#2E3036; --muted:#71747E;
+  --rule:#E3E4E8; --rule-soft:#F0F1F4;
+  --ok:#0F7B3E; --ok-wash:#EFF8F2;
+}
+@page{ size:A4; margin:16mm 15mm 15mm; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  margin:0; background:#fff; color:var(--body);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:10.2pt; line-height:1.72; word-break:keep-all; overflow-wrap:break-word;
+}
+p{ margin:0 0 .62em; text-align:justify; }
+strong,b{ color:var(--ink); font-weight:700; }
+code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
+  background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
+
+/* 머리 */
+.head{ margin-bottom:20px; }
+.eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:13px; }
+.eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.title{ font-size:22pt; line-height:1.24; font-weight:800; color:var(--ink);
+  letter-spacing:-.02em; margin:0 0 8px; }
+.title .accent{ color:var(--sk); }
+.lead{ font-size:11pt; color:var(--body); margin:0; }
+.lead b{ color:var(--sk-deep); }
+.rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:14px 0 0; }
+
+h1.sec{ font-size:13.6pt; font-weight:800; color:var(--ink); letter-spacing:-.01em;
+  margin:26px 0 11px; padding-bottom:6px; border-bottom:2.5px solid var(--sk);
+  page-break-after:avoid; }
+h1.sec .n{ color:var(--sk); margin-right:9px; }
+h2.sub{ font-size:10.8pt; font-weight:700; color:var(--ink); margin:17px 0 6px;
+  padding-left:11px; border-left:3.5px solid var(--sk); page-break-after:avoid; }
+
+/* 접속 주소 큰 상자 */
+.url-box{ border:1px solid var(--rule); border-left:3px solid var(--sk);
+  background:var(--wash); padding:13px 15px; margin:0 0 14px; }
+.url-box .u{ font-family:Consolas,"Courier New",monospace; font-size:12.4pt; font-weight:700;
+  color:var(--sk-deep); word-break:break-all; line-height:1.35; }
+.url-box .k{ font-size:8.6pt; color:var(--muted); letter-spacing:.06em; margin-bottom:3px; }
+.url-box p{ margin:7px 0 0; font-size:9.4pt; line-height:1.62; }
+
+table.d{ width:100%; border-collapse:collapse; font-size:9pt; margin:9px 0 12px; }
+table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
+  padding:5px 7px; border-bottom:1.6px solid var(--sk); border-top:1px solid var(--rule);
+  line-height:1.45; }
+table.d td{ padding:5px 7px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top; line-height:1.58; }
+table.d td:first-child{ font-weight:600; color:var(--ink); }
+table.d thead{ display:table-header-group; }
+table.d tr{ page-break-inside:avoid; }
+.mono{ font-family:Consolas,"Courier New",monospace; font-size:8.6pt; word-break:break-all; }
+
+.ok{ display:inline-block; font-size:7.6pt; font-weight:700; padding:.08em .42em;
+  border-radius:2px; background:var(--ok-wash); color:var(--ok); border:.7px solid var(--ok);
+  white-space:nowrap; vertical-align:.12em; }
+.tag{ display:inline-block; font-size:5.6pt; font-weight:700; padding:.05em .3em;
+  border-radius:2px; vertical-align:.16em; letter-spacing:.02em; white-space:nowrap;
+  background:var(--sk); color:#fff; }
+
+.note{ border-left:3px solid var(--sk); background:var(--wash);
+  padding:8px 12px; margin:10px 0 12px; font-size:9.3pt; line-height:1.66; }
+.note strong{ color:var(--sk-deep); }
+pre.cmd{ background:#F7F7F9; border:1px solid var(--rule); border-left:3px solid var(--sk);
+  padding:9px 12px; margin:9px 0 11px; font-family:Consolas,"Courier New",monospace;
+  font-size:8.8pt; line-height:1.62; white-space:pre-wrap; color:var(--ink); }
+ol.steps{ margin:6px 0 10px; padding-left:1.15em; }
+ol.steps li{ margin:.24em 0; }
+.foot{ margin-top:22px; padding-top:9px; border-top:1px solid var(--rule);
+  font-size:8pt; color:var(--muted); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="eyebrow">SK AI 해커톤 2026 · AI Solution 리그 본선 · 02. 결과물 — 2. 결과물 원본</div>
+  <h1 class="title">결과물 원본 — <span class="accent">접속 주소</span>와 공개 설정</h1>
+  <p class="lead">설치할 것이 없습니다. 브라우저로 열면 <b>실제로 동작하는 프로토타입</b>이고,
+  심사위원이 직접 승인 버튼을 눌러 확정 일지가 만들어지는 것까지 확인하실 수 있습니다.</p>
+  <div class="rule"></div>
+</div>
+
+<h1 class="sec"><span class="n">1.</span>작동하는 앱 — 바로 조작할 수 있습니다</h1>
+
+<div class="url-box">
+  <div class="k">접속 주소</div>
+  <div class="u">https://engra.64-176-227-85.sslip.io</div>
+  <p>로그인·설치 없이 열립니다. HTTPS 상시 실행이며 <b>외부 익명 접근으로 200 응답을 확인</b>했습니다
+  <span class="tag">실측</span></p>
+</div>
+
+<h2 class="sub">1-1. 어디를 보면 되나</h2>
+<table class="d">
+  <thead><tr><th style="width:26%">주소</th><th>무엇을 볼 수 있나</th></tr></thead>
+  <tr><td class="mono">/</td>
+      <td>확정된 인수인계 일지 목록. 근무별로 무엇이 인계됐는지 조회합니다</td></tr>
+  <tr><td class="mono">/shift/&lt;근무ID&gt;</td>
+      <td><b>초안 검토 화면.</b> 감지된 항목이 중요도 순으로 놓여 있고, 항목마다 태그·시각·수치
+      근거와 추이 파형, AI 중요도 판단 이유, 같은 태그의 과거 조치가 함께 보입니다.
+      채택·제외를 고르고 코멘트를 달아 <b>직접 승인</b>하실 수 있습니다</td></tr>
+  <tr><td class="mono">/pipeline</td>
+      <td>빈 상태에서 시작하는 전 과정 — CSV 업로드 → 적재·검출 → AI 초안 → 검토·확정</td></tr>
+  <tr><td class="mono">/dcs · /rtdb</td>
+      <td>모의 DCS Overview(태그 53점 미믹·데이터 생성기)와 RTDB 조회 화면</td></tr>
+  <tr><td class="mono">/api/shifts<br>/api/draft/&lt;근무ID&gt;</td>
+      <td>근무 목록과 초안을 JSON 으로. 화면을 거치지 않고 결과를 확인하실 때 씁니다</td></tr>
+</table>
+
+<h2 class="sub">1-2. 이것만 보시면 이 서비스의 핵심이 보입니다</h2>
+<p>승인 대기 상태의 근무를 열어 <b>항목을 채택·제외하고 코멘트를 달아 승인</b>해 보십시오.
+확정 일지가 만들어집니다. 그리고 그 일지의 코멘트는 <b>다음 근무 초안에 「과거 조치」로
+되돌아옵니다</b> — 사람의 판단이 저장되었다가 다시 AI 의 입력이 되는 순환이 이 서비스의 핵심이고,
+승인 대기 근무의 초안에서 이미 그 결과를 보실 수 있습니다.</p>
+<div class="note"><strong>모든 값은 가상 데이터입니다.</strong> 사내 원본 데이터·실제 태그 체계·
+시스템 화면을 일절 사용하지 않았습니다. 태그는 <code>AI-707</code> 같은 가상 표기이고, 수치는
+형태만 실제와 유사하게 잡은 모의 데이터입니다.</div>
+
+<h1 class="sec"><span class="n">2.</span>외부에서 열리는지 — 확인 결과</h1>
+
+<table class="d">
+  <thead><tr><th style="width:38%">확인한 것</th><th style="width:16%">결과</th><th>비고</th></tr></thead>
+  <tr><td>앱 첫 화면 (익명·비로그인)</td><td><span class="ok">200 OK</span></td>
+      <td>일지 조회 화면이 그대로 열립니다</td></tr>
+  <tr><td>API <code>/api/shifts</code></td><td><span class="ok">200 OK</span></td>
+      <td>근무 목록이 JSON 으로 반환됩니다</td></tr>
+  <tr><td>HTTPS 인증서</td><td><span class="ok">정상</span></td>
+      <td>Caddy 자동 발급·갱신</td></tr>
+  <tr><td>상시 실행</td><td><span class="ok">유지</span></td>
+      <td>systemd 로 관리되며 심사 기간 내내 켜 둡니다</td></tr>
+</table>
+
+<p><b>확인 방법.</b> 브라우저 시크릿 창으로 위 주소를 열면 됩니다. 명령줄에서 확인하시려면
+다음 한 줄로 응답 코드만 볼 수 있습니다.</p>
+<pre class="cmd">curl -s -o /dev/null -w "%{http_code}\n" https://engra.64-176-227-85.sslip.io/</pre>
+
+<h1 class="sec"><span class="n">3.</span>안 열릴 때 — 동봉한 소스로 로컬에서 실행</h1>
+
+<p>서버 사정으로 주소가 열리지 않을 경우를 대비해 <b>소스 스냅샷을 이 폴더에 함께 올렸습니다.</b>
+저장소가 규정에 따라 비공개라(4장), 운영진 안내 없이도 코드를 열어 보고 직접 실행하실 수 있게
+한 것입니다.</p>
+
+<div class="url-box">
+  <div class="k">동봉 파일</div>
+  <div class="u" style="font-size:10.6pt">소스스냅샷_engra_&lt;커밋&gt;_앙그라쥬.zip</div>
+  <p>파일 이름에 <b>어느 커밋을 뜬 것인지</b>가 들어 있습니다. 마감 직전 최신 커밋으로 다시 만들어
+  올리므로, 압축을 풀면 심사 시점의 앱과 같은 코드입니다. 원본 시계열(<code>data/</code>)은
+  「03. 데이터 세트」에 따로 올라가 있어 zip 에서는 제외했습니다.</p>
+</div>
+
+<h2 class="sub">3-1. 실행 방법 — 설치할 것이 없습니다</h2>
+<p><b>파이썬 3.10 이상만 있으면 됩니다.</b> 통계 분석과 검출 알고리즘, 서버, 화면을 모두 표준
+라이브러리로 직접 구현해 <b>외부 의존이 0</b>입니다 — 의존성 선언 파일이 없고, 설치 명령도
+없습니다 <span class="tag">실측</span></p>
+
+<ol class="steps">
+  <li>zip 을 풀고 그 폴더로 이동합니다.</li>
+  <li>아래 한 줄로 배선 전 구간(저장소 생성 → 적재 → 검출 → 초안 → 승인 → 확정 일지 →
+      재실행 차단까지 <b>11단계</b>)이 한 번에 도는 것을 확인합니다.</li>
+</ol>
+<pre class="cmd">bash tools/smoke.sh</pre>
+<ol class="steps" start="3">
+  <li>화면으로 보시려면 서버를 띄우고 브라우저로 접속합니다.</li>
+</ol>
+<pre class="cmd">python3 app/cli.py serve --host 127.0.0.1 --port 4320
+# 브라우저에서 http://127.0.0.1:4320</pre>
+<ol class="steps" start="4">
+  <li>QA 에서 실제로 터졌던 결함을 고정한 회귀 시험 <b>36건</b>도 함께 돌려보실 수 있습니다.</li>
+</ol>
+<pre class="cmd">python3 tests/test_regressions.py</pre>
+
+<div class="note"><strong>같은 입력에 같은 결과가 나옵니다.</strong> 모의 데이터는 seed 를 고정했고
+근무 식별자는 날짜 인자로 고정했습니다. 통계 기반 검출을 택한 이유이기도 합니다 —
+판정 근거를 그대로 제시할 수 있고 재현이 성립합니다.</div>
+
+<h1 class="sec"><span class="n">4.</span>저장소 주소와 공개 설정</h1>
+
+<div class="url-box">
+  <div class="k">소스 저장소</div>
+  <div class="u" style="font-size:11.4pt">https://github.com/ssmo0810/engra</div>
+  <p>공개 설정 — <b>비공개(Private)</b></p>
+</div>
+
+<p><b>대회 규정이 저장소를 비공개로 두도록 요구하고 있어</b> 익명 접근은 차단됩니다. 규정을 지키기
+위한 설정이며 <b>공개로 되돌리지 않습니다.</b> 심사위원 열람이 필요하신 경우 운영진 안내에 따라
+제공하겠습니다 — 저희가 임의로 초대하지 않습니다.</p>
+<p>그래서 위 3장의 <b>소스 스냅샷 zip 을 함께 올렸습니다.</b> 저장소에 접근하지 않으셔도 코드
+전체를 보시고 직접 실행하실 수 있습니다.</p>
+
+<table class="d">
+  <thead><tr><th style="width:30%">항목</th><th>내용</th></tr></thead>
+  <tr><td>공개 설정</td><td>비공개 — 대회 규정 준수</td></tr>
+  <tr><td>코드 열람 경로</td><td>이 폴더의 소스 스냅샷 zip (저장소 접근 불필요)</td></tr>
+  <tr><td>비밀 정보</td><td><b>포함되지 않습니다.</b> zip 을 만들 때 <code>.env</code>·인증서·개인키가
+      섞이면 생성이 중단되도록 검사를 걸어 두었습니다</td></tr>
+  <tr><td>외부 라이선스 의무</td><td><b>없습니다.</b> 외부 라이브러리를 쓰지 않아 서드파티 라이선스
+      의무가 발생하는 구성요소가 없습니다</td></tr>
+  <tr><td>사내 정보</td><td>사내 원본 데이터·실제 태그 체계·시스템 화면·계정 정보가 코드와 데이터
+      어디에도 없습니다</td></tr>
+</table>
+
+<p class="foot"><b>요약</b> — 접속 주소는 <code>https://engra.64-176-227-85.sslip.io</code> 이고
+외부에서 로그인 없이 열립니다(익명 200 확인). 열리지 않을 경우 이 폴더의 소스 스냅샷 zip 을 풀어
+파이썬만으로 실행하실 수 있습니다. 저장소 <code>ssmo0810/engra</code> 는 규정에 따라 비공개입니다.
+자세한 사용법은 「02. 결과물 / 3. 설명서·매뉴얼」에, 검증 절차와 결과는 「03. 데이터 세트」에
+있습니다. 이 문서의 확인 기준일은 2026-09-01 이며, 제출 직전에 주소가 열리는 것을 다시 확인합니다.</p>
+
+</body>
+</html>
