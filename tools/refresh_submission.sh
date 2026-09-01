@@ -25,7 +25,10 @@ zip -d "$Z" "data/*" -q >/dev/null 2>&1 || true
 echo "   $(basename "$Z") $(du -h "$Z" | cut -f1)"
 if unzip -l "$Z" | grep -qiE "\.env|serviceAccount|\.pem|id_rsa"; then echo "   !! 비밀 파일이 들어갔다 — 중단"; exit 1; fi
 
-echo "== ③ 04 제작 과정 ← journal.py 재생성"
+echo "== ③ 문서에 손으로 적힌 커밋 수·기간을 지금 저장소로 맞춘다"
+python3 tools/sync_counts.py
+
+echo "== ④ 04 제작 과정 ← journal.py 재생성"
 python3 tools/journal.py >/dev/null
 P="제출/04. 제작 과정"
 cp docs/제작과정/개발일지.md        "$P/개발일지_앙그라쥬.md"
@@ -35,7 +38,7 @@ cp docs/제작과정/회의록_결정기록.md "$P/이슈결정기록_앙그라�
 echo "   md 4개 (회의록_앙그라쥬.md 는 팀원 원문 병합본이라 손대지 않는다)"
 
 if [ "$PDF" != "nopdf" ]; then
-  echo "== ④ PDF 재생성 (몇 분 걸린다)"
+  echo "== ⑤ PDF 재생성 (몇 분 걸린다)"
   for m in "제출/01_과제기획서.md" "$P"/*.md "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.md" \
            "제출/02. 결과물/3. 설명서·매뉴얼/설명서_앙그라쥬.md" "제출/03. 데이터 세트/검증결과정리_앙그라쥬.md"; do
     [ -f "$m" ] || continue
@@ -49,7 +52,7 @@ fi
 if [ "$PDF" != "nopdf" ]; then
   # plan2pdf 출력에 `| head -1` 을 붙이면 head 가 파이프를 닫는 순간 SIGPIPE(141) 가 나고
   # 이 스크립트의 pipefail+set -e 가 그걸 잡아 첫 파일만 만들고 죽는다(2026-09-01 실측 EXIT=141).
-  echo "== ⑤ rev.2 문서 → PDF (docs/*_rev2.html 이 정본)"
+  echo "== ⑥ rev.2 문서 → PDF (docs/*_rev2.html 이 정본)"
   mkdir -p "제출/01. 과제 기획서" "제출/02. 결과물/2. 결과물 원본" "제출/02. 결과물/3. 설명서·매뉴얼" "제출/03. 데이터 세트" "제출/04. 제작 과정"
   bash tools/plan2pdf.sh "제출/01. 과제 기획서/과제기획서_앙그라쥬.pdf"                 "docs/과제기획서_rev2.html"
   bash tools/plan2pdf.sh "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.pdf" "docs/결과물원본_rev2.html"

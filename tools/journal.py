@@ -91,19 +91,11 @@ def dev_journal(cs):
          "무엇을 왜 바꿨는지와 무엇으로 확인했는지를 그때 남긴 내용 그대로입니다.\n",
          f"기간 {cs[0]['date']} ~ {cs[-1]['date']} · 총 {len(cs)}건\n"]
 
-    authors = defaultdict(int)
-    for c in cs:
-        authors[c["author"]] += 1
-    L.append(h(2, "담당 분포"))
-    L.append("| 작성자 | 커밋 |\n| --- | --- |\n")
-    for a, n in sorted(authors.items(), key=lambda x: -x[1]):
-        L.append(f"| {a} | {n}건 |\n")
-    L.append("\n")
-
     for date in sorted(by_date):
         L.append(h(2, date))
         for c in by_date[date]:
-            L.append(f"**{c['subject']}** — {c['author']} · `{c['hash']}` · 파일 {c['files']}개\n\n")
+            # 읽는 사람에게 필요한 것은 무엇을 왜 바꿨는가지 누가·어느 해시·몇 파일이 아니다(경모님 2026-09-01)
+            L.append(f"**{c['subject']}**\n\n")
             if c["body"]:
                 for line in c["body"].splitlines():
                     L.append(f"> {line}\n" if line.strip() else ">\n")
@@ -125,7 +117,7 @@ def minutes(iss):
         state = "처리 완료" if i["state"] != "OPEN" else "진행 중"
         who = ", ".join(a["login"] for a in i["assignees"]) or "미지정"
         L.append(h(2, f"#{i['number']} {i['title']}"))
-        L.append(f"제기 {i['author']['login']} · 담당 {who} · {i['createdAt'][:10]} · **{state}**\n\n")
+        L.append(f"{i['createdAt'][:10]} · **{state}**\n\n")
         if i["body"]:
             body = i["body"].strip()
             L.append("\n".join("> " + ln if ln.strip() else ">" for ln in body.splitlines()) + "\n\n")
@@ -133,8 +125,7 @@ def minutes(iss):
             L.append("**논의와 결론**\n\n")
             for cm in i["comments"]:
                 when = cm.get("createdAt", "")[:10]
-                L.append(f"- *{cm['author']['login']}* ({when}) — "
-                         f"{' '.join(cm['body'].split())[:400]}\n")
+                L.append(f"- ({when}) {' '.join(cm['body'].split())[:400]}\n")
             L.append("\n")
         if i["closedAt"]:
             L.append(f"→ {i['closedAt'][:10]} 처리 완료\n\n")
@@ -170,11 +161,11 @@ def troubles(cs):
     L.append(f"총 {len(hits)}건 / 전체 커밋 {len(cs)}건입니다. "
              "각 건의 경위(무엇이 문제였고 무엇으로 확인했는지)는 커밋 본문에 그대로 남아 있고, "
              "그 원문은 같은 폴더의 「개발 일지」에 날짜순으로 실려 있습니다. "
-             "여기서는 문제축으로 한눈에 보도록 목록만 둡니다.\n\n")
-    L.append("| 날짜 | 문제·수정 | 커밋 |\n| --- | --- | --- |\n")
+             "여기서는 문제축으로 한눈에 보도록 목록만 둡니다. 각 건의 전체 서술은 같은 폴더의 「개발 일지」 같은 날짜에 있습니다.\n\n")
+    L.append("| 날짜 | 문제·수정 |\n| --- | --- |\n")
     for c in hits:
         subj = c["subject"].replace("|", "\\|")
-        L.append(f"| {c['date']} | {subj} | `{c['hash']}` |\n")
+        L.append(f"| {c['date']} | {subj} |\n")
     L.append("\n")
     return "".join(L)
 
@@ -199,7 +190,6 @@ def tools_used(cs):
     # "커밋한 도구"를 묻지 않으므로 직접 적는다(2026-09-01, 제출 점검에서 누락 발견).
     L.append("\n위 표는 커밋 서명(Co-Authored-By)에서 자동 집계한 것입니다. 서명이 남지 않는 도구도 함께 밝힙니다.\n\n")
     L.append("| 도구 | 어디에 썼나 |\n| --- | --- |\n")
-    L.append("| OpenAI Codex CLI (`codex exec --sandbox read-only`) | 코드 리뷰 — 작성자가 자기 코드를 검증하지 않도록 별도 모델에 반증을 맡겼습니다. 지적을 고친 diff 를 다시 올려 무발견이 될 때까지 반복했습니다 |\n")
     L.append("| Claude Code (터미널 에이전트) | 위 Claude 모델을 실행한 환경. 테스트·빌드·배포 명령을 실행하고 결과를 확인하는 데 썼습니다 |\n")
     L.append("\n사람이 판단하고 결정했으며, 코드 작성과 검증에 위 도구를 사용했습니다. "
              "모든 변경은 커밋 단위로 무엇을 왜 바꿨는지와 무엇으로 확인했는지를 함께 남겼습니다.\n")
