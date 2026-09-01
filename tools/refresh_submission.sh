@@ -47,13 +47,15 @@ fi
 # 위 md 루프 **뒤**라서 rev.2 가 최종본이 된다 (09-01 임도영 결정 — 세 문서 rev.2 사용).
 # 표지 포스터·표 머리행 반복은 md2pdf 파서로는 안 되어 HTML 직접 렌더(헤드리스 크롬)로 간다.
 if [ "$PDF" != "nopdf" ]; then
+  # plan2pdf 출력에 `| head -1` 을 붙이면 head 가 파이프를 닫는 순간 SIGPIPE(141) 가 나고
+  # 이 스크립트의 pipefail+set -e 가 그걸 잡아 첫 파일만 만들고 죽는다(2026-09-01 실측 EXIT=141).
   echo "== ⑤ rev.2 문서 → PDF (docs/*_rev2.html 이 정본)"
   mkdir -p "제출/01. 과제 기획서" "제출/02. 결과물/2. 결과물 원본" "제출/02. 결과물/3. 설명서·매뉴얼" "제출/03. 데이터 세트" "제출/04. 제작 과정"
-  bash tools/plan2pdf.sh "제출/01. 과제 기획서/과제기획서_앙그라쥬.pdf"                 "docs/과제기획서_rev2.html" | head -1
-  bash tools/plan2pdf.sh "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.pdf" "docs/결과물원본_rev2.html" | head -1
-  bash tools/plan2pdf.sh "제출/02. 결과물/3. 설명서·매뉴얼/설명서_앙그라쥬.pdf"            "docs/설명서_rev2.html"     | head -1
-  bash tools/plan2pdf.sh "제출/03. 데이터 세트/검증결과정리_앙그라쥬.pdf"                    "docs/검증결과정리_rev2.html" | head -1
-  bash tools/plan2pdf.sh "제출/04. 제작 과정/문서안내_앙그라쥬.pdf"                          "docs/문서안내_rev2.html"     | head -1
+  bash tools/plan2pdf.sh "제출/01. 과제 기획서/과제기획서_앙그라쥬.pdf"                 "docs/과제기획서_rev2.html"
+  bash tools/plan2pdf.sh "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.pdf" "docs/결과물원본_rev2.html"
+  bash tools/plan2pdf.sh "제출/02. 결과물/3. 설명서·매뉴얼/설명서_앙그라쥬.pdf"            "docs/설명서_rev2.html"    
+  bash tools/plan2pdf.sh "제출/03. 데이터 세트/검증결과정리_앙그라쥬.pdf"                    "docs/검증결과정리_rev2.html"
+  bash tools/plan2pdf.sh "제출/04. 제작 과정/문서안내_앙그라쥬.pdf"                          "docs/문서안내_rev2.html"    
   # 04 의 자동 생성·병합 md 는 내용은 그대로 두고 스타일만 입힌다 — ③ 이 방금 만든 md 를 다시 렌더
   for m in "제출/04. 제작 과정/사용도구_앙그라쥬.md" "제출/04. 제작 과정/개발일지_앙그라쥬.md"            "제출/04. 제작 과정/난관과극복사례_앙그라쥬.md" "제출/04. 제작 과정/이슈결정기록_앙그라쥬.md"; do
     [ -f "$m" ] && python3 tools/md2pdf.py --style sk "$m"
