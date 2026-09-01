@@ -26,8 +26,9 @@ def main():
         if not p.exists():
             continue
         s = orig = p.read_text(encoding="utf-8")
-        s = re.sub(r"커밋 (<b>)?\d+건", lambda m: f"커밋 {m.group(1) or ''}{n}건", s)
-        s = re.sub(r"커밋 전체 \(\d+건", f"커밋 전체 ({n}건", s)
+        # 태그가 중간에 끼어도 잡히게 — 실제로 `<b>커밋 전체</b>(248건` 형태가 있었다.
+        s = re.sub(r"(커밋(?:\s|<[^>]+>)*(?:전체(?:\s|<[^>]+>)*)?\(?)\d[\d,]*건",
+                   lambda m: f"{m.group(1)}{n}건", s)
         # "2026-08-02부터 08-31까지" 같은 기간 끝을 마지막 커밋 날짜로
         s = re.sub(rf"({re.escape(first)}부터 )\d{{2}}-\d{{2}}(까지)", rf"\g<1>{last[5:]}\g<2>", s)
         if s != orig:
@@ -35,6 +36,20 @@ def main():
             changed += 1
             print(f"   {rel} — 커밋 {n}건 · 기간 끝 {last[5:]}")
     print(f"   대상 {len(TARGETS)}개 중 {changed}개 갱신 (현재 커밋 {n}건 · {first}~{last})")
+    # 갱신하고도 다른 커밋 수가 남아 있으면 알린다 — 조용히 지나가면 낡은 숫자가 그대로 제출된다
+    stale = []
+    for rel in TARGETS:
+        p = ROOT / rel
+        if not p.exists():
+            continue
+        for m in re.finditer(r"커밋(?:\s|<[^>]+>)*(?:전체(?:\s|<[^>]+>)*)?\(?(\d[\d,]*)건", p.read_text(encoding="utf-8")):
+            if m.group(1).replace(",", "") != n:
+                stale.append(f"{rel}: 커밋 {m.group(1)}건")
+    if stale:
+        print("   !! 아직 다른 값이 남아 있다 — 확인이 필요하다")
+        for x in stale:
+            print(f"      {x}")
+        return 1
     return 0
 
 if __name__ == "__main__":
