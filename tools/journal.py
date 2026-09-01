@@ -18,6 +18,7 @@
     python3 tools/journal.py --out DIR  # 다른 곳에 생성 (Drive 폴더 등)
 """
 import argparse
+import re
 import json
 import re
 import subprocess
@@ -75,6 +76,22 @@ def issues():
     return sorted(data, key=lambda i: i["number"])
 
 
+# 본문에 남은 GitHub 계정명을 사람 이름으로 바꾼다. URL 안(github.io/github.com)은 실제 링크라 건드리지 않는다.
+# 심사위원이 읽는 문서에 계정 아이디가 그대로 나오면 누구를 가리키는지 알 수 없다(경모님 2026-09-01).
+_ACCOUNTS = [("dylim404", "임도영"), ("giyeong2", "정기영"), ("ssmo0810", "박경모")]
+
+def _names(text):
+    if not text:
+        return text
+    out = []
+    for tok in re.split(r"(https?://\S+|`[^`]*`)", text):   # URL·코드조각은 통째로 보존
+        if tok and not tok.startswith(("http", "`")):
+            for acc, name in _ACCOUNTS:
+                tok = re.sub(rf"@?{acc}\b", name, tok)
+        out.append(tok or "")
+    return "".join(out)
+
+
 def h(level, text):
     return f"{'#' * level} {text}\n"
 
@@ -97,7 +114,7 @@ def dev_journal(cs):
             # 읽는 사람에게 필요한 것은 무엇을 왜 바꿨는가지 누가·어느 해시·몇 파일이 아니다(경모님 2026-09-01)
             L.append(f"**{c['subject']}**\n\n")
             if c["body"]:
-                for line in c["body"].splitlines():
+                for line in _names(c["body"]).splitlines():
                     L.append(f"> {line}\n" if line.strip() else ">\n")
                 L.append("\n")
     return "".join(L)
@@ -119,13 +136,13 @@ def minutes(iss):
         L.append(h(2, f"#{i['number']} {i['title']}"))
         L.append(f"{i['createdAt'][:10]} · **{state}**\n\n")
         if i["body"]:
-            body = i["body"].strip()
+            body = _names(i["body"]).strip()
             L.append("\n".join("> " + ln if ln.strip() else ">" for ln in body.splitlines()) + "\n\n")
         if i["comments"]:
             L.append("**논의와 결론**\n\n")
             for cm in i["comments"]:
                 when = cm.get("createdAt", "")[:10]
-                L.append(f"- ({when}) {' '.join(cm['body'].split())[:400]}\n")
+                L.append(f"- ({when}) {_names(' '.join(cm['body'].split()))[:400]}\n")
             L.append("\n")
         if i["closedAt"]:
             L.append(f"→ {i['closedAt'][:10]} 처리 완료\n\n")
