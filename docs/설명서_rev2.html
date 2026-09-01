@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>ENGRA 사용 설명서 — 앙그라쥬</title>
+<style>
+:root{
+  --sk:#EA002C; --sk-deep:#B00021; --wash:#FFF4F6;
+  --ink:#15161A; --body:#2E3036; --muted:#71747E;
+  --rule:#E3E4E8; --rule-soft:#F0F1F4;
+  --ok:#0F7B3E; --ok-wash:#EFF8F2;
+}
+@page{ size:210mm 297mm; margin:16mm 15mm 15mm; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  margin:0; background:#fff; color:var(--body);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:10.2pt; line-height:1.72; word-break:keep-all; overflow-wrap:break-word;
+}
+p{ margin:0 0 .62em; text-align:justify; }
+strong,b{ color:var(--ink); font-weight:700; }
+code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
+  background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
+
+.head{ margin-bottom:18px; }
+.eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:13px; }
+.eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.title{ font-size:22pt; line-height:1.24; font-weight:800; color:var(--ink);
+  letter-spacing:-.02em; margin:0 0 8px; }
+.title .accent{ color:var(--sk); }
+.lead{ font-size:11pt; color:var(--body); margin:0; }
+.lead b{ color:var(--sk-deep); }
+.rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:14px 0 0; }
+
+h1.sec{ font-size:13.6pt; font-weight:800; color:var(--ink); letter-spacing:-.01em;
+  margin:24px 0 10px; padding-bottom:6px; border-bottom:2.5px solid var(--sk);
+  page-break-after:avoid; }
+h1.sec .n{ color:var(--sk); margin-right:9px; }
+h2.sub{ font-size:10.8pt; font-weight:700; color:var(--ink); margin:16px 0 6px;
+  padding-left:11px; border-left:3.5px solid var(--sk); page-break-after:avoid; }
+
+table.d{ width:100%; border-collapse:collapse; font-size:9pt; margin:8px 0 12px; }
+table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
+  padding:5px 7px; border-bottom:1.6px solid var(--sk); border-top:1px solid var(--rule);
+  line-height:1.45; }
+table.d td{ padding:5px 7px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top; line-height:1.58; }
+table.d td:first-child{ font-weight:600; color:var(--ink); }
+table.d thead{ display:table-header-group; }
+table.d tr{ page-break-inside:avoid; }
+.mono{ font-family:Consolas,"Courier New",monospace; font-size:8.6pt; }
+
+.note{ border-left:3px solid var(--sk); background:var(--wash);
+  padding:8px 12px; margin:9px 0 12px; font-size:9.3pt; line-height:1.66; }
+.note strong{ color:var(--sk-deep); }
+.tip{ border-left:3px solid var(--ok); background:var(--ok-wash);
+  padding:8px 12px; margin:9px 0 12px; font-size:9.3pt; line-height:1.66; }
+.tip strong{ color:var(--ok); }
+
+ol.steps{ counter-reset:st; list-style:none; margin:6px 0 12px; padding:0; }
+ol.steps > li{ counter-increment:st; position:relative; padding-left:27px; margin:0 0 9px; }
+ol.steps > li::before{ content:counter(st); position:absolute; left:0; top:.1em;
+  width:19px; height:19px; border-radius:50%; background:var(--sk); color:#fff;
+  font-size:8.6pt; font-weight:800; display:flex; align-items:center; justify-content:center; }
+ol.steps > li > .t{ display:block; font-weight:700; color:var(--ink); margin-bottom:1px; }
+ul.tight{ margin:.2em 0 .5em; padding-left:1.1em; }
+ul.tight li{ margin:.14em 0; }
+
+.screen{ display:inline-block; font-family:Consolas,"Courier New",monospace; font-size:8.4pt;
+  background:var(--ink); color:#fff; padding:.1em .42em; border-radius:2.5px;
+  vertical-align:.06em; white-space:nowrap; }
+.foot{ margin-top:20px; padding-top:9px; border-top:1px solid var(--rule);
+  font-size:8pt; color:var(--muted); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="eyebrow">SK AI 해커톤 2026 · AI Solution 리그 본선 · 02. 결과물 — 3. 설명서·매뉴얼</div>
+  <h1 class="title">ENGRA <span class="accent">사용 설명서</span></h1>
+  <p class="lead">교대 인수인계 초안을 <b>AI 가 먼저 쓰고, 운전원이 고르고 승인</b>합니다.
+  이 문서는 개발자가 아닌 <b>근무자</b>가 순서대로 따라 할 수 있게 쓴 설명서입니다.</p>
+  <div class="rule"></div>
+</div>
+
+<h1 class="sec"><span class="n">1.</span>무엇을 위한 것인가</h1>
+
+<p>12시간 근무가 끝나면 다음 근무자에게 무엇이 있었는지 넘겨야 합니다. 지금은 교대 말미에
+<b>기억을 되짚어</b> 적습니다. 태그가 수십~수백 점이라 전부 확인할 수 없어 경험으로 고른 일부만
+보고, 나머지는 알람이 울리지 않았다는 사실로 대신합니다.</p>
+<p>ENGRA 는 근무 구간이 끝난 뒤 <b>그 구간 전체를 되돌아보는 계층</b>입니다. 태그를 전수 검토해
+평소와 다른 구간을 찾아내고, AI 가 항목별로 문장을 써서 <b>인수인계 초안</b>을 만들어 둡니다.
+근무자는 빈 종이가 아니라 초안에서 시작해 <b>고르고 · 보태고 · 승인</b>하면 됩니다.</p>
+
+<table class="d">
+  <thead><tr><th style="width:22%">이런 분이</th><th>이럴 때 씁니다</th></tr></thead>
+  <tr><td>교대 운전원</td><td>근무를 마치기 전 인수인계를 작성할 때. 인계받은 뒤 앞 근무에 무엇이 있었는지 볼 때</td></tr>
+  <tr><td>근무조 조장</td><td>조원이 올린 일지를 확인하고 확정할 때</td></tr>
+  <tr><td>설비·공무 부서</td><td>특정 설비에 그동안 무슨 일이 있었는지 기간·태그로 찾아볼 때</td></tr>
+</table>
+
+<div class="note"><strong>실시간 감시와 알람은 ENGRA 의 일이 아닙니다.</strong> 그것은 DCS 가 합니다.
+ENGRA 는 <b>알람에 걸리지 않고 지나가는 느린 변화</b>까지 포함해 「이번 근무에서 다음 근무로 넘길 것」을
+만드는 별도의 계층입니다.</div>
+
+<h1 class="sec"><span class="n">2.</span>쓰기 전에 준비할 것</h1>
+
+<table class="d">
+  <thead><tr><th style="width:26%">항목</th><th>내용</th></tr></thead>
+  <tr><td>준비물</td><td><b>웹 브라우저 하나면 됩니다.</b> 설치할 프로그램도, 계정 가입도 없습니다</td></tr>
+  <tr><td>접속 주소</td><td class="mono">https://engra.64-176-227-85.sslip.io</td></tr>
+  <tr><td>권장 화면</td><td>가로 1280px 이상. 교대 시 공용 화면에서 함께 보는 것을 전제로 만들었습니다</td></tr>
+  <tr><td>근무 데이터</td><td>실배포에서는 정해진 시각에 RTDB 에서 자동으로 가져옵니다.
+      <b>이 프로토타입에서는 CSV 를 직접 올립니다</b>(3-1) — 심사·시연에서 전 과정을 보실 수 있게 한 것입니다</td></tr>
+  <tr><td>CSV 형식</td><td class="mono">timestamp,tag,value</td></tr>
+</table>
+
+<div class="note"><strong>이 프로토타입의 데이터는 전부 가상입니다.</strong> 사내 원본 데이터·실제 태그
+체계·시스템 화면을 일절 쓰지 않았습니다. 태그는 <code>AI-707</code> 같은 가상 표기입니다.</div>
+
+<h1 class="sec"><span class="n">3.</span>순서대로 따라 하기</h1>
+
+<ol class="steps">
+  <li><span class="t">근무 데이터를 올립니다 — <span class="screen">③ 파이프라인</span></span>
+  위쪽 메뉴에서 <b>③ 파이프라인</b>으로 들어가 <b>① 파일 올리기</b>에 근무 CSV 를 넣습니다.
+  올리면 근무 단위로 나뉘어 목록에 나타납니다. 이어서 <b>「적재 + 검출 + AI 초안」</b> 단추를 누르면
+  적재 → 이상 검출 → AI 초안 작성이 차례로 돕니다.
+  <ul class="tight">
+    <li>진행 상황이 화면에 그대로 표시됩니다. <b>AI 서술까지 7~10분</b> 걸립니다 — 실제 운영에서는
+    교대 1시간 전에 자동으로 끝나 있습니다.</li>
+    <li>파일이 깨져 있으면 그 사실을 알려 주고, 한 태그가 오래 끊긴 것뿐이면 적재한 뒤
+    <b>「계측 결측」 항목</b>을 초안 맨 앞에 넣어 줍니다.</li>
+  </ul></li>
+
+  <li><span class="t">초안을 검토합니다 — <span class="screen">/shift/&lt;근무ID&gt;</span></span>
+  감지된 항목이 <b>중요도 순</b>으로 놓여 있습니다. <b>걸러내지 않고 전부 보여 줍니다</b> —
+  무엇을 뺄지는 사람이 정한다는 원칙입니다. 항목 하나는 다음으로 이루어집니다.
+  <ul class="tight">
+    <li><b>제목과 중요도</b> — 중요도는 <b>상 · 중 · 하</b> 중에서 직접 바꿀 수 있습니다.</li>
+    <li><b>감지 근거</b> — 어느 태그가 언제 어떻게 움직였는지와 그 수치. 추이 파형이 함께 그려집니다.</li>
+    <li><b>중요도 판단</b> — AI 가 왜 그 등급으로 봤는지. 통계 등급과 다르면 그 사실도 적힙니다.</li>
+    <li><b>「함께 봐야 할 항목」</b> — 한 사건으로 이어지는 다른 태그.</li>
+    <li><b>「과거 조치」</b> — 같은 태그의 <b>확정된 지난 일지</b>에서 이번 증상에 맞는 것만.
+    <b>「원문 보기」</b>를 펼치면 앞 근무자가 쓴 문장 그대로 볼 수 있고, <b>「코멘트로 사용」</b>을 누르면
+    그 문장이 코멘트 칸에 들어갑니다.</li>
+    <li><b>코멘트 칸</b> — 데이터에 남지 않는 맥락은 여기에 적습니다.</li>
+  </ul></li>
+
+  <li><span class="t">고르고 코멘트를 답니다</span>
+  각 항목의 <b>체크를 켜면 채택, 끄면 제외</b>입니다. 조치했거나 확인한 내용이 있으면 코멘트에
+  적어 주십시오 — <b>그 문장이 다음 근무 초안에 「과거 조치」로 돌아옵니다.</b> 조치 문장을 AI 가
+  대신 써 주지 않는 이유가 여기 있습니다. 현장의 절차를 아는 것은 사람뿐입니다.
+  <div class="tip" style="margin:6px 0 0"><strong>제외한 항목도 지워지지 않습니다.</strong>
+  무엇을 왜 뺐는지가 감도를 조정하는 근거이자, 근무자마다 다른 기준을 맞춰가는 자료가 됩니다.</div></li>
+
+  <li><span class="t">승인합니다 — <span class="screen">승인하고 확정</span></span>
+  아래 <b>「승인하고 확정」</b>을 누르면 확정 일지가 만들어집니다. 채택한 항목만 일지 본문에
+  들어가고, 제외한 것은 기록으로 남습니다. <b>손대지 않은 항목은 제외로 처리</b>되므로,
+  넘길 것은 반드시 체크해 주십시오.</li>
+
+  <li><span class="t">일지를 조회합니다 — <span class="screen">/</span></span>
+  첫 화면이 <b>근무 일지</b> 목록입니다. 근무를 고르면 확정된 내용이 나오고, 태그·기간으로 찾을 수
+  있습니다. 확정한 뒤라도 <b>재검토</b>로 되돌릴 수 있으며, 이전 판은 이력으로 남습니다.</li>
+
+  <li><span class="t">다음 근무에서 확인합니다</span>
+  다음 근무의 초안을 만들면, 앞서 남긴 코멘트가 같은 태그 항목의 <b>「과거 조치」</b>로 되돌아옵니다.
+  <b>쓸수록 초안의 근거가 두터워지는</b> 것이 이 서비스의 핵심입니다.</li>
+</ol>
+
+<h1 class="sec"><span class="n">4.</span>화면에 나오는 표시 읽는 법</h1>
+
+<table class="d">
+  <thead><tr><th style="width:27%">표시</th><th>뜻</th></tr></thead>
+  <tr><td>중요도 <b>상 · 중 · 하</b></td>
+      <td>AI 가 「놓치면 무엇이 일어나는가」로 판단한 등급입니다. <b>근무자가 바꿀 수 있습니다</b> —
+      판단 이유가 함께 적혀 있으니 보고 뒤집으셔도 됩니다</td></tr>
+  <tr><td><b>전달 가치 낮음</b></td>
+      <td>정상 운전 범위로 보이니 굳이 넘기지 않아도 된다는 AI 의 표시입니다(예: 외기 온습도의
+      하루 주기 변동). <b>항목을 지우지는 않습니다</b> — 판단은 근무자 몫입니다</td></tr>
+  <tr><td><b>「계측 결측」</b></td>
+      <td>원본 데이터에 빈 구간이 있었다는 뜻입니다. 그 태그의 검출은 결측을 모른 채 나온 것이라
+      신뢰도가 낮다는 것을 함께 알려 줍니다</td></tr>
+  <tr><td><b>「이전에 제외한 것」</b><br>(초안 맨 아래)</td>
+      <td>지난 근무에서 <b>같은 태그·같은 종류</b>를 제외했던 항목입니다. 숨기지 않고 맨 아래에 접어
+      두며, 몇 근무 연속 제외했는지와 중요도 「상」이 섞여 있는지를 함께 보여 줍니다.
+      체크하면 이번 일지에 들어갑니다</td></tr>
+  <tr><td><b>정지 확인 질문</b></td>
+      <td>짧은 시간에 여러 태그가 한꺼번에 무너지면 「플랜트를 정지하셨습니까?」를 맨 앞에 띄웁니다.
+      계획된 정지였다면 아래 항목들은 이상이 아니라 정지에 따른 변화입니다</td></tr>
+  <tr><td><b>「과거 조치 없음」</b></td>
+      <td>같은 태그의 지난 일지는 있었지만 이번 증상에는 맞지 않아 AI 가 걷어냈다는 뜻입니다.
+      아무 사례나 붙이지 않습니다</td></tr>
+  <tr><td>AI 배지</td><td>어느 AI 로 초안을 만들었는지 표시합니다. <b>AI 연결이 끊기면 초안을 만들지
+      않고 그 사실을 화면에 알립니다</b> — 근거 없는 문장이 일지로 굳지 않게 하려는 것입니다</td></tr>
+</table>
+
+<h1 class="sec"><span class="n">5.</span>잘 동작하지 않을 때 확인할 사항</h1>
+
+<table class="d">
+  <thead><tr><th style="width:30%">증상</th><th style="width:32%">먼저 확인할 것</th><th>조치</th></tr></thead>
+  <tr><td>주소를 열었는데 화면이 안 뜬다</td>
+      <td>주소를 정확히 입력했는지, 사내망 차단은 아닌지</td>
+      <td>다른 망(모바일 테더링 등)에서 한 번 더 열어 봅니다. 그래도 안 되면 「02. 결과물 /
+      2. 결과물 원본」의 소스 스냅샷으로 로컬에서 실행할 수 있습니다</td></tr>
+  <tr><td>초안이 만들어지지 않는다</td>
+      <td>화면에 <b>AI 연결</b> 관련 안내가 떠 있는지</td>
+      <td>AI 가 연결되지 않으면 <b>일부러 초안을 만들지 않습니다.</b> 안내 문구가 원인을 알려 줍니다 —
+      연결이 회복되면 다시 실행하십시오</td></tr>
+  <tr><td>초안 생성이 오래 걸린다</td>
+      <td>진행 표시가 멈춰 있는지 움직이는지</td>
+      <td><b>정상입니다.</b> 한 근무 13~16항목에 7~10분 걸립니다. 항목을 5개씩 묶어 차례로 처리합니다</td></tr>
+  <tr><td>파일을 올렸는데 거부된다</td>
+      <td>안내에 「깨진 행」이 몇 % 로 나오는지</td>
+      <td>여러 태그에 흩어져 비어 있으면 전송 문제일 수 있으니 다시 받아 올립니다.
+      한 태그가 오래 끊긴 것뿐이면 <b>그대로 적재</b>되고 「계측 결측」 항목이 초안에 들어갑니다</td></tr>
+  <tr><td>이미 확정한 근무를 다시 만들려 한다</td>
+      <td>그 근무가 <b>확정</b> 상태인지</td>
+      <td>확정된 근무는 <b>실수로 덮어쓰지 못하게 막혀 있습니다.</b> 정말 다시 만들어야 하면
+      <b>관리</b> 화면의 「다시 만들기」를 씁니다</td></tr>
+  <tr><td>넘길 항목이 일지에 안 들어갔다</td>
+      <td>승인 전에 그 항목의 체크가 켜져 있었는지</td>
+      <td><b>손대지 않은 항목은 제외로 처리</b>됩니다. <b>재검토</b>로 되돌려 다시 승인하면 됩니다 —
+      이전 판은 이력으로 남습니다</td></tr>
+  <tr><td>지난 근무에 있던 항목이 안 보인다</td>
+      <td>초안 <b>맨 아래</b>의 「이전에 제외한 것」 칸을 펼쳐 봤는지</td>
+      <td>지난 근무에서 제외한 것과 같은 태그·종류는 맨 아래로 내려갑니다. 숨긴 것이 아니라
+      자리를 옮긴 것이라 <b>체크하면 그대로 들어갑니다</b></td></tr>
+  <tr><td>화면이 좁아 표가 잘린다</td>
+      <td>브라우저 창 너비</td>
+      <td>가로 1280px 이상을 권합니다. 교대 시 공용 화면에서 함께 보는 것을 전제로 만들었습니다</td></tr>
+</table>
+
+<div class="tip"><strong>그래도 해결되지 않으면.</strong> 화면에 나온 안내 문구와 근무 ID
+(예: <code>2026-08-27-day</code>)를 함께 알려 주시면 원인을 빠르게 좁힐 수 있습니다.
+ENGRA 는 실패했을 때 <b>조용히 넘어가지 않고 무엇이 왜 막혔는지를 화면에 적도록</b> 만들었습니다.</div>
+
+<p class="foot"><b>요약</b> — ③ 파이프라인에서 근무 CSV 를 올리고 「적재 + 검출 + AI 초안」을 누른 뒤,
+초안 화면에서 <b>고르고 · 코멘트를 달고 · 승인</b>하면 확정 일지가 만들어집니다. 남긴 코멘트는
+다음 근무 초안에 「과거 조치」로 돌아옵니다. 접속 주소와 공개 설정은 「02. 결과물 / 2. 결과물 원본」에,
+검증 절차와 결과는 「03. 데이터 세트」에 있습니다. 이 문서의 기준일은 2026-09-01 입니다.</p>
+
+</body>
+</html>
