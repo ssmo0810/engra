@@ -42,4 +42,15 @@ if [ "$PDF" != "nopdf" ]; then
     python3 tools/md2pdf.py "$m" >/dev/null 2>&1 && echo "   $(basename "${m%.md}.pdf")"
   done
 fi
+
+# rev.2 — 01 기획서·02-2 접속주소·02-3 설명서는 저장소 정본(docs/*_rev2.html)에서 렌더한다.
+# 위 md 루프 **뒤**라서 rev.2 가 최종본이 된다 (09-01 임도영 결정 — 세 문서 rev.2 사용).
+# 표지 포스터·표 머리행 반복은 md2pdf 파서로는 안 되어 HTML 직접 렌더(헤드리스 크롬)로 간다.
+if [ "$PDF" != "nopdf" ]; then
+  echo "== ⑤ rev.2 문서 → PDF (docs/*_rev2.html 이 정본)"
+  mkdir -p "제출/01. 과제 기획서" "제출/02. 결과물/2. 결과물 원본" "제출/02. 결과물/3. 설명서·매뉴얼"
+  bash tools/plan2pdf.sh "제출/01. 과제 기획서/과제기획서_앙그라쥬.pdf"                 "docs/과제기획서_rev2.html" | head -1
+  bash tools/plan2pdf.sh "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.pdf" "docs/결과물원본_rev2.html" | head -1
+  bash tools/plan2pdf.sh "제출/02. 결과물/3. 설명서·매뉴얼/설명서_앙그라쥬.pdf"            "docs/설명서_rev2.html"     | head -1
+fi
 echo "== 완료 — 이어서: bash tools/submit_drive.sh go [video]"

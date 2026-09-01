@@ -11,6 +11,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 SRC="${2:-$PWD/docs/과제기획서_rev2.html}"
 OUT="${1:-$PWD/과제기획서_앙그라쥬.pdf}"
+# 크롬은 상대 경로 출력을 못 쓴다 — 저장소 루트 기준으로 절대화한다 (refresh_submission ⑤ 가 상대로 넘긴다)
+case "$SRC" in /*|[A-Za-z]:*) ;; *) SRC="$PWD/$SRC" ;; esac
+case "$OUT" in /*|[A-Za-z]:*) ;; *) OUT="$PWD/$OUT" ;; esac
 [ -f "$SRC" ] || { echo "원본이 없습니다: $SRC" >&2; exit 1; }
 
 CHROME=""
