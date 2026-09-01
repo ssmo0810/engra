@@ -48,10 +48,19 @@ fi
 # 표지 포스터·표 머리행 반복은 md2pdf 파서로는 안 되어 HTML 직접 렌더(헤드리스 크롬)로 간다.
 if [ "$PDF" != "nopdf" ]; then
   echo "== ⑤ rev.2 문서 → PDF (docs/*_rev2.html 이 정본)"
-  mkdir -p "제출/01. 과제 기획서" "제출/02. 결과물/2. 결과물 원본" "제출/02. 결과물/3. 설명서·매뉴얼" "제출/03. 데이터 세트"
+  mkdir -p "제출/01. 과제 기획서" "제출/02. 결과물/2. 결과물 원본" "제출/02. 결과물/3. 설명서·매뉴얼" "제출/03. 데이터 세트" "제출/04. 제작 과정"
   bash tools/plan2pdf.sh "제출/01. 과제 기획서/과제기획서_앙그라쥬.pdf"                 "docs/과제기획서_rev2.html" | head -1
   bash tools/plan2pdf.sh "제출/02. 결과물/2. 결과물 원본/결과물원본_접속주소_앙그라쥬.pdf" "docs/결과물원본_rev2.html" | head -1
   bash tools/plan2pdf.sh "제출/02. 결과물/3. 설명서·매뉴얼/설명서_앙그라쥬.pdf"            "docs/설명서_rev2.html"     | head -1
   bash tools/plan2pdf.sh "제출/03. 데이터 세트/검증결과정리_앙그라쥬.pdf"                    "docs/검증결과정리_rev2.html" | head -1
+  bash tools/plan2pdf.sh "제출/04. 제작 과정/문서안내_앙그라쥬.pdf"                          "docs/문서안내_rev2.html"     | head -1
+  # 04 의 자동 생성·병합 md 는 내용은 그대로 두고 스타일만 입힌다 — ③ 이 방금 만든 md 를 다시 렌더
+  [ -f "제출/04. 제작 과정/사용도구_앙그라쥬.md" ] && python3 tools/md2pdf.py --style sk "제출/04. 제작 과정/사용도구_앙그라쥬.md"
+  if [ -f "제출/04. 제작 과정/회의록_앙그라쥬.md" ]; then
+    # 회의록의 그림을 렌더 동안만 옆에 둔다 — 남겨 두면 submit_drive 가 png 를 Drive 에 올린다
+    cp -r docs/회의록/img "제출/04. 제작 과정/img" 2>/dev/null || true
+    python3 tools/md2pdf.py --style sk "제출/04. 제작 과정/회의록_앙그라쥬.md"
+    rm -rf "제출/04. 제작 과정/img"
+  fi
 fi
 echo "== 완료 — 이어서: bash tools/submit_drive.sh go [video]"

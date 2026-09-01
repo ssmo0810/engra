@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>제출물 안내 — 어디에 무엇이 있는가 · 앙그라쥬</title>
+<style>
+:root{
+  --sk:#EA002C; --sk-deep:#B00021; --wash:#FFF4F6;
+  --ink:#15161A; --body:#2E3036; --muted:#71747E;
+  --rule:#E3E4E8; --rule-soft:#F0F1F4;
+}
+@page{ size:210mm 297mm; margin:16mm 15mm 15mm; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  margin:0; background:#fff; color:var(--body);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:10pt; line-height:1.68; word-break:keep-all; overflow-wrap:break-word;
+}
+p{ margin:0 0 .6em; text-align:justify; }
+strong,b{ color:var(--ink); font-weight:700; }
+code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
+  background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
+
+.eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:12px; }
+.eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.title{ font-size:20pt; line-height:1.24; font-weight:800; color:var(--ink);
+  letter-spacing:-.02em; margin:0 0 7px; }
+.title .accent{ color:var(--sk); }
+.lead{ font-size:10.6pt; color:var(--body); margin:0 0 12px; }
+.rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:0 0 14px; }
+
+.fast{ border:1px solid var(--rule); border-left:3px solid var(--sk); background:var(--wash);
+  padding:10px 13px; margin:0 0 16px; }
+.fast .k{ font-size:8.6pt; font-weight:800; color:var(--sk); letter-spacing:.08em; margin-bottom:4px; }
+.fast ol{ margin:0; padding-left:1.2em; font-size:9.4pt; line-height:1.66; }
+.fast li{ margin:.14em 0; }
+
+h1.sec{ font-size:12.6pt; font-weight:800; color:var(--ink);
+  margin:16px 0 8px; padding-bottom:5px; border-bottom:2.5px solid var(--sk);
+  page-break-after:avoid; }
+h1.sec .n{ color:var(--sk); margin-right:8px; }
+
+table.d{ width:100%; border-collapse:collapse; font-size:8.8pt; margin:6px 0 10px; }
+table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
+  padding:4.5px 7px; border-bottom:1.6px solid var(--sk); border-top:1px solid var(--rule);
+  line-height:1.42; }
+table.d td{ padding:4.5px 7px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top; line-height:1.55; }
+table.d td:first-child{ font-weight:700; color:var(--ink); white-space:nowrap; }
+table.d thead{ display:table-header-group; }
+table.d tr{ page-break-inside:avoid; }
+.pt{ display:inline-block; font-size:7.6pt; font-weight:800; padding:.06em .4em;
+  border-radius:2px; background:var(--sk); color:#fff; vertical-align:.1em; }
+.foot{ margin-top:14px; padding-top:8px; border-top:1px solid var(--rule);
+  font-size:7.9pt; color:var(--muted); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="eyebrow">SK AI 해커톤 2026 · AI Solution 리그 본선 · 팀 앙그라쥬 · ENGRA</div>
+<h1 class="title">제출물 안내 — <span class="accent">어디에 무엇이</span> 있는가</h1>
+<p class="lead">폴더 네 개에 나뉘어 있는 제출물의 지도입니다. 각 문서가 <b>어느 평가 질문에
+답하는지</b>를 함께 적었습니다.</p>
+<div class="rule"></div>
+
+<div class="fast">
+  <div class="k">시간이 없으시면 — 세 걸음이면 전체가 보입니다</div>
+  <ol>
+    <li><b>「01. 과제 기획서」 표지 1면</b> — 무엇을 왜 만들었고 결과가 무엇인지 한 장.</li>
+    <li><b>앱을 직접 열기</b> — <code>https://engra.64-176-227-85.sslip.io</code> (로그인·설치 없음).
+        승인 대기 근무에서 항목을 골라 직접 승인해 보실 수 있습니다.</li>
+    <li><b>「03. 데이터 세트」의 검증 결과 정리 3쪽</b> — 무엇으로 어떻게 재봤고,
+        잘 되지 않았던 다섯 조건까지.</li>
+  </ol>
+</div>
+
+<h1 class="sec"><span class="n">01.</span>과제 기획서 <span class="pt">50점</span></h1>
+<table class="d">
+  <thead><tr><th style="width:30%">평가가 묻는 것</th><th>답하는 곳</th></tr></thead>
+  <tr><td>문제가 데이터·근거로 정의됐나</td><td>2-1 · 2-2 — 시나리오 24종 중 알람은 7종, 태그 53점, 근무당 100분 추정의 근거</td></tr>
+  <tr><td>정량 목표와 산출 근거</td><td>5-1 — 목표 7개 전부에 「그 값을 정한 근거」 열</td></tr>
+  <tr><td>AS-IS 대비 TO-BE</td><td>2-3 표 · 3-4 — 실측/추정/미측정 구분 표기</td></tr>
+  <tr><td>AI 가 핵심 판단에 관여하는 수준</td><td>3-5 — AI 판단 4계층과 7근무 실측 표(숫자 환각 423개 중 0)</td></tr>
+  <tr><td>확장 가능성</td><td>6-3 — 3층 임팩트 범위와 이식 비용</td></tr>
+</table>
+
+<h1 class="sec"><span class="n">02.</span>결과물 <span class="pt">25점</span></h1>
+<table class="d">
+  <thead><tr><th style="width:30%">문서</th><th>내용</th></tr></thead>
+  <tr><td>1. 시연 영상</td><td>실시간·무편집 — 데이터 업로드부터 초안 검토·승인·일지 조회까지 한 흐름</td></tr>
+  <tr><td>2. 결과물 원본</td><td>접속 주소(외부 익명 200 실측) · 안 열릴 때 로컬 실행 방법 · 저장소 공개 설정(규정상 비공개) · <b>소스 스냅샷 zip</b></td></tr>
+  <tr><td>3. 설명서·매뉴얼</td><td>근무자용 — 준비물·따라 하기 6단계·화면 표시 읽는 법·안 될 때 8가지</td></tr>
+</table>
+
+<h1 class="sec"><span class="n">03.</span>데이터 세트 <span class="pt">10점</span></h1>
+<table class="d">
+  <thead><tr><th style="width:30%">자료</th><th>내용</th></tr></thead>
+  <tr><td>검증 결과 정리</td><td>모사 데이터의 사실과 방식 · <b>조건 8종 시험 결과</b>(대량·형식 오류·빈 값·정상·50일·태그 16배·AI·독립 채점) · 재현 명령 · <b>잘 되지 않았던 조건 5건</b></td></tr>
+  <tr><td>데이터세트/</td><td>기준 2근무 + 랜덤 6근무 CSV 와 정답지, 태그 마스터, 시나리오 정의 — 검출·초안은 정답지를 읽지 않습니다</td></tr>
+  <tr><td>동작확인자료/</td><td>화면 캡처 · 독립 채점 출력 · 스모크 테스트 출력 · 서버 로그</td></tr>
+</table>
+
+<h1 class="sec"><span class="n">04.</span>제작 과정 <span class="pt">15점</span></h1>
+<p style="font-size:9.2pt">판정 질문은 하나 — <b>「난관에 굴복하지 않고 끈기 있게 문제를 해결했는가」</b>.
+같은 질문을 네 각도에서 증명합니다. 커밋·이슈에서 <b>자동 생성</b>되므로 마감에 몰아 쓴 기록이 아니라
+일하면서 남긴 기록 그대로입니다.</p>
+<table class="d">
+  <thead><tr><th style="width:30%">문서</th><th>무엇으로 만들었나 · 무엇을 보여주나</th></tr></thead>
+  <tr><td>추진 계획서</td><td>주차·할 일·담당·목표일·상태 (WBS)</td></tr>
+  <tr><td>개발 일지</td><td><b>커밋 전체</b>(248건, 08-02~) 를 날짜별로 — 언제 무엇을 얼마나 했나</td></tr>
+  <tr><td>난관과 극복 사례</td><td>담당자가 5요소(예상과 달랐던 것 → 시도 순서 → 결과 → 남긴 것과 포기한 것 → 새로 안 것)로 직접 쓴 기록 + 문제·수정 커밋 131건 목록</td></tr>
+  <tr><td>회의록</td><td>회의별 안건·결정·근거 — 팀원 원문</td></tr>
+  <tr><td>이슈 결정 기록</td><td>GitHub 이슈 원문 — 누가 무엇을 제안했고 어떻게 정해졌는지가 시각과 함께</td></tr>
+  <tr><td>사용 도구</td><td>FAQ Q5 에 따른 도구 명시 — 커밋의 Co-Authored-By 자동 집계</td></tr>
+</table>
+
+<p class="foot"><b>공통 사항</b> — 모든 데이터는 가상이며 사내 원본 데이터·실제 태그 체계·시스템 화면을
+쓰지 않았습니다. 저장소는 규정에 따라 비공개이고, 소스는 「02. 결과물 / 2. 결과물 원본」의 zip 으로
+열람·실행하실 수 있습니다. 수치의 단일 출처는 저장소 <code>docs/공식수치.md</code> 이며, 문서마다
+기준일을 표기했습니다. 운영측 안내문(README)은 각 폴더에 그대로 있습니다.</p>
+
+</body>
+</html>
