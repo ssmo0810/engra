@@ -29,9 +29,7 @@ CSS_SK = (
     "'Apple SD Gothic Neo','Noto Sans KR',sans-serif;word-break:keep-all}"
     "p{margin:0 0 .6em;text-align:justify}b,strong{color:#15161A}"
     "h1{font-size:16.5pt;font-weight:800;color:#15161A;letter-spacing:-.02em;"
-    "margin:0 0 12px;padding-bottom:7px;border-bottom:2.5px solid #EA002C;"
-    "page-break-before:always}"  # h1 = 문서/회의 단위 — 회의록 병합본에서 회의마다 새 면
-    "h1:first-of-type{page-break-before:auto}"
+    "margin:0 0 12px;padding-bottom:7px;border-bottom:2.5px solid #EA002C}"
     "h2{font-size:11.6pt;font-weight:700;color:#15161A;margin:18px 0 7px;"
     "padding-left:11px;border-left:3.5px solid #EA002C;page-break-after:avoid}"
     "h3{font-size:10.4pt;font-weight:700;color:#B00021;margin:14px 0 5px;page-break-after:avoid}"
@@ -51,6 +49,8 @@ CSS_SK = (
     "a{color:#B00021}img{max-width:100%;height:auto}"
 )
 
+
+CSS_BREAK_H1 = "h1{page-break-before:always}h1:first-of-type{page-break-before:auto}"
 
 def inline(t):
     t = html.escape(t)
@@ -100,9 +100,16 @@ def md2html(md, title, css=None):
 
 
 def main(paths):
-    css = None
-    if paths[:2] == ['--style', 'sk'] or (paths and paths[0] == '--style' and len(paths) > 1 and paths[1] == 'sk'):
-        css, paths = CSS_SK, paths[2:]
+    css = None; extra = ''
+    while paths and paths[0].startswith('--'):
+        if paths[:2] == ['--style', 'sk']:
+            css, paths = CSS_SK, paths[2:]
+        elif paths[0] == '--break-h1':      # 회의록 병합본용 — h1(회의)마다 새 면
+            extra, paths = CSS_BREAK_H1, paths[1:]
+        else:
+            raise SystemExit('모르는 옵션: ' + paths[0])
+    if extra:
+        css = (css or CSS) + extra
     for p in map(Path, paths):
         h = p.with_suffix('.html'); pdf = p.with_suffix('.pdf')
         h.write_text(md2html(p.read_text(encoding='utf-8'), p.stem, css), encoding='utf-8')

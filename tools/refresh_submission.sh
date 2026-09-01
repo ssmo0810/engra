@@ -55,11 +55,13 @@ if [ "$PDF" != "nopdf" ]; then
   bash tools/plan2pdf.sh "제출/03. 데이터 세트/검증결과정리_앙그라쥬.pdf"                    "docs/검증결과정리_rev2.html" | head -1
   bash tools/plan2pdf.sh "제출/04. 제작 과정/문서안내_앙그라쥬.pdf"                          "docs/문서안내_rev2.html"     | head -1
   # 04 의 자동 생성·병합 md 는 내용은 그대로 두고 스타일만 입힌다 — ③ 이 방금 만든 md 를 다시 렌더
-  [ -f "제출/04. 제작 과정/사용도구_앙그라쥬.md" ] && python3 tools/md2pdf.py --style sk "제출/04. 제작 과정/사용도구_앙그라쥬.md"
+  for m in "제출/04. 제작 과정/사용도구_앙그라쥬.md" "제출/04. 제작 과정/개발일지_앙그라쥬.md"            "제출/04. 제작 과정/난관과극복사례_앙그라쥬.md" "제출/04. 제작 과정/이슈결정기록_앙그라쥬.md"; do
+    [ -f "$m" ] && python3 tools/md2pdf.py --style sk "$m"
+  done
   if [ -f "제출/04. 제작 과정/회의록_앙그라쥬.md" ]; then
     # 회의록의 그림을 렌더 동안만 옆에 둔다 — 남겨 두면 submit_drive 가 png 를 Drive 에 올린다
     cp -r docs/회의록/img "제출/04. 제작 과정/img" 2>/dev/null || true
-    python3 tools/md2pdf.py --style sk "제출/04. 제작 과정/회의록_앙그라쥬.md"
+    python3 tools/md2pdf.py --style sk --break-h1 "제출/04. 제작 과정/회의록_앙그라쥬.md"
     rm -rf "제출/04. 제작 과정/img"
   fi
 fi
