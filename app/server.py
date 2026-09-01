@@ -573,7 +573,7 @@ def view_pipeline():
     if not running and lr.get("shift_id"):   # 뒤이어 적재가 돌았어도 마지막 실행의 링크는 남는다
         link = ('<p class="note"><a href="/shift/' + esc(lr["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(lr["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
-    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목 묶음당 약 2~3분 (16항목 ≈ 7~10분, 실측) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
+    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목 묶음당 약 2~3분 (6~8항목 ≈ 3분대 · 16항목 ≈ 6.5~7.2분, 실측) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
             '<a id="jobdone" href="/pipeline" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
     # 새로고침이 아니라 /api/job 폴링으로 로그·경과만 바꾼다 — 새로고침은 파일 선택을 지우고 업로드를 끊었다 (경모님 QA)
     reload_js = ('<script>(function(){function tick(){fetch("/api/job").then(function(r){return r.json()}).then(function(j){'
