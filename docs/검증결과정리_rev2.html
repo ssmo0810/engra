@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>검증 결과 정리 — 데이터 세트와 조건별 시험 · 앙그라쥬</title>
+<style>
+:root{
+  --sk:#EA002C; --sk-deep:#B00021; --wash:#FFF4F6;
+  --ink:#15161A; --body:#2E3036; --muted:#71747E;
+  --rule:#E3E4E8; --rule-soft:#F0F1F4;
+  --ok:#0F7B3E; --ok-wash:#EFF8F2;
+  --warn:#B45309; --warn-wash:#FEF7ED;
+}
+@page{ size:210mm 297mm; margin:16mm 15mm 15mm; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  margin:0; background:#fff; color:var(--body);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:10.2pt; line-height:1.72; word-break:keep-all; overflow-wrap:break-word;
+}
+p{ margin:0 0 .62em; text-align:justify; }
+strong,b{ color:var(--ink); font-weight:700; }
+code{ font-family:Consolas,"Courier New",monospace; font-size:.9em;
+  background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
+
+.head{ margin-bottom:18px; }
+.eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.4pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:13px; }
+.eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.title{ font-size:22pt; line-height:1.24; font-weight:800; color:var(--ink);
+  letter-spacing:-.02em; margin:0 0 8px; }
+.title .accent{ color:var(--sk); }
+.lead{ font-size:11pt; color:var(--body); margin:0; }
+.lead b{ color:var(--sk-deep); }
+.rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:14px 0 0; }
+
+h1.sec{ font-size:13.6pt; font-weight:800; color:var(--ink); letter-spacing:-.01em;
+  margin:24px 0 10px; padding-bottom:6px; border-bottom:2.5px solid var(--sk);
+  page-break-after:avoid; }
+h1.sec .n{ color:var(--sk); margin-right:9px; }
+h2.sub{ font-size:10.8pt; font-weight:700; color:var(--ink); margin:16px 0 6px;
+  padding-left:11px; border-left:3.5px solid var(--sk); page-break-after:avoid; }
+
+table.d{ width:100%; border-collapse:collapse; font-size:9pt; margin:8px 0 12px; }
+table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
+  padding:5px 7px; border-bottom:1.6px solid var(--sk); border-top:1px solid var(--rule);
+  line-height:1.45; }
+table.d td{ padding:5px 7px; border-bottom:1px solid var(--rule-soft);
+  vertical-align:top; line-height:1.58; }
+table.d td:first-child{ font-weight:600; color:var(--ink); }
+table.d thead{ display:table-header-group; }
+table.d tr{ page-break-inside:avoid; }
+.mono{ font-family:Consolas,"Courier New",monospace; font-size:8.6pt; }
+
+.ok{ display:inline-block; font-size:7.6pt; font-weight:700; padding:.08em .42em;
+  border-radius:2px; background:var(--ok-wash); color:var(--ok); border:.7px solid var(--ok);
+  white-space:nowrap; vertical-align:.12em; }
+.warn{ display:inline-block; font-size:7.6pt; font-weight:700; padding:.08em .42em;
+  border-radius:2px; background:var(--warn-wash); color:var(--warn); border:.7px solid var(--warn);
+  white-space:nowrap; vertical-align:.12em; }
+.tag{ display:inline-block; font-size:5.6pt; font-weight:700; padding:.05em .3em;
+  border-radius:2px; vertical-align:.16em; letter-spacing:.02em; white-space:nowrap;
+  background:var(--sk); color:#fff; }
+
+.note{ border-left:3px solid var(--sk); background:var(--wash);
+  padding:8px 12px; margin:9px 0 12px; font-size:9.3pt; line-height:1.66; }
+.note strong{ color:var(--sk-deep); }
+pre.cmd{ background:#F7F7F9; border:1px solid var(--rule); border-left:3px solid var(--sk);
+  padding:9px 12px; margin:8px 0 11px; font-family:Consolas,"Courier New",monospace;
+  font-size:8.8pt; line-height:1.62; white-space:pre-wrap; color:var(--ink); }
+ol.hard{ counter-reset:hd; list-style:none; margin:0 0 8px; padding:0; }
+ol.hard > li{ counter-increment:hd; position:relative; padding-left:26px; margin:0 0 11px; }
+ol.hard > li::before{ content:counter(hd); position:absolute; left:0; top:.06em;
+  width:18px; height:18px; border-radius:50%; background:var(--warn); color:#fff;
+  font-size:8.4pt; font-weight:800; display:flex; align-items:center; justify-content:center; }
+ol.hard > li > .t{ display:block; font-weight:700; color:var(--ink); margin-bottom:2px; }
+.foot{ margin-top:20px; padding-top:9px; border-top:1px solid var(--rule);
+  font-size:8pt; color:var(--muted); line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="eyebrow">SK AI 해커톤 2026 · AI Solution 리그 본선 · 03. 데이터 세트</div>
+  <h1 class="title">검증 결과 정리 — <span class="accent">조건을 바꿔가며</span> 시험한 기록</h1>
+  <p class="lead">이 폴더의 데이터로 무엇을 어떻게 검증했는지 정리했습니다.
+  <b>잘 되지 않았던 조건도 5장에 그대로 적었습니다.</b> 모든 수치는 저장소
+  <code>docs/공식수치.md</code> 를 단일 출처로 합니다.</p>
+  <div class="rule"></div>
+</div>
+
+<h1 class="sec"><span class="n">1.</span>검증 환경 — 모사 데이터를 썼고, 이렇게 만들었습니다</h1>
+
+<p><b>이 폴더의 데이터는 전부 모사(가상) 데이터입니다.</b> 사내 원본 데이터·실제 태그 체계·시스템
+화면을 일절 사용하지 않았습니다. 대신 <b>구조와 난이도를 실제와 같게</b> 맞췄습니다 — 평가 기준이
+말하는 「실제 업무 데이터와 유사한 구조·같은 난이도」에 대응한 방식은 다음과 같습니다.</p>
+
+<table class="d">
+  <thead><tr><th style="width:24%">무엇을</th><th>어떻게 실제와 유사하게 맞췄나</th></tr></thead>
+  <tr><td>태그 마스터 53점</td>
+      <td>ASU(공기분리장치) 공정을 현장 경험이 있는 운전원이 직접 명세 — 태그별 정상값·정상범위·
+      LL·L·H·HH 알람 한계·드리프트/노이즈 단계·<b>태그 간 연동 관계</b>까지. 주입한 변화가 연동
+      태그로 전파됩니다</td></tr>
+  <tr><td>데이터 규모</td>
+      <td>실제 근무 한 구간과 같은 조건 — <b>태그 53점 × 12시간 × 2초 주기 = 근무당 1,144,800점
+      (약 36MB)</b>. 배선 확인용 소형 데이터가 아닙니다</td></tr>
+  <tr><td>특이 시나리오 24종</td>
+      <td>헌팅·드리프트·파과·고착·서지 전조·상관 붕괴 등 실제 공정에서 문제가 되는 유형을
+      형태·크기·지속·중요도·판단 근거까지 정의. <b>알람에 걸리지 않는 13종</b>과 알람이 울리는
+      7종으로 나눠 두 경로를 모두 시험하고, 계획된 정상 작업 2종·플랜트 정지/Trip 2종을 더해
+      24종입니다</td></tr>
+  <tr><td>현실적인 어려움</td>
+      <td>외기 온습도의 24시간 일주기 연동, 같은 태그에 두 시나리오가 겹치는 동시 발생, 근무
+      경계를 넘어 이어지는 변화까지 반영 — 검출이 쉬워지는 쪽이 아니라 <b>어려워지는 쪽</b>으로
+      만들었습니다</td></tr>
+  <tr><td>재현성</td>
+      <td>생성기는 브라우저 단일 파일로 동작하며 <b>seed 고정 시 같은 데이터가 재현</b>됩니다.
+      생성기 자체도 데이터 세트에 포함(<code>asu_dcs_overview.html</code>, 소스 zip 안)</td></tr>
+</table>
+
+<div class="note"><strong>자를 먼저 검증했습니다.</strong> 정답지를 기준으로 채점하므로 정답지가
+틀리면 전부 틀립니다. 시나리오를 하나도 넣지 않은 같은 seed 근무와 대조해, 정답지가 「영향 태그」로
+적은 태그가 실제로 움직이는지 <b>24종 전수 확인</b>했습니다 — 2개 시나리오가 실제 전파보다 넓게
+적혀 있어 정정했고, 좁힌 정답지로 재채점해도 수치는 바뀌지 않았습니다.</div>
+
+<h1 class="sec"><span class="n">2.</span>이 폴더에 들어 있는 것</h1>
+
+<table class="d">
+  <thead><tr><th style="width:30%">위치</th><th>내용</th></tr></thead>
+  <tr><td class="mono">데이터세트/</td>
+      <td>기준 2근무 CSV(주간·야간) + 정답지, 랜덤 배치 6근무 CSV(<code>sim_3일_6근무/</code>) +
+      정답지, 태그 마스터(<code>tag_master.csv</code>), 시나리오 정의(<code>scenarios.md</code>)</td></tr>
+  <tr><td class="mono">동작확인자료/</td>
+      <td>화면 캡처(파이프라인 ①~⑤·관리·정답지 뷰), 독립 채점 출력, 스모크 테스트 출력,
+      서버 파이프라인 로그</td></tr>
+  <tr><td>정답지</td>
+      <td>어느 태그에 무엇을 몇 분 주입했고 어디로 전파되는지 — <b>검출·초안은 정답지를 읽지
+      않으며</b> 채점에만 씁니다. 앱 관리 화면에서 정답지를 초안 생성 뒤에 올리면 「사후 대조」로
+      표시되어 순서가 증거가 됩니다</td></tr>
+</table>
+
+<h1 class="sec"><span class="n">3.</span>조건을 바꿔가며 시험한 결과</h1>
+
+<table class="d">
+  <thead><tr><th style="width:21%">조건</th><th style="width:10%">결과</th><th>확인한 내용</th></tr></thead>
+  <tr><td>데이터가 많을 때</td><td><span class="ok">통과</span></td>
+      <td>태그 53점 · 12시간 · 114만 점 — 적재 3.2초 + 검출·초안 틀 2.2초 <span class="tag">실측</span></td></tr>
+  <tr><td>검출이 맞는가<br>(독립 채점)</td><td><span class="ok">통과</span></td>
+      <td>검출기를 만든 사람과 무관하게 생성한 데이터·정답지로 채점 — 주입 건 포함률
+      <b>기준 2근무 22/22 · 랜덤 6근무 46/46 (100%)</b>, 종 커버 20/20(랜덤 21/21).
+      시각 일치도 IoU 0.73/0.69, 검출 지연 중앙 −2분/−0분, 알람보다 최대 706분 먼저.
+      오탐 근무당 1.0/1.8건 — 전부 주입 종료 직후 「복귀」 구간이라 이를 빼면 <b>0건</b></td></tr>
+  <tr><td>결함이 없을 때<br>(정상 데이터)</td><td><span class="ok">통과</span></td>
+      <td>시나리오를 하나도 넣지 않은 <b>정상 14근무(690만 점)</b>에서 검출 이벤트 0건 ·
+      초안 항목 0개 — 엔진이 스스로 만들어내는 오작동이 없습니다</td></tr>
+  <tr><td>형식이 어긋난 값이<br>섞였을 때</td><td><span class="ok">통과</span></td>
+      <td>기본은 첫 오류에서 줄 번호와 함께 멈추고, <code>--skip-bad-rows</code> 는 546행을
+      건너뛰며 보고 — 깨진 행이 1%를 넘으면 잘못된 파일로 거부. 시험 중 <b>조용한 오염
+      1건(천 단위 콤마)을 발견해 걸러내도록 고쳤습니다.</b> NaN·Infinity·시간대 붙은 시각도
+      이유를 밝히며 거부합니다</td></tr>
+  <tr><td>값이 비어 있을 때</td><td><span class="ok">통과</span></td>
+      <td>5,724행 빈 값 + 2시간 연속 결측 — 건너뛰고 「계측 결측 — 태그·시각·분」 항목을 초안
+      맨 앞에 넣습니다. 결측 경계에서 가짜 이벤트(아티팩트)가 생기지 않는 것 확인</td></tr>
+  <tr><td>오래 쓸 때<br>(50일 100근무)</td><td><span class="ok">통과</span></td>
+      <td>DB 605.8 → 611.3MB — 7근무째부터 <b>평평</b>(원본 3일 회전). 검출 시간 평균 18.3초로
+      <b>누적 저하 없음</b>. 누적 이벤트 2,400건 · 확정 일지 100건 <span class="tag">실측</span></td></tr>
+  <tr><td>규모를 늘릴 때<br>(태그 16배)</td><td><span class="ok">통과</span></td>
+      <td>53점 2.8초 → 848점 108.3초, 대략 <code>n^1.3</code> — 제곱이 아닙니다(상관 검출이
+      전수 조합이 아니라 태그 마스터의 연결 쌍만 봄). 검출은 근무당 한 번이라 848점에서 2분은
+      여유입니다</td></tr>
+  <tr><td>AI 판단</td><td><span class="ok">통과</span></td>
+      <td>7근무 실측 — 과거 조치 후보 50건 → 채택 33·기각 17(판정 사유 100% 기재), 중요도 재판정
+      19%, 없는 조치 지어냄 0건, <b>본문 숫자 423개 중 환각 0개</b>, 같은 근무 2회 재현 9/9 일치.
+      AI 연결이 없으면 초안 생성을 멈추고 표시합니다</td></tr>
+</table>
+
+<div class="note"><strong>세 가지 수치를 구분해 밝힙니다.</strong> 자체 점검(만든 사람의 시험지)은
+20/20 · 오탐 0.8건이었습니다. 독립 채점에서는 처음에 <b>포함률 98% · 오탐 12배 · 1종 미검출</b>로
+달랐고 — 외기 일주기 오인과 근무 경계 드리프트, 결함 2건이 드러났습니다. 이를 수정하고 재측정한
+값이 위 표(100% · 복귀 제외 0건)입니다. <b>독립 측정이 필요했던 이유가 그대로 증명된 셈이라 세
+값을 모두 남깁니다.</b></div>
+
+<h1 class="sec"><span class="n">4.</span>재현 방법 — 심사위원이 직접 돌릴 수 있습니다</h1>
+
+<p>파이썬 3.10 이상만 있으면 설치할 것이 없습니다(외부 의존 0). 소스는 「02. 결과물 / 2. 결과물
+원본」의 zip 을 풀고, 데이터는 이 폴더의 <code>데이터세트/</code> 를 씁니다.</p>
+<pre class="cmd">export ENGRA_LLM=off PYTHONIOENCODING=utf-8 ENGRA_DB=/tmp/score.db
+python3 app/cli.py init
+for f in data/asu_shift_*_12h.csv; do python3 app/cli.py ingest "$f"; done
+python3 app/cli.py run 2026-08-21-day && python3 app/cli.py run 2026-08-21-night
+python3 tools/score.py data/asu_answer_key.json      # 독립 채점 — 위 표의 수치가 나옵니다</pre>
+<p>같은 흐름을 화면으로 보시려면 공개 앱의 파이프라인 화면에 <code>데이터세트/</code> 의 CSV 를
+올리셔도 됩니다. 정답지 대조는 관리 화면에서 정답지 JSON 을 올리면 표로 나옵니다.</p>
+
+<h1 class="sec"><span class="n">5.</span>잘 되지 않았던 조건 — 다섯 가지</h1>
+
+<p>실패 조건을 감추지 않고 적습니다. <b>한계를 알고 있다는 것</b>이 이 문서에서 수치만큼 중요하다고
+생각합니다.</p>
+
+<ol class="hard">
+  <li><span class="t">플랜트 정지·Trip 에서는 초안이 폭주합니다</span>
+  계획 정지 시나리오에서 초안 항목이 <b>39건</b>까지 늘었습니다. 정지는 모든 태그가 함께 움직이는
+  상황이라 항목 단위 검출이 전부 반응한 것입니다. 지금은 짧은 시간에 태그 30% 이상이 함께 무너지면
+  <b>「플랜트를 정지하셨습니까?」 확인 질문을 초안 맨 앞에</b> 넣는 것으로 대응했고, 정지 상황을
+  하나의 사건으로 묶는 근본 처리는 남은 과제입니다. 이 2종은 포함률 측정에서 제외했습니다.</li>
+  <li><span class="t">AI 서술까지 포함하면 5분 목표를 넘깁니다</span>
+  적재·검출은 5.4초지만 AI 서술·판정을 포함하면 한 근무 13~16항목에 <b>7~10분</b>입니다.
+  교대 1시간 전 자동 생성에는 충분하지만 목표치(5분)에는 미달 — 5항목 묶음의 순차 호출을
+  병렬화하면 줄일 수 있으나 실시하지 않았습니다.</li>
+  <li><span class="t">검출 구간이 정답 구간보다 넓습니다</span>
+  포함률 100%의 이면입니다. 시간축 정밀도 <b>0.46/0.49</b> — 검출 구간이 정답의 약 2배를
+  덮습니다. 드리프트 보고 구간을 CUSUM 으로 좁혀 0.40 → 0.46 으로 개선했지만(검출 지연 중앙
+  −34분 → −0분), 넓게 잡는 성질 자체는 남아 있어 감추지 않고 함께 냅니다.</li>
+  <li><span class="t">근무 경계를 넘는 이상은 그 근무 안에서 결론이 나지 않습니다</span>
+  근무 끝까지 이어지는 드리프트는 첫 독립 측정에서 「미검출」로 보였습니다. 실제로는 근무가 끝나지
+  않아 판정할 수 없는 것이라, 다음 근무의 이어받은 항목에서 판정하는 <b>「추적 중」</b>으로 채점
+  정의를 바로잡았습니다 — 그 근무 안에서 결론을 원하면 이 방식으로는 안 됩니다.</li>
+  <li><span class="t">채택률은 재지 못했습니다</span>
+  근무자 채택률 50% 목표는 <b>실사용 데이터가 있어야</b> 측정됩니다. 채택·제외를 항목 단위로
+  기록하는 구조는 구현·검증했지만 값 자체는 미측정 — 파일럿 단계의 몫으로 남깁니다.</li>
+</ol>
+
+<p class="foot"><b>요약</b> — 모사 데이터(태그 53점 · 근무당 114만 점 · 시나리오 24종)로 대량 ·
+형식 오류 · 빈 값 · 장기 결측 · 정상 데이터 · 50일 연속 · 태그 16배 · AI 판단 · 독립 채점을
+시험했고, 독립 채점 포함률 22/22 · 46/46(100%) · 정상 14근무 오탐 0건입니다. 잘 되지 않았던
+다섯 조건은 5장에 있습니다. 수치의 단일 출처는 저장소 <code>docs/공식수치.md</code>, 이 문서의
+기준일은 2026-09-01 입니다. 데이터는 전부 가상이며 사내 원본 데이터·실제 태그 체계·시스템 화면을
+쓰지 않았습니다.</p>
+
+</body>
+</html>
