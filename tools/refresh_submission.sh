@@ -22,6 +22,10 @@ rm -f "$OUT"/소스스냅샷_engra_*.zip
 Z="$OUT/소스스냅샷_engra_${H}_앙그라쥬.zip"
 git archive --format=zip -o "$Z" HEAD
 zip -d "$Z" "data/*" -q >/dev/null 2>&1 || true
+# 한글 파일명을 빼는 이유: zip 은 UTF-8 플래그를 제대로 달지만 macOS 기본 unzip(Info-ZIP 6.0)이
+# 그 플래그를 무시해 경로 생성에 실패하고 **그 뒤 파일까지 안 풀린다**(2026-09-03 실측: 91개 중 34개만).
+# 빠지는 것은 전부 문서이고 코드는 0개다 — 그 문서들은 01~04 폴더에 PDF 로 이미 제출된다.
+python3 tools/zip_ascii_only.py "$Z"
 echo "   $(basename "$Z") $(du -h "$Z" | cut -f1)"
 if unzip -l "$Z" | grep -qiE "\.env|serviceAccount|\.pem|id_rsa"; then echo "   !! 비밀 파일이 들어갔다 — 중단"; exit 1; fi
 
