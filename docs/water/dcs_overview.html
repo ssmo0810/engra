@@ -857,7 +857,7 @@
     ['LT-06','WW Transfer Tank 수위','%',45,20,75,5,10,85,92,2,1,'FI-203A:0.40:180'],
     ['AT-06','중화조 pH','',7.2,6.5,8,5,6,8.8,9.5,2,2,'CI-903:0.60:90, CI-901:-0.60:90, PH-02:0.75:300'],
     ['LT-08','Clarifier 상등수 수위 (10-D8299-06)','%',70,55,85,'',45,90,95,1,1,'FI-601:-0.45:120, FI-603:-0.35:120'],
-    ['TUR-03','Clarifier 상등수 탁도 (10-D8299-06)','NTU',4,1,10,'','',15,25,2,2,'CI-909:-0.50:180, QI-802:0.70:240'],
+    ['TUR-03','Clarifier 상등수 탁도 (10-D8299-06)','NTU',4,1,10,'','',15,25,2,2,'QI-802:0.70:240'],
     ['FI-601','상등수 재이용 유량','m3/h',18,10,28,'',5,35,42,2,2,''],
 
     ['#700', 'TMS DISCHARGE'],
@@ -876,7 +876,7 @@
     ['CI-905','SBS 38% 주입률','L/h',3.2,1,6,'','',9,12,1,2,'AT-03:-0.55:60'],
     ['CI-907','Antiscalant 주입률','L/h',2.4,1,4.5,'','',6,8,1,1,''],
     ['CI-908','동부식방지제 주입률','L/h',1.8,0.8,3.5,'','',5,6.5,1,1,''],
-    ['CI-909','Polymer 주입률','L/h',2.8,1,5,'','',7,9,1,2,'']
+    ['CI-909','Polymer 주입률','L/h',2.8,1,5,'','',7,9,1,2,'TUR-03:-0.50:180']
 
   ];
 
@@ -1250,65 +1250,26 @@
   var STEP = 2, SHIFT_SEC = 12 * 3600, N = SHIFT_SEC / STEP;   // 근무 1개 = 21,600 스텝
   var CACHE_MAX = 3;                          // CSV 재발급 가능한 최근 근무 수
   // 시간 겹침을 금지하는 조합 — 같은 태그를 서로 다른 모양으로 덮어써 파형이 망가지는 짝
-  //  10×21  LIN 레벨을 한쪽은 상한으로 밀고 한쪽은 출하로 내린다
-  //   7×22  LOX 탱크 인입밸브 고착과 LOX 출하가 ZI-801·LI-802 를 동시에 잡는다
-  //  23×24  계획 정지와 Trip 이 동시에 일어날 수는 없다
-  var FORBID = [[2, 8], [1, 15], [10, 21], [7, 22], [23, 24]];
+  //   1×3   둘 다 VPT-01 을 위로 끌어 진폭이 합쳐진다 — 합치면 H 125 를 넘는다
+  //   1×4   #4 의 TMP 상승(+5.0)이 #1 드리프트 끝에 겹치면 「알람 없이 간다」가 깨진다
+  //   1×10  #10 은 세정으로 TMP 를 내린다. 올리는 #1 과 정반대다
+  //   3×10  같은 이유 — #3 도 연동으로 TMP 를 올린다
+  //   5×6   둘 다 AT-04 를 반대 방향으로 움직인다 (#5 희석 하강 · #6 농축 상승)
+  //   6×9   #6 이 FI-602 를 고정하는 동안 #9 가 그 하류인 LT-07 을 밀어 올린다
+  var FORBID = [[1,3], [1,4], [1,10], [3,10], [5,6], [6,9]];
 
-  /* 물리 한계까지 남은 여유. 진동을 태우기 전에 확인한다.
-     외기·노이즈·연동이 나중에 더해지므로 정상범위 폭의 15% 를 그 몫으로 남긴다. */
-  function headroom(tag){
-    var d = state[tag], nom = +d.nom, R = Math.abs(+d.hi - +d.lo) || 1, rsv = R * 0.15;
-    var hi = (d.unit === '%') ? 100 : Infinity;
-    var lo = (d.unit === '℃') ? -Infinity : 0;
-    return { up: Math.max(0, hi - nom - rsv), dn: Math.max(0, nom - lo - rsv) };
-  }
   function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  /* ── 플랜트 정지 공용 (시나리오 23·24) ──────────────────────
-     정지하면 계통 대부분이 동시에 이탈한다. 태그를 하나하나 적지 않고
-     접두(F 유량 · J 전력 · S 회전수 · Z 개도 · P 압력 · PD 차압 · T 온도 ·
-     A 분석 · M 수분 · L 레벨)로 「정지 목표값」을 규칙화한다.
-
-     제외 — 외기(TI-101·MI-102)는 플랜트와 무관하고, 탱크 계통(800번대)은
-     정지해도 보압·레벨이 유지된다(출하만 못 한다).
-
-     STOP_LAG 은 유닛 앞자리별 지연(초)이고 이 순서가 곧 first-out 이다.
-     압축기(2)가 0초로 가장 먼저 — 정지의 시작점이다. */
-  // 압축기는 0초 — 정지의 시작점이다. ||60 으로 기본값을 주면 0 이 falsy 라 60 으로
-  // 바뀌어 first-out 이 압축기가 아니라 콜드박스로 나온다(실제로 겪었다). undefined 로만 판정한다.
-  var STOP_LAG = { '2':0, '1':10, '6':6, '5':12, '3':30, '7':60, '4':300, '9':600 };
-  function stopTargets(){
-    var out = [];
-    Object.keys(state).forEach(function(id){
-      if(id==='TI-101' || id==='MI-102') return;
-      var blk = id.split('-')[1][0];
-      if(blk === '8') return;
-      var d = state[id], nom = +d.nom, lo = +d.lo, hi = +d.hi, pre = id.split('-')[0], t;
-      if(pre==='FI'||pre==='JI'||pre==='SI') t = 0;
-      else if(pre==='ZI')  t = (id==='ZI-905') ? 100 : 0;    // 벤트만 열린다
-      else if(pre==='PDI') t = 0;                             // 유량이 없으면 차압도 없다
-      else if(pre==='PI')  t = lo*0.35;                       // 보압만 남는다
-      else if(pre==='TI')  t = 24;                            // 저온부는 승온, 고온부는 냉각
-      else if(pre==='AI')  t = (d.LL!=='' ? +d.LL-0.5 : lo*0.9);
-      else if(pre==='MI')  t = (d.HH!=='' ? +d.HH*1.6 : hi*2);
-      else if(pre==='LI')  t = (d.LL!=='' ? +d.LL*1.05 : lo*0.5);
-      else t = nom;
-      out.push([id, t, STOP_LAG[blk]===undefined?60:STOP_LAG[blk], nom]);
-    });
-    return out;
-  }
-  /* 목표값으로 f 만큼 끌고 간다. f=1 에서 목표값에 딱 고정하면 분산 0 인 평평한
-     구간이 생겨 엔진 통계를 왜곡하므로, 원래 편차의 6% 를 남겨 계기 노이즈를 흉내낸다. */
-  function stopApply(D, s, e, c, shape, lagScale){
-    var T = stopTargets();
-    for(var m=0;m<T.length;m++){
-      var id=T[m][0], tgt=T[m][1], lag=T[m][2]*(lagScale||1), nom=T[m][3], a=D[id];
-      for(var i=s;i<e;i++){
-        var f = shape(c.off+(i-s)*STEP, lag, c.tot);
-        if(f>0) a[i] = a[i]*(1-f) + (tgt + (a[i]-nom)*0.06)*f;
-      }
+  /* ── DCS on-delay ──────────────────────────────────────────
+     한계를 넘은 상태가 10초(5샘플) 이상 이어져야 알람이다. 실제 DCS 도 분석기
+     순간값으로는 울리지 않는다. dir +1 은 상한 초과, -1 은 하한 미만. */
+  var ON_DELAY = 10, ONN = Math.ceil(ON_DELAY / STEP);
+  function held(a, s, e, lim, dir){
+    for (var i = s, run = 0; i < e; i++){
+      if (dir > 0 ? a[i] > lim : a[i] < lim){ if (++run >= ONN) return true; }
+      else run = 0;
     }
+    return false;
   }
 
   /* 각 시나리오의 pre/post 는 (D, s, e, c) 를 받는다.
@@ -1316,189 +1277,118 @@
      이어질 때 c.off 가 채워지므로, 파형을 '경과초 x' 의 함수로만 쓰면
      경계에서 끊기지 않는다. c.memo 는 근무를 넘겨 기억할 값. */
   var SCEN = [
-   {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707','AI-803'], dur:1800,
-    desc:'평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정',
+   /* ── 주입 크기를 문서값 그대로 쓰지 못한 이유 ─────────────────
+      scenarios.md 의 크기 칸은 「공칭값 기준」으로 적힌 값이다. 실제 데이터에는
+      자체 드리프트(정상범위 폭의 최대 16.8%)·노이즈 3σ·외기 일변동·유입 연동이
+      겹쳐 있어서, 공칭값에 문서 진폭을 그대로 더하면 알람선을 넘는 시나리오가
+      나온다. 「알람 전에 잡는다」가 전제인 시나리오가 알람을 울리면 전제가 깨진다.
+
+      그래서 규칙을 하나 더 둔다 — 제약 ② 의 확장이다.
+        미발생 시나리오 : 공칭 + 베이스라인진폭 + 주입 ≤ H   (L 쪽도 같게)
+        발생   시나리오 : 공칭 − 베이스라인진폭 + 주입 >  H   (최악에도 울린다)
+      각 시나리오 주석의 「예산」이 그 계산 결과다.                              */
+
+   {id:1, nm:'TMP 드리프트 (막 오염)', tag:'VPT-01', tags:['VPT-01','JI-201A','FI-201'], dur:21600,
+    desc:'시간당 +1.5 kPa 완만 상승 6시간 (104 → 113) — 알람이 울리지 않는 구간이다',
+    /* 예산 : VPT-01 진폭 8.0 → H 125 까지 주입 여유 13.0.
+       그런데 더 좁은 쪽은 TMP 가 아니라 펌프 전력이다. 선언 연동 VPT-01→JI-201A
+       (0.60) 때문에 주입 9.0 이 JI-201A 를 +0.81 밀어 10.94 가 되고 H 는 11 이다.
+       즉 문서의 +18 kPa 를 넣으면 TMP 알람(125)보다 펌프 전력 알람이 먼저 울린다.
+       9.0 (=1.5 kPa/h × 6h) 이 두 알람을 모두 피하는 최대치다. */
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
-      D['AI-707'][i] -= 0.42*Math.exp(-3*x/c.tot)*(1-Math.cos(2*Math.PI*x/180))/2; } }},
+      D['VPT-01'][i] += 1.5*x/3600; } }},
 
-   {id:2, nm:'토출온도 드리프트', tag:'TI-205', tags:['TI-205'], dur:86400, span:1,
-    desc:'시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다',
+   {id:2, nm:'투과수 탁도 급등 (막 파손 의심)', tag:'TUR-01', tags:['TUR-01','AT-01'], dur:3000,
+    desc:'0.045 → 0.28 NTU 로 3분 만에 급상승 후 50분 유지 — H(0.1) 초과, 막 파손 의심',
+    /* 예산 : 최악(공칭−진폭)에서도 0.274 로 H 0.1 을 확정 초과하고, HH 0.3 에는
+       닿지 않는다(최대 0.286). 연동으로 오르는 AT-01 은 214 로 H 220 미만이다. */
     pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
-      D['TI-205'][i] += 0.68*x/3600; } }},
+      D['TUR-01'][i] += 0.235*clamp01(x/180); } }},
 
-   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601', 'FI-602', 'PI-604'], dur:14460,
-    desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
-    pre:function(D,s,e,c){ var hr=headroom('ZI-601'), a=[6,9,13];
-      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/7200), r=x-k*7200;
-        if(k>2||r>=60) continue;
-        var w=Math.sin(2*Math.PI*r/20);
-        D['ZI-601'][i] += w*(w>=0?Math.min(a[k],hr.up):Math.min(a[k],hr.dn)); } }},
+   {id:3, nm:'원수 탁도 연쇄 드리프트', tag:'TUR-02', tags:['TUR-02','CI-904','VPT-01'], dur:10800,
+    desc:'시간당 +2.3 NTU 상승 3시간 (3.5 → 10.4) — 응집제 주입률과 TMP 로 순차 전파, H(12) 미달',
+    /* 예산 : TUR-02 진폭 1.5 → H 12 까지 여유 7.0. 6.9 를 쓴다.
+       전파분도 확인 — CI-904 17.4(H 20) · VPT-01 117.9(H 125). */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['TUR-02'][i] += 2.3*x/3600; } }},
 
-   {id:4, nm:'인입온도 임계 근접', tag:'TI-401', tags:['TI-401'], dur:2400,
-    desc:'상한(20℃)의 95%인 19℃ 부근에서 40분 체류',
-    pre:function(D,s,e){ for(var i=s;i<e;i++) D['TI-401'][i] = 19 + (D['TI-401'][i]-19)*0.25; }},
+   {id:4, nm:'Blower A/B 절체', tag:'FI-202A', tags:['FI-202A','PI-202A','VPT-01'], dur:240,
+    desc:'스크러빙 공기량 −15% (833 → 708 Nm3/h) 4분 — 짧아 알람 미달, TMP 가 10분 뒤 따라 오른다',
+    /* 예산 : FI-202A 최저 688.8 로 L 680 위에 있다(여유 8.8). */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['FI-202A'][i] -= 125; },
+    /* 토출압은 post 에서 내린다. 연동이 PI-202A → FI-202A(0.75) 방향으로 선언돼
+       있어서 pre 에서 내리면 공기량 하강이 두 번 계산된다(−125 에 −33.8 이 더 붙는다).
+       post 는 applyLinks 뒤라 전파가 없다 — 두 값이 같이 떨어지는 실제 모습만 남는다. */
+    post:function(D,s,e,c){ for(var i=s;i<e;i++) D['PI-202A'][i] -= 3.0; }},
 
-   {id:5, nm:'공급유량 헌팅', tag:'FI-602', tags:['FI-602','PDI-702','TI-704','FI-710','LI-701'], dur:7200,
-    desc:'−5% 급강하 후 10초 내 원복 × 5회 — PDI-702·TI-704 동반 흔들림',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
-      if(k<5 && r<10) D['FI-602'][i] -= 39800*0.05; } }},
+   {id:5, nm:'냉각탑 공급 유량 증가', tag:'FI-302', tags:['FI-302','LT-03A','AT-04'], dur:14400,
+    desc:'시간당 +4.5 m3/h 상승 4시간 (55 → 73) — 여과수 탱크 수위 하강·순환수 전도도 희석 동반, H(90) 미달',
+    /* 예산 : FI-302 는 외기 감도가 커서 진폭이 15.4 나 된다(자체 5.8 + 외기 6.7 + 연동 2.9).
+       H 90 까지 여유 19.6 이라 문서의 +29 는 들어가지 않는다. 18 을 쓴다(최대 88.4). */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['FI-302'][i] += 4.5*x/3600; } }},
 
-   {id:6, nm:'흡착탑 수분 파과', tag:'MI-302', tags:['MI-302','PDI-303','AI-703'], dur:5400,
-    desc:'차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승',
+   {id:6, nm:'냉각탑 B/D 유량 고착 + 전도도 상승', tag:'FI-602', tags:['FI-602','AT-04'], dur:7200,
+    desc:'블로다운 유량이 한 값에 멈춘 채 순환수 전도도만 1200 → 1800 uS/cm 상승 — 유량값 자체는 정상범위라 알람이 없다',
+    /* 예산 : AT-04 진폭 365 → H 2200 까지 여유 635. 600 을 쓴다(최대 2165). */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['AT-04'][i] += 600*clamp01(x/c.tot); } },
+    /* 고착은 post 여야 한다. 연동·외기가 더해진 뒤에 값을 못 박아야 진짜로 멈춘다.
+       pre 에서 고정하면 그 뒤에 외기(FI-602 는 [0.30,−0.25])가 더해져 계속 움직인다. */
+    post:function(D,s,e,c){ if(c.memo.v===undefined) c.memo.v=D['FI-602'][s];
+      for(var i=s;i<e;i++) D['FI-602'][i]=c.memo.v; }},
+
+   {id:7, nm:'Clarifier 침전 불량 → 방류수 SS 초과', tag:'TUR-03', tags:['TUR-03','QI-802'], dur:7200,
+    desc:'상등수 탁도 4 → 17.5 NTU 지수 상승, 4분 뒤 방류수 SS 가 6 → 24.5 mg/L 로 따라 오른다 — 둘 다 H 초과 (법정 배출기준)',
+    /* 예산 : 최악에서도 TUR-03 15.6 (H 15) · QI-802 22.3 (H 20) 으로 확정 발생하고,
+       HH(25 · 30)에는 닿지 않는다.
+       SS 를 직접 넣는 이유 — 선언 연동 TUR-03→QI-802(0.70)이 나르는 양은 +10.5 뿐이라
+       그것만으로는 H 20 을 확정 초과하지 못한다. 모자란 8.0 을 240초 늦춰 직접 넣는다.
+       QI-802 는 나가는 연동이 없어 직접 주입이 다른 태그로 새지 않는다. */
     pre:function(D,s,e,c){ var E=Math.exp(3)-1;
       for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
-        D['MI-302'][i]  += 1.7*(Math.exp(3*clamp01(x/c.tot))-1)/E;
-        D['PDI-303'][i] += 0.08*(Math.exp(3*clamp01((x+300)/c.tot))-1)/E; } }},
+        D['TUR-03'][i] += 13.5*(Math.exp(3*clamp01(x/c.tot))-1)/E;
+        D['QI-802'][i] +=  8.0*(Math.exp(3*clamp01((x-240)/c.tot))-1)/E; } }},
 
-   {id:7, nm:'탱크 인입밸브 고착', tag:'ZI-801', tags:['ZI-801','LI-802'], dur:7200,
-    desc:'개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승',
-    pre:function(D,s,e,c){
-      if(c.memo.v===undefined) c.memo.v = D['ZI-801'][s];
-      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
-        D['ZI-801'][i] = c.memo.v;
-        D['LI-802'][i] += 6*x/3600; } }},
+   {id:8, nm:'방류수 TOC 순간 이상값', tag:'QI-801', tags:['QI-801'], dur:7200,
+    desc:'8 → 350 mg/L 순간 폭등 후 4초 내 원복 × 4회 — 알람 on-delay(10초) 미달, 분석기 셀 고장 전조',
+    /* 스파이크는 post 다. pre 에 넣으면 연동·외기가 350 위에 얹혀 값이 흔들리고,
+       무엇보다 스파이크가 다른 태그로 전파돼 버린다. 계기 고장은 전파하지 않는다.
+       한 점이 아니라 2샘플(4초)인 것은 STEP 이 2초라 그렇다 — 문서의 3초에 가장 가깝고
+       on-delay 10초 미만이라 알람 판정에는 잡히지 않는다. */
+    post:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1800), r=x-k*1800;
+      if(k<4 && r<4) D['QI-801'][i]=350; } }},
 
-   {id:8, nm:'압축기 서지 전조', tag:'PI-203', tags:['PI-203','FI-204','JI-206','TI-205'], dur:1500,
-    desc:'토출압 +3% 상승과 유량 −6% 감소가 동시 진행',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
-      D['PI-203'][i] += 5.85*0.03*f; D['FI-204'][i] -= 42500*0.06*f; } }},
+   {id:9, nm:'B/D 집수조 수위 상한 돌파', tag:'LT-07', tags:['LT-07','LT-06'], dur:5400,
+    desc:'48 → 92% 로 90분간 상승 — H(85) 초과. 방치하면 LT-06 으로 넘어가 폐수 계통 전체가 밀린다',
+    /* 예산 : 여기는 「확정」을 만들 수 없다. LT-07 은 H 85 · HH 92 로 둘 사이가 7 인데
+       베이스라인 진폭이 6.96 이라, H 를 확정 초과시키려면 HH 도 같이 건드리게 된다.
+       처음에 38(통상 86%)로 뒀더니 헤드리스로 돌린 근무에서 실제로 알람이 안 떴다 —
+       베이스라인이 아래로 몰리면 79% 까지 내려가 H 에 닿지 않는다. 「발생」이 전제인
+       시나리오가 절반의 확률로 미발생이 되면 통합테스트 판정이 흔들린다.
+       그래서 44 로 올렸다 — 최악(공칭−진폭)에서도 85.04 라 H 는 확정 발생이다. 대신
+       베이스라인이 위로 몰린 근무에서는 HH(92)까지 같이 간다. 정답지는 실측을 적으므로
+       그때는 HH 로 기록된다 — 어느 쪽이든 「상한 돌파」라는 시나리오의 뜻은 같다. */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['LT-07'][i] += 44*clamp01(x/c.tot); } }},
 
-   {id:9, nm:'Cold end 저온 이탈', tag:'TI-403', tags:['TI-403'], dur:10800,
-    desc:'시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['TI-403'][i] += 1.5*(c.off+(i-s)*STEP)/3600; }},
-
-   {id:10, nm:'LIN 탱크 레벨 임계 근접', tag:'LI-806', tags:['LI-806'], dur:7200,
-    desc:'87.3% 에서 체류하다 후반에 89.5% 로 상한(88%) 돌파',
-    pre:function(D,s,e,c){ if(c.memo.b===undefined) c.memo.b = D['LI-806'][s];
-      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
-      D['LI-806'][i] = 87.3 + (D['LI-806'][i]-c.memo.b)*0.25 + 2.2*clamp01((x-c.tot*0.6)/(c.tot*0.2)); } }},
-
-   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602', 'ZI-601', 'PI-604'], dur:3600,
-    desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['ZI-601'][i] += 4*Math.sin(2*Math.PI*(c.off+(i-s)*STEP)/900); },
-    post:function(D,s,e,c){
-      if(c.memo.f===undefined) c.memo.f = D['FI-602'][s];
-      for(var i=s;i<e;i++) D['FI-602'][i] = c.memo.f; }},
-
-   {id:12, nm:'분석기 순간 이상값', tag:'MI-804', tags:['MI-804'], dur:7200,
-    desc:'0.5 → 999 ppm 순간 폭등 후 3초 내 원복 × 5회',
-    post:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
-      if(k<5 && r<4) D['MI-804'][i] = 999; } }},
-
-   {id:13, nm:'GN2 공급압 반복 헌팅', tag:'ZI-904', tags:['ZI-904','PI-901','FI-902'], dur:7200,
-    desc:'±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적',
-    pre:function(D,s,e,c){ var hr=headroom('ZI-904');
-      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
-        if(k>4||r>=180) continue;
-        var w=Math.sin(2*Math.PI*r/45);
-        D['ZI-904'][i] += w*(w>=0?Math.min(5,hr.up):Math.min(5,hr.dn)); } }},
-
-   {id:14, nm:'터빈 회전수 순간 강하', tag:'SI-507', tags:['SI-507'], dur:20,
-    desc:'−800 rpm 로 20초간 강하 후 즉시 복귀',
-    pre:function(D,s,e){ for(var i=s;i<e;i++) D['SI-507'][i] -= 800; }},
-
-   {id:15, nm:'순도 동반 저하', tag:'AI-707', tags:['AI-707','AI-803'], dur:7200,
-    desc:'LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
-      D['AI-707'][i] -= 0.3*clamp01((c.off+(i-s)*STEP)/c.tot); }},
-
-   /* ── 16~20 : 한계를 명확히 넘어 알람이 발생하는 단순 유형 (Issue #1) ── */
-   {id:16, nm:'흡착탑 과온', tag:'TI-301', tags:['TI-301'], dur:2400, alarm:'H 50℃',
-    desc:'32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
-      D['TI-301'][i] += 22.9*clamp01((c.off+(i-s)*STEP)/(c.tot*0.5)); }},
-
-   {id:17, nm:'GN2 공급압 저하', tag:'PI-901', tags:['PI-901'], dur:3600, alarm:'L 4.50 bar',
-    desc:'4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
-      D['PI-901'][i] -= 0.50*clamp01((c.off+(i-s)*STEP)/(c.tot*0.4)); }},
-
-   {id:18, nm:'HP Column 고레벨', tag:'LI-701', tags:['LI-701'], dur:5400, alarm:'H 40%',
-    desc:'25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
-      D['LI-701'][i] += 18.6*clamp01((c.off+(i-s)*STEP)/(c.tot*0.6)); }},
-
-   {id:19, nm:'흡입 필터 차압 상승', tag:'PDI-103', tags:['PDI-103'], dur:10800, alarm:'H 0.030 bar',
-    desc:'0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
-      D['PDI-103'][i] += 0.021*clamp01((c.off+(i-s)*STEP)/c.tot); }},
-
-   {id:20, nm:'압축기 전력 급증', tag:'JI-206', tags:['JI-206'], dur:900, alarm:'H 3,600 kW',
-    desc:'3,240 → 3,670 kW 급증 후 10분 유지, 이후 원복 — H(3,600 kW) 초과 후 알람 해제',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
-      if(x<120) f=x/120; else if(x<720) f=1; else f=Math.max(0,1-(x-720)/180);
-      D['JI-206'][i] += 430*f; } }},
-
-   /* 21·22 — 이상이 아니라 「계획된 정상 운전 작업」이다. 출하로 레벨이 20%p 이상 빠지면
-      엔진이 그것을 잡고, 근무자가 「출하 진행」으로 확인해 확정하면, 다음에 같은 패턴이
-      나올 때 사례 검색(태그 키)이 그 조치를 회수한다 — 쓸수록 쌓이는 순환의 실증 재료다.
-      op:true 는 정답지에 operation 으로 기록돼 이상과 구분된다.
-
-      구현: 출하 밸브 개도(ZI)만 pre 에서 사다리꼴로 올린다. 레벨 하강은 태그 마스터에
-      이미 있는 연동(ZI-805→LI-806, ZI-801→LI-802, gain -0.60, 지연 60초)이 만든다.
-      레벨을 직접 쓰지 않으므로 물리 관계가 어긋나지 않는다.
-      하강폭 = 0.60 × 개도상승 × (레벨R/개도R)
-        #21  0.60 × 29 × (50/35) = 24.9%p     #22  0.60 × 22 × (55/35) = 20.7%p
-      post 의 하한은 「L 알람에 닿기 전에 출하를 멈춘다」는 운전 상식을 반영한 것이다. */
-   {id:21, nm:'LIN 탱크 출하', tag:'LI-806', tags:['ZI-805','LI-806'], dur:10200, op:true,
-    desc:'LV-802 개도 38.5 → 67.5% 로 열어 2시간 출하 — LIN 레벨 약 25%p 하강 후 재충전',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
-      if(x<600) f=x/600; else if(x<7800) f=1; else f=Math.max(0,1-(x-7800)/2400);
-      D['ZI-805'][i] += 29*f; } },
-    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-806'][i]<40) D['LI-806'][i]=40+(D['LI-806'][i]-40)*0.15; }},
-
-   {id:22, nm:'LOX 탱크 출하', tag:'LI-802', tags:['ZI-801','LI-802'], dur:9000, op:true,
-    desc:'LV-801 개도 45 → 69% 로 열어 1.5시간 출하 — LOX 레벨 약 22%p 하강 후 재충전',
-    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
-      if(x<600) f=x/600; else if(x<6000) f=1; else f=Math.max(0,1-(x-6000)/3000);
-      D['ZI-801'][i] += 24*f; } },
-    // 하한 30 = 정상범위 하단. 32 로 뒀더니 베이스라인이 낮은 시각(+7h)에서 하강폭이
-    // 19.6%p 로 잘려 「20%p 이상」 규칙에 미달했다. L(25)까지 여유 5%p 는 남긴다.
-    // 딱 잘라내면(v=30) 값이 정확히 30.000 으로 최대 11.6분 고정돼 노이즈가 0 인 평평한
-    // 구간이 생긴다 — 실제 계기 신호로는 부자연스럽고 엔진 통계에도 분산 0 구간을 준다.
-    // 그래서 초과분의 15% 만 남겨 파형 결을 유지한다 (최저 ≈ 29.5, L 25 여유 4.5).
-    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-802'][i]<30) D['LI-802'][i]=30+(D['LI-802'][i]-30)*0.15; }},
-
-   /* 23·24 — 플랜트 전체 정지. 다른 시나리오와 성격이 완전히 다르다.
-      태그 1~5점이 아니라 43점(외기 2점·탱크 8점 제외)이 동시에 이탈한다.
-
-      solo:true — 랜덤 선택 대상에서 뺀다. 정지가 섞이면 다른 시나리오의 파형이
-      정지에 묻혀 정답지가 「검출 가능」이라고 거짓 주장하게 된다. 「직접 선택」
-      으로만 넣는다.
-
-      first_out — 정답지에 최초 이탈 유닛을 명시한다. 정지 인수인계의 핵심은
-      「어느 Unit 이 먼저 나갔는가」이고, 초안이 그것을 맞혔는지 채점하려면
-      정답이 필요하다. 두 시나리오 모두 압축기(K-201)가 시작점이다. */
-   {id:23, nm:'플랜트 계획 정지', tag:'JI-206',
-    tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
-          'SI-507','PI-502','PI-504','LI-701','LI-705','AI-703','AI-707','AI-803','FI-710','PDI-702','TI-704','TI-403','PI-901','FI-902'],
-    dur:21600, op:true, solo:true, first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (계획 감부하)',
-    desc:'계획 정지 — 압축기 부하를 3시간에 걸쳐 단계적으로 내려 정지, 1시간 유지 후 2시간 재기동',
-    pre:function(D,s,e,c){
-      stopApply(D,s,e,c,function(x,lag,tot){
-        if(x<lag) return 0;
-        var y=x-lag;
-        if(y<10800) return clamp01(Math.floor(y/3600+1)/3)*clamp01(y/10800+0.15);  // 3단 감부하
-        if(y<14400) return 1;
-        return Math.max(0,1-(y-14400)/7200);                                        // 재기동
-      }, 20); }},
-
-   {id:24, nm:'플랜트 Trip (비상 정지)', tag:'JI-206',
-    tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
-          'SI-507','PI-502','PI-504','TI-501','TI-503','LI-701','LI-705','AI-703','AI-707','FI-710',
-          'PDI-702','PDI-706','TI-704','AI-803','TI-401','TI-403','AI-402','MI-302','MI-305','PDI-303','PDI-306',
-          'PI-901','FI-902','MI-903','ZI-905','FI-906'],
-    dur:21600, solo:true, alarm:'다수 (HH/LL 포함)',
-    first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (전력 상실, 0초)',
-    desc:'압축기 전력 상실로 Trip — 30초 안에 압축기 붕괴, 유닛별 지연으로 6초~10분에 걸쳐 43점 연쇄 이탈, 4시간 정지 후 2시간 재기동',
-    pre:function(D,s,e,c){
-      stopApply(D,s,e,c,function(x,lag,tot){
-        if(x<lag) return 0;
-        var y=x-lag;
-        if(y<30) return y/30;                          // 30초 안에 붕괴
-        if(y<tot-7200-lag) return 1;
-        return Math.max(0,1-(y-(tot-7200-lag))/7200);  // 마지막 2시간 재기동
-      }, 1); }}
+   /* 10 — 이상이 아니라 「계획된 정상 운전 작업」이다. 세정으로 TMP 가 내려가면
+      엔진이 그것을 레벨 시프트로 잡고, 근무자가 「CIP 세정」으로 확정하면 다음에
+      같은 패턴에서 사례 검색이 그 조치를 회수한다. ASU #21·#22(출하)와 같은 구조다.
+      op:true 는 정답지에 operation 으로 기록돼 이상과 구분된다. */
+   {id:10, nm:'CIP 세정 (계획 작업)', tag:'VPT-01', tags:['VPT-01','TT-01','AT-02','CI-902'], dur:5400, op:true,
+    desc:'약식 세정 90분 — TMP 가 5.8 kPa 회복(하강)하고 세정온도·폐수 pH·NaOCl 주입률이 함께 오른다',
+    /* 예산 : TMP 하강폭은 L 90 이 정한다. VPT-01 최저가 96 이므로 −6.0 이 한계고 −5.8 을 쓴다.
+       문서의 122 → 105(−17)는 「드리프트로 122 까지 올라가 있는 상태」를 전제한 값인데,
+       생성기는 #1 과 #10 을 각각 독립으로 배치하므로 기준선이 공칭 104 다. 그대로 −17 을
+       넣으면 L 90 을 뚫는다. 세정 자체가 알람을 만드는 것은 계획 작업의 정의에 어긋난다.
+       TT-01 은 +3.5(최대 104.3 · H 105), AT-02 는 +2.0(최대 9.32 · H 9.5)이 한계다. */
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP,
+        f = x<600 ? x/600 : (x < c.tot-600 ? 1 : Math.max(0,(c.tot-x)/600));
+      D['TT-01'][i]  += 3.5*f;
+      D['AT-02'][i]  += 2.0*f;
+      D['CI-902'][i] += 4.0*f;
+      D['VPT-01'][i] -= 5.8*clamp01(x/(c.tot*0.8)); } }}
   ];
 
   function scenById(id){ for(var i=0;i<SCEN.length;i++) if(SCEN[i].id===id) return SCEN[i]; return null; }
@@ -1514,7 +1404,7 @@
      만들면 같은 체인으로 이어져(chK+1) 근무를 넘는 이상과 베이스라인 파형이
      경계에서 이어진다. 다른 날짜·근무를 고르면 새 체인 — seed 를 새로 뽑는다.
      idx 는 총 생성 회차로, 이력·RTDB 가 항목을 찾는 고유 키다. */
-  var RKEY = 'engra_asu_shiftrun_v2';
+  var RKEY = 'engra_water_shiftrun_v1';   // ASU 생성기와 키를 나눈다 — 같은 브라우저에서 근무 이력이 섞이면 안 된다
   var RUN = { chSeed:0, chStartMs:null, chK:0, idx:0, hist:[], active:[] };
   var CACHE = [];                                   // {idx, ids, D, dec, shiftMs}
   try {
@@ -1576,7 +1466,7 @@
     var baseHour=new Date(RUN.chStartMs).getHours();
     var seed=(RUN.chSeed+k)|0;
 
-    smsg('생성 중… 12시간 × 53태그 = 약 114만 행', null);
+    smsg('생성 중… 12시간 × '+Object.keys(state).length+'태그 = 약 '+Math.round(Object.keys(state).length*N/10000)+'만 행', null);
 
     setTimeout(function(){
       // 1) 이번 근무에 새로 넣을 시나리오 선택
@@ -1591,7 +1481,8 @@
         RUN.active.forEach(function(a){ busy[a.id]=1; if(a.g1>gStart) carried++; });
         // 6~10건은 '이번 근무에 보이는 총 건수' 기준. 이어지는 것만큼 새로 뽑는 수를 줄인다.
         var want=Math.max(1, 6+Math.floor(rnd()*5)-carried);
-        // solo(플랜트 정지)는 랜덤에서 뺀다 — 정지에 다른 시나리오가 묻혀 정답지가 거짓이 된다
+        // solo 는 다른 시나리오를 묻어버리는 시나리오(ASU 의 플랜트 정지)를 랜덤에서 빼는 장치다.
+        // 수처리 10종에는 아직 그런 것이 없어 실제로는 걸리는 것이 없다 — 장치만 남겨둔다
         var pool=SCEN.filter(function(S){ return !busy[S.id] && !S.solo; });
         picked=[];
         while(picked.length<want && pool.length) picked.push(pool.splice(Math.floor(rnd()*pool.length),1)[0]);
@@ -1631,16 +1522,19 @@
       segs.forEach(function(w){ if(w.S.post) w.S.post(D,w.s,w.e,w.c); });
       clampPhysical(D,ids);
 
-      // 4) 알람 실측 + 겹침 검출
+      /* 4) 알람 실측 + 겹침 검출
+         한계를 넘은 상태가 ON_DELAY 이상 이어져야 알람으로 센다. DCS 의 on-delay 다.
+         최대/최소만 보던 때는 #8(4초 스파이크)이 정답지에 「발생 · QI-801 HH」로
+         적혀서, 「on-delay 미달이라 알람이 안 뜬다」는 시나리오 정의와 정반대가 됐다.
+         분석기 순간값으로 알람이 울리지 않는 것이 #8 의 존재 이유다. */
       segs.forEach(function(w){
         var fired=[];
         w.S.tags.forEach(function(t){
-          var d=state[t], mn=Infinity, mx=-Infinity;
-          for(var i=w.s;i<w.e;i++){ var v=D[t][i]; if(v<mn)mn=v; if(v>mx)mx=v; }
-          if(d.HH!==''&&mx>+d.HH) fired.push(t+' HH');
-          else if(d.H!==''&&mx>+d.H) fired.push(t+' H');
-          if(d.LL!==''&&mn<+d.LL) fired.push(t+' LL');
-          else if(d.L!==''&&mn<+d.L) fired.push(t+' L');
+          var d=state[t], a=D[t];
+          if(d.HH!==''&&held(a,w.s,w.e,+d.HH,1)) fired.push(t+' HH');
+          else if(d.H!==''&&held(a,w.s,w.e,+d.H,1)) fired.push(t+' H');
+          if(d.LL!==''&&held(a,w.s,w.e,+d.LL,-1)) fired.push(t+' LL');
+          else if(d.L!==''&&held(a,w.s,w.e,+d.L,-1)) fired.push(t+' L');
         });
         w.fired=fired;
       });
@@ -1667,8 +1561,8 @@
                    start:fmtTs(shiftMs+w.s*STEP*1000), end:fmtTs(shiftMs+w.e*STEP*1000),
                    duration_sec:(w.e-w.s)*STEP, minutes:Math.round((w.e-w.s)*STEP/60),
                    carried_in:w.fromPrev, continues_next:w.toNext,
-                   operation:!!w.S.op,          // true = 이상이 아니라 계획된 정상 운전 작업(출하·계획정지)
-                   first_out:w.S.first_out||null,  // 정지 시나리오의 최초 이탈 유닛 — 초안이 맞혔는지 채점용
+                   operation:!!w.S.op,          // true = 이상이 아니라 계획된 정상 운전 작업 (#10 CIP 세정)
+                   first_out:w.S.first_out||null,  // 최초 이탈 유닛(ASU 정지 시나리오용). 수처리는 아직 쓰지 않는다
                    dcs_alarm:w.fired.length?('발생 · '+w.fired.join(', ')):'미발생' };
         }),
         overlaps:overlaps
@@ -1930,9 +1824,9 @@
   }
   $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; dumpCsv(c); };
   $('sAns').onclick = function(){ var E=RUN.hist[RUN.hist.length-1]; if(!E)return;
-    save(new Blob([JSON.stringify(E,null,2)],{type:'application/json'}),'asu_answer_'+E.shift_id+'.json'); };
+    save(new Blob([JSON.stringify(E,null,2)],{type:'application/json'}),'water_answer_'+E.shift_id+'.json'); };
   $('sAll').onclick = function(){ if(!RUN.hist.length)return;
-    save(new Blob([JSON.stringify(mergedAnswer(),null,2)],{type:'application/json'}),'asu_answer_all.json'); };
+    save(new Blob([JSON.stringify(mergedAnswer(),null,2)],{type:'application/json'}),'water_answer_all.json'); };
   $('sHist').addEventListener('click',function(ev){
     var a=ev.target.getAttribute('data-ans'), c=ev.target.getAttribute('data-csv');
     if(a!==null&&a!==undefined){ var E=RUN.hist.filter(function(x){return x.idx===+a;})[0]; if(E) openModal(E); }
