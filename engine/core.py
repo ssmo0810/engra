@@ -17,13 +17,18 @@ med·mad 만 남기면 3초짜리 스파이크(시나리오 12)와 10초짜리 �
 들어가면 MAD 가 부풀어 **다른 시나리오의 탐지까지 같이 죽는다.**
 """
 import csv
+import os
 import math
 import statistics
 from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TAG_MASTER = ROOT / "docs" / "tag_master.csv"
+# 다른 공정에 붙일 때 바꾸는 것은 「태그 명세」와 「데이터 입구」 둘뿐이다.
+# 명세 경로를 환경변수로 받아, 검출 코드는 한 줄도 건드리지 않고 공정을 바꾼다.
+#     ENGRA_TAG_MASTER=docs/water/tag_master.csv   (수처리 65점)
+# 값이 없으면 종전과 같은 ASU 정본을 쓴다 — 기존 측정치에 영향이 없다.
+TAG_MASTER = Path(os.environ.get("ENGRA_TAG_MASTER") or ROOT / "docs" / "tag_master.csv")
 
 BLOCK_SEC = 30          # 블록 길이. 시나리오 3(주기 20초)·13(주기 45초)이 블록 안에서 다 보인다
 MAD_TO_SIGMA = 1.4826   # 정규분포에서 MAD × 이 값 = 표준편차
