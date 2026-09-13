@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASU DCS Overview · ENGRA</title>
-<meta name="description" content="ASU 공정 모의 DCS Overview 화면과 태그 마스터·베이스라인 데이터 생성기 (가상 데이터)">
+<title>수처리 DCS Overview · ENGRA</title>
+<meta name="description" content="수처리(UF 막여과) 공정 모의 DCS Overview 화면과 태그 마스터·베이스라인 데이터 생성기 (가상 데이터)">
 <style>
   /* ── demo/index.html 디자인 토큰 계승 ── */
   :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;--accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
@@ -43,7 +43,7 @@
 
   /* ── SVG 내부 (demo 클래스 규약 계승) ── */
   .pipe{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .air{stroke:#5a5a5a}.gn2{stroke:#d9a400}.lox{stroke:#2f6bd8}
+  .raw{stroke:#6b7280}.perm{stroke:#2f6bd8}.ww{stroke:#7a8b3a}.chem{stroke:#d9773a}.ct{stroke:#1f8a92}
   .eq{fill:#f4f4f1;stroke:#3a3a3a;stroke-width:1.3}
   .eqline{fill:none;stroke:#9a9a94;stroke-width:.9}
   .tray{fill:none;stroke:#dcded6;stroke-width:1}
@@ -185,16 +185,16 @@
 <div class="wrap">
 
   <div class="top">
-    <h1>ASU <b>DCS Overview</b></h1>
-    <span>ENGRA 기준 도면 · v3.0</span>
-    <span class="pill amber">Tag Point 53점</span>
+    <h1>수처리 <b>DCS Overview</b></h1>
+    <span>ENGRA 기준 도면 · 수처리 v1.0</span>
+    <span class="pill amber">Tag Point 65점</span>
     <span class="pill" id="pillScen">시나리오 주입 —</span>
   </div>
 
   <div class="disc"><b>모의 화면</b> — 사내 실제 태그 체계·시스템 화면과 무관하게 작성한 데모용 도면입니다. 표시된 값은 정상 운전 기준 목데이터입니다.</div>
 
   <div class="card">
-    <h2>ASU-100 공정 개관도 <span class="pill">Air Separation Unit</span></h2>
+    <h2>수처리 공정 개관도 <span class="pill">Water Treatment · 침지식 UF</span></h2>
 
     <div class="hmi">
       <div class="hminav">
@@ -204,240 +204,204 @@
         <div id="tabRtdb" class="off">RTDB</div>
       </div>
       <div class="hmibar">
-        <span>ASU-100 &nbsp;AIR SEPARATION UNIT</span>
-        <span class="mid">MIMIC ASU-OVW-01</span>
-        <span>REV 3.0 &nbsp;|&nbsp; 2026-08-16</span>
+        <span>WTP-100 &nbsp;WATER TREATMENT PLANT</span>
+        <span class="mid">MIMIC WTP-OVW-01</span>
+        <span>REV 1.0 &nbsp;|&nbsp; 2026-09-13</span>
       </div>
 
       <div id="viewOverview">
       <svg class="mimic" viewBox="0 0 1600 870" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <marker id="mAir" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5a5a5a"/></marker>
-          <marker id="mGn2" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9a400"/></marker>
-          <marker id="mLox" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f6bd8"/></marker>
-
-          <symbol id="cv" viewBox="-10 -19 20 26">
-            <path d="M-7.5,-5.5 L0,0 L-7.5,5.5 Z M7.5,-5.5 L0,0 L7.5,5.5 Z" fill="currentColor"/>
-            <line x1="0" y1="-1" x2="0" y2="-11" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M-6.5,-11 A6.5,4.8 0 0 1 6.5,-11 Z" fill="currentColor"/>
-          </symbol>
-
-          <clipPath id="clipHP"><rect x="650" y="490" width="80" height="165" rx="3"/></clipPath>
-          <clipPath id="clipLP"><rect x="945" y="358" width="80" height="297" rx="3"/></clipPath>
+          <marker id="mRaw"  viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/></marker>
+          <marker id="mPerm" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f6bd8"/></marker>
+          <marker id="mWw"   viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a8b3a"/></marker>
+          <marker id="mChem" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9773a"/></marker>
+          <marker id="mCt"   viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f8a92"/></marker>
         </defs>
 
-        <!-- ══════════ 구역 프레임 ══════════ -->
-        <rect x="30" y="320" width="425" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
-        <text class="sect" x="39" y="333">COMPRESSION &amp; PURIFICATION</text>
-        <rect x="465" y="320" width="570" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
-        <text class="sect" x="474" y="333">COLD BOX</text>
-        <rect x="1075" y="320" width="485" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
-        <text class="sect" x="1084" y="333">PRODUCT STORAGE</text>
+        <text class="cap" x="512" y="64" style="font-size:9.5px">원수  →  전처리  →  UF 막여과  →  여과수 저장·공급  →  Fab / 냉각탑</text>
+        <text class="cap" x="512" y="79" style="font-size:9.5px">역세수 · 세정폐수 · 냉각탑 B/D  →  폐수 회수(응집 · 중화 · 침전)  →  상등수 재이용 / TMS 방류</text>
+        <rect x="1320" y="40" width="260" height="72" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
 
-        <!-- ══════════ ① AIR FILTER ══════════ -->
-        <text class="pl" x="65" y="428" text-anchor="middle">AIR FILTER</text>
-        <text class="id" x="65" y="439" text-anchor="middle">F-101</text>
-        <rect class="eq" x="50" y="460" width="30" height="90" rx="2"/>
-        <path class="eqline" d="M54,471 L76,493 M54,495 L76,517 M54,519 L76,541"/>
-        <path class="pipe air" d="M80,505 H140" marker-end="url(#mAir)"/>
+        <rect x="20"   y="130" width="430" height="312" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="29" y="143">PRE TREATMENT</text>
+        <rect x="460"  y="130" width="520" height="312" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="469" y="143">UF MEMBRANE · 3 TRAIN</text>
+        <rect x="990"  y="130" width="320" height="312" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="999" y="143">FILTERED WATER &amp; SUPPLY</text>
+        <rect x="1320" y="130" width="260" height="312" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="1329" y="143">COOLING TOWER</text>
 
-        <!-- ══════════ ② AIR COMPRESSOR + MOTOR + 토출밸브 FV-202 ══════════ -->
-        <text class="pl" x="180" y="428" text-anchor="middle">AIR COMPRESSOR</text>
-        <text class="id" x="180" y="439" text-anchor="middle">K-201</text>
-        <polygon class="eq" points="140,462 240,476 240,534 140,548"/>
-        <path class="eqline" d="M165,466 V544 M190,470 V540 M215,473 V537"/>
-        <line x1="190" y1="548" x2="190" y2="582" stroke="#3a3a3a" stroke-width="1.8"/>
-        <circle class="eq" cx="190" cy="600" r="18"/>
-        <text class="pl" x="190" y="605" text-anchor="middle" style="font-size:12px">M</text>
-        <text class="pl" x="190" y="637" text-anchor="middle">MOTOR</text>
-        <text class="id" x="190" y="648" text-anchor="middle">M-202</text>
-        <path class="pipe air" d="M240,505 H330" marker-end="url(#mAir)"/>
-        <use href="#cv" x="248" y="486" width="20" height="26" style="color:#5a5a5a"/>
-        <text class="id" x="258" y="479" text-anchor="middle">FV-202</text>
+        <rect x="20"   y="452" width="960" height="200" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="29" y="465">WASTE WATER RECOVERY</text>
+        <rect x="990"  y="452" width="320" height="200" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="999" y="465">CIP</text>
+        <rect x="1320" y="452" width="260" height="200" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="1329" y="465">TMS DISCHARGE</text>
 
-        <!-- ══════════ ③ ADSORBER A / B ══════════ -->
-        <text class="pl" x="387" y="428" text-anchor="middle">ADSORBER A / B</text>
-        <text class="id" x="387" y="439" text-anchor="middle">A-301 / A-302</text>
-        <path class="eq" d="M330,482 A25,25 0 0 1 380,482 V528 A25,25 0 0 1 330,528 Z"/>
-        <path d="M332,507 H378 M332,517 H378 M332,527 H378" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
-        <text class="pl" x="355" y="495" text-anchor="middle">A</text>
-        <path class="eq" d="M395,482 A25,25 0 0 1 445,482 V528 A25,25 0 0 1 395,528 Z"/>
-        <path d="M397,507 H443 M397,517 H443 M397,527 H443" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
-        <text class="pl" x="420" y="495" text-anchor="middle">B</text>
-        <path class="pipe air" d="M380,505 H395"/>
-        <path class="pipe air" d="M445,505 H490" marker-end="url(#mAir)"/>
+        <rect x="20"   y="662" width="1560" height="190" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="29" y="675">CHEMICAL DOSING  CP-8496</text>
 
-        <!-- ══════════ ④ MAIN HEAT EXCHANGER + FV-601 ══════════ -->
-        <text class="pl" x="530" y="428" text-anchor="middle">MAIN HEAT EXCHANGER</text>
-        <text class="id" x="530" y="439" text-anchor="middle">E-401</text>
-        <rect class="eq" x="490" y="465" width="80" height="80" rx="2"/>
-        <path class="eqline" d="M490,479 H570 M490,493 H570 M490,507 H570 M490,521 H570 M490,535 H570"/>
-        <path class="pipe air" d="M570,505 H650" marker-end="url(#mAir)"/>
-        <use href="#cv" x="578" y="486" width="20" height="26" style="color:#5a5a5a"/>
-        <text class="id" x="566" y="524" text-anchor="end">FV-601</text>
-        <path class="pipe air" d="M560,545 V584" marker-end="url(#mAir)"/>
+        <text class="cap" x="26" y="165">RAW WATER</text>
+        <path class="pipe raw" d="M26,200 H58" marker-end="url(#mRaw)"/>
+        <rect class="eq" x="60" y="172" width="32" height="56" rx="2"/>
+        <path class="eqline" d="M64,180 L88,204 M64,194 L88,218 M64,208 L88,232"/>
+        <text class="pl" x="76" y="246" text-anchor="middle">STRAINER</text>
+        <text class="id" x="76" y="256" text-anchor="middle">10-S8445-01</text>
+        <path class="pipe raw" d="M92,200 H110"/>
+        <path class="eq" d="M110,186 A14,14 0 0 1 138,186 V228 H110 Z"/>
+        <path class="eq" d="M146,186 A14,14 0 0 1 174,186 V228 H146 Z"/>
+        <path class="eqline" d="M112,206 H136 M148,206 H172"/>
+        <text class="pl" x="142" y="246" text-anchor="middle">CATION RESIN</text>
+        <text class="id" x="142" y="256" text-anchor="middle">10-S8446-01A/B</text>
+        <path class="pipe raw" d="M174,207 H198" marker-end="url(#mRaw)"/>
+        <rect class="eq" x="198" y="170" width="72" height="62" rx="2"/>
+        <rect x="199" y="192" width="70" height="39" fill="#9fc0ea"/>
+        <line x1="234" y1="160" x2="234" y2="220" stroke="#3a3a3a" stroke-width="1.6"/>
+        <path d="M222,220 H246" stroke="#3a3a3a" stroke-width="2.4"/>
+        <text class="pl" x="234" y="246" text-anchor="middle">FLOCCULATION TK</text>
+        <text class="id" x="234" y="256" text-anchor="middle">10-D8499-01A</text>
+        <path class="pipe raw" d="M270,207 H290"/>
+        <rect class="eq" x="290" y="186" width="140" height="40" rx="2"/>
+        <rect x="291" y="202" width="138" height="23" fill="#9fc0ea"/>
+        <path class="eqline" d="M325,226 V238 M360,226 V238 M395,226 V238"/>
+        <text class="pl" x="360" y="252" text-anchor="middle">DISTRIBUTION CHANNEL</text>
+        <text class="id" x="360" y="262" text-anchor="middle">10-D8499-01B</text>
+        <path class="pipe raw" d="M430,206 H472" marker-end="url(#mRaw)"/>
 
-        <!-- ══════════ ⑤ TURBINE + GENERATOR ══════════ -->
-        <circle class="eq" cx="495" cy="613" r="18"/>
-        <text class="pl" x="495" y="618" text-anchor="middle" style="font-size:12px">G</text>
-        <line x1="513" y1="613" x2="530" y2="613" stroke="#3a3a3a" stroke-width="1.8"/>
-        <polygon class="eq" points="610,578 530,592 530,634 610,648"/>
-        <path class="eqline" d="M555,588 V638 M580,584 V643"/>
-        <text class="pl" x="495" y="668" text-anchor="middle">GENERATOR</text>
-        <text class="id" x="495" y="679" text-anchor="middle">G-502</text>
-        <text class="pl" x="580" y="668" text-anchor="middle">TURBINE</text>
-        <text class="id" x="580" y="679" text-anchor="middle">X-501</text>
+        <text class="pl" x="690" y="158" text-anchor="middle">MEMBRANE &amp; CASSETTE TANK  A / B / C</text>
+        <text class="id" x="690" y="168" text-anchor="middle">10-D8499-02A/B/C  ·  ZW500D  68 module/cassette</text>
+        <rect class="eq" x="500" y="176" width="100" height="64" rx="2"/>
+        <rect x="501" y="192" width="98" height="47" fill="#9fc0ea"/>
+        <rect class="eq" x="514" y="196" width="16" height="38" rx="1"/><rect class="eq" x="542" y="196" width="16" height="38" rx="1"/><rect class="eq" x="570" y="196" width="16" height="38" rx="1"/>
+        <text class="pl" x="550" y="189" text-anchor="middle" style="font-size:9px">A</text>
+        <rect class="eq" x="640" y="176" width="100" height="64" rx="2"/>
+        <rect x="641" y="192" width="98" height="47" fill="#9fc0ea"/>
+        <rect class="eq" x="654" y="196" width="16" height="38" rx="1"/><rect class="eq" x="682" y="196" width="16" height="38" rx="1"/><rect class="eq" x="710" y="196" width="16" height="38" rx="1"/>
+        <text class="pl" x="690" y="189" text-anchor="middle" style="font-size:9px">B</text>
+        <rect class="eq" x="780" y="176" width="100" height="64" rx="2"/>
+        <rect x="781" y="192" width="98" height="47" fill="#9fc0ea"/>
+        <rect class="eq" x="794" y="196" width="16" height="38" rx="1"/><rect class="eq" x="822" y="196" width="16" height="38" rx="1"/><rect class="eq" x="850" y="196" width="16" height="38" rx="1"/>
+        <text class="pl" x="830" y="189" text-anchor="middle" style="font-size:9px">C</text>
+        <circle class="eq" cx="620" cy="205" r="11"/><text class="pl" x="620" y="209" text-anchor="middle" style="font-size:10px">P</text>
+        <circle class="eq" cx="760" cy="205" r="11"/><text class="pl" x="760" y="209" text-anchor="middle" style="font-size:10px">P</text>
+        <circle class="eq" cx="900" cy="205" r="11"/><text class="pl" x="900" y="209" text-anchor="middle" style="font-size:10px">P</text>
+        <text class="id" x="900" y="230" text-anchor="middle">10-P8469-01A/B/C</text>
+        <path class="pipe perm" d="M600,205 H609 M631,205 H640 M740,205 H749 M771,205 H780 M880,205 H889"/>
+        <path class="pipe perm" d="M911,205 H972" marker-end="url(#mPerm)"/>
+        <circle class="eq" cx="944" cy="158" r="12"/><text class="pl" x="944" y="162" text-anchor="middle" style="font-size:9px">B</text>
+        <circle class="eq" cx="944" cy="186" r="12"/><text class="pl" x="944" y="190" text-anchor="middle" style="font-size:9px">B</text>
+        <text class="id" x="944" y="208" text-anchor="middle">10-C8461-01A/B</text>
+        <path class="pipe raw" d="M932,186 H886 V210 H880" marker-end="url(#mRaw)"/>
+        <path class="pipe ww" d="M500,238 H472 V452" marker-end="url(#mWw)"/>
+        <text class="cap" x="476" y="266">DRAIN</text>
 
-        <!-- ══════════ ⑥ HP COLUMN ══════════ -->
-        <rect x="650" y="490" width="80" height="165" rx="3" fill="#fafbf8"/>
-        <g clip-path="url(#clipHP)">
-          <path class="tray" d="M650,510 H730 M650,530 H730 M650,550 H730 M650,570 H730 M650,590 H730"/>
-          <rect x="650" y="614" width="80" height="41" fill="#6d9ce8"/>
-          <line x1="650" y1="614" x2="730" y2="614" stroke="#2f6bd8" stroke-width="1.8"/>
-        </g>
-        <rect x="650" y="490" width="80" height="165" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
-        <text class="lv" x="690" y="639" text-anchor="middle" style="fill:#fff">LIQ 25%</text>
-        <text class="pl" x="690" y="428" text-anchor="middle">HP COLUMN</text>
-        <text class="id" x="690" y="439" text-anchor="middle">C-701</text>
+        <rect class="eq" x="1005" y="176" width="62" height="64" rx="2"/>
+        <rect x="1006" y="198" width="60" height="41" fill="#9fc0ea"/>
+        <rect class="eq" x="1075" y="176" width="62" height="64" rx="2"/>
+        <rect x="1076" y="198" width="60" height="41" fill="#9fc0ea"/>
+        <text class="pl" x="1071" y="254" text-anchor="middle">FILTERED WATER TANK A / B</text>
+        <text class="id" x="1071" y="264" text-anchor="middle">10-D8499-03A/B  ·  120 m3</text>
+        <path class="pipe perm" d="M1137,196 H1160"/>
+        <path class="pipe perm" d="M1137,226 H1160"/>
+        <circle class="eq" cx="1172" cy="196" r="11"/><text class="pl" x="1172" y="200" text-anchor="middle" style="font-size:10px">P</text>
+        <circle class="eq" cx="1172" cy="226" r="11"/><text class="pl" x="1172" y="230" text-anchor="middle" style="font-size:10px">P</text>
+        <text class="id" x="1210" y="254" text-anchor="middle">10-P8469-03A/B</text>
+        <path class="pipe perm" d="M1183,196 H1236" marker-end="url(#mPerm)"/>
+        <text class="cap" x="1240" y="199">Fab</text>
+        <path class="pipe ct" d="M1183,226 H1210 V236 H1236" marker-end="url(#mCt)"/>
+        <text class="cap" x="1240" y="239">냉각탑</text>
 
-        <!-- ══════════ ⑦ HP 상부 → LP 좌측 상부 이송 (FV-709) ══════════ -->
-        <path class="pipe air" d="M690,490 V360 H920 V385 H945" marker-end="url(#mAir)"/>
-        <use href="#cv" x="825" y="341" width="20" height="26" style="color:#5a5a5a"/>
+        <polygon class="eq" points="1345,240 1445,240 1428,182 1362,182"/>
+        <path class="eqline" d="M1356,206 H1434 M1352,222 H1438"/>
+        <circle class="eq" cx="1395" cy="172" r="11"/>
+        <path d="M1387,172 H1403 M1395,164 V180" stroke="#3a3a3a" stroke-width="1.4"/>
+        <text class="pl" x="1395" y="258" text-anchor="middle">COOLING TOWER</text>
+        <rect class="eq" x="1478" y="196" width="62" height="44" rx="2"/>
+        <rect x="1479" y="216" width="60" height="23" fill="#b7c98a"/>
+        <text class="pl" x="1509" y="258" text-anchor="middle">B/D SUMP</text>
+        <path class="pipe ct" d="M1445,214 H1478"/>
+        <path class="pipe ww" d="M1509,240 V272" marker-end="url(#mWw)"/>
+        <text class="cap" x="1576" y="286" text-anchor="end">B/D → 폐수 회수</text>
 
-        <!-- ══════════ ⑧ LP COLUMN ══════════ -->
-        <rect x="945" y="358" width="80" height="297" rx="3" fill="#fafbf8"/>
-        <g clip-path="url(#clipLP)">
-          <path class="tray" d="M945,378 H1025 M945,403 H1025 M945,428 H1025 M945,453 H1025 M945,478 H1025 M945,503 H1025 M945,528 H1025 M945,553 H1025 M945,578 H1025"/>
-          <rect x="945" y="590" width="80" height="65" fill="#6d9ce8"/>
-          <line x1="945" y1="590" x2="1025" y2="590" stroke="#2f6bd8" stroke-width="1.8"/>
-        </g>
-        <rect x="945" y="358" width="80" height="297" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
-        <text class="lv" x="985" y="617" text-anchor="middle" style="fill:#fff">LOX 22%</text>
-        <text class="pl" x="985" y="338" text-anchor="middle">LP COLUMN</text>
-        <text class="id" x="985" y="349" text-anchor="middle">C-702</text>
+        <circle class="eq" cx="70" cy="500" r="10"/><text class="pl" x="70" y="504" text-anchor="middle" style="font-size:9px">P</text>
+        <circle class="eq" cx="100" cy="500" r="10"/><text class="pl" x="100" y="504" text-anchor="middle" style="font-size:9px">P</text>
+        <circle class="eq" cx="130" cy="500" r="10"/><text class="pl" x="130" y="504" text-anchor="middle" style="font-size:9px">P</text>
+        <text class="pl" x="100" y="534" text-anchor="middle">DRAIN PUMP A/B/C</text>
+        <text class="id" x="100" y="544" text-anchor="middle">10-P8469-02A/B/C</text>
+        <path class="pipe ww" d="M140,500 H226" marker-end="url(#mWw)"/>
+        <rect class="eq" x="226" y="478" width="80" height="52" rx="2"/>
+        <rect x="227" y="500" width="78" height="29" fill="#b7c98a"/>
+        <text class="pl" x="266" y="544" text-anchor="middle">WW TRANSFER TK</text>
+        <path class="pipe ww" d="M306,504 H328"/>
+        <rect class="eq" x="328" y="478" width="58" height="52" rx="2"/>
+        <rect x="329" y="500" width="56" height="29" fill="#b7c98a"/>
+        <line x1="357" y1="470" x2="357" y2="518" stroke="#3a3a3a" stroke-width="1.5"/>
+        <path d="M348,518 H366" stroke="#3a3a3a" stroke-width="2.2"/>
+        <text class="pl" x="357" y="544" text-anchor="middle">중화조</text>
+        <path class="pipe ww" d="M386,504 H412"/>
+        <rect class="eq" x="412" y="478" width="76" height="52" rx="2"/>
+        <rect x="413" y="500" width="74" height="29" fill="#b7c98a"/>
+        <text class="pl" x="450" y="544" text-anchor="middle">CLARIFIER SUPPLY TK</text>
+        <path class="pipe ww" d="M488,504 H524" marker-end="url(#mWw)"/>
+        <circle class="eq" cx="556" cy="504" r="32"/>
+        <circle class="eqline" cx="556" cy="504" r="20" fill="none"/>
+        <line x1="556" y1="468" x2="556" y2="504" stroke="#3a3a3a" stroke-width="1.5"/>
+        <text class="pl" x="556" y="548" text-anchor="middle">CLARIFIER</text>
+        <text class="id" x="556" y="558" text-anchor="middle">10-D8299-06</text>
+        <path class="pipe perm" d="M588,490 H676" marker-end="url(#mPerm)"/>
+        <text class="cap" x="680" y="493">상등수 재이용</text>
+        <path class="pipe ww" d="M556,536 V600 H788" marker-end="url(#mWw)"/>
+        <rect class="eq" x="788" y="584" width="62" height="30" rx="2"/>
+        <path class="eqline" d="M788,594 H850 M788,604 H850"/>
+        <text class="pl" x="819" y="628" text-anchor="middle">DEHYDRATOR</text>
+        <text class="cap" x="858" y="603">슬러지 반출</text>
 
-        <!-- ══════════ ⑨ GN2 헤더 + VENT + FINAL SUPPLY ══════════ -->
-        <path class="pipe gn2" d="M1025,380 H1060 V100 H1540" marker-end="url(#mGn2)"/>
-        <text class="pl" x="1552" y="104" style="fill:#b98c00">GN2</text>
+        <rect class="eq" x="1070" y="478" width="86" height="52" rx="2"/>
+        <rect x="1071" y="498" width="84" height="31" fill="#e6c98a"/>
+        <path d="M1084,522 q7,-9 14,0 q7,9 14,0 q7,-9 14,0" fill="none" stroke="#b06a2c" stroke-width="1.6"/>
+        <text class="pl" x="1113" y="544" text-anchor="middle">CIP TANK</text>
+        <text class="id" x="1113" y="554" text-anchor="middle">10-D8499-04</text>
+        <path class="pipe chem" d="M1070,490 H1020 V442" marker-end="url(#mChem)"/>
+        <text class="cap" x="1016" y="470" text-anchor="end">막조</text>
+        <path class="pipe ww" d="M1156,514 H1186 V604 H976" marker-end="url(#mWw)"/>
+        <text class="cap" x="1190" y="517">세정폐수</text>
 
-        <circle cx="1135" cy="100" r="3.4" fill="#d9a400"/>
-        <path class="pipe gn2" d="M1135,100 V48" marker-end="url(#mGn2)"/>
-        <g transform="rotate(90 1135 74)"><use href="#cv" x="1125" y="55" width="20" height="26" style="color:#d9a400"/></g>
-        <text class="id" x="1112" y="77" text-anchor="end">PV-903</text>
-        <text class="cap" x="1135" y="34" text-anchor="middle" style="fill:#b98c00">VENT TO ATM</text>
+        <rect class="eq" x="1360" y="478" width="60" height="34" rx="2"/>
+        <rect x="1361" y="492" width="58" height="19" fill="#9fc0ea"/>
+        <text class="pl" x="1390" y="526" text-anchor="middle">TMS 채수조</text>
+        <path class="pipe perm" d="M1420,495 H1500" marker-end="url(#mPerm)"/>
+        <text class="cap" x="1460" y="489" text-anchor="middle">공공수역</text>
 
-        <use href="#cv" x="1470" y="81" width="20" height="26" style="color:#d9a400"/>
-        <text class="id" x="1480" y="74" text-anchor="middle">PV-902</text>
+        <rect class="eq" x="110" y="700" width="40" height="46" rx="2"/><rect x="111" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="160" cy="736" r="7"/>
+        <rect class="eq" x="290" y="700" width="40" height="46" rx="2"/><rect x="291" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="340" cy="736" r="7"/>
+        <rect class="eq" x="470" y="700" width="40" height="46" rx="2"/><rect x="471" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="520" cy="736" r="7"/>
+        <rect class="eq" x="650" y="700" width="40" height="46" rx="2"/><rect x="651" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="700" cy="736" r="7"/>
+        <rect class="eq" x="830" y="700" width="40" height="46" rx="2"/><rect x="831" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="880" cy="736" r="7"/>
+        <rect class="eq" x="1010" y="700" width="40" height="46" rx="2"/><rect x="1011" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="1060" cy="736" r="7"/>
+        <rect class="eq" x="1190" y="700" width="40" height="46" rx="2"/><rect x="1191" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="1240" cy="736" r="7"/>
+        <rect class="eq" x="1370" y="700" width="40" height="46" rx="2"/><rect x="1371" y="718" width="38" height="27" fill="#e7c0a0"/><circle class="eq" cx="1420" cy="736" r="7"/>
+        <text class="pl" x="130"  y="694" text-anchor="middle">H2SO4</text>
+        <text class="pl" x="310"  y="694" text-anchor="middle">NaOCl 12.6%</text>
+        <text class="pl" x="490"  y="694" text-anchor="middle">NaOH 5%</text>
+        <text class="pl" x="670"  y="694" text-anchor="middle">COAGULANT</text>
+        <text class="pl" x="850"  y="694" text-anchor="middle">SBS 38%</text>
+        <text class="pl" x="1030" y="694" text-anchor="middle">ANTISCALANT</text>
+        <text class="pl" x="1210" y="694" text-anchor="middle">동부식방지제</text>
+        <text class="pl" x="1390" y="694" text-anchor="middle">POLYMER</text>
+        <text class="id" x="130" y="762" text-anchor="middle">10-CP8496-01A/B</text>
+        <text class="id" x="310" y="762" text-anchor="middle">10-CP8496-02A/B</text>
 
-        <!-- ══════════ ⑩ LOX → TK-801 ══════════ -->
-        <path class="pipe lox" d="M985,655 V690 H1135 V628" marker-end="url(#mLox)"/>
-        <use href="#cv" x="1050" y="671" width="20" height="26" style="color:#2f6bd8"/>
-        <text class="id" x="1060" y="756" text-anchor="middle">LV-801</text>
-
-        <text class="pl" x="1135" y="396" text-anchor="middle">LOX TANK</text>
-        <text class="id" x="1135" y="407" text-anchor="middle">TK-801</text>
-        <path class="eq" d="M1107,440 A28,28 0 0 1 1163,440 V600 A28,28 0 0 1 1107,600 Z"/>
-        <rect x="1113" y="426" width="44" height="174" fill="#ffffff"/>
-        <rect x="1113" y="496" width="44" height="104" fill="#6d9ce8"/>
-        <line x1="1113" y1="496" x2="1157" y2="496" stroke="#2f6bd8" stroke-width="2"/>
-        <rect x="1113" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
-        <text class="lv" x="1135" y="526" text-anchor="middle" style="fill:#fff;font-size:10px">60%</text>
-
-        <!-- ══════════ ⑪ LIN → TK-802 ══════════ -->
-        <circle cx="1300" cy="100" r="3.4" fill="#d9a400"/>
-        <path class="pipe gn2" d="M1300,100 V690 H1435 V628" marker-end="url(#mGn2)"/>
-        <use href="#cv" x="1357" y="671" width="20" height="26" style="color:#d9a400"/>
-        <text class="id" x="1367" y="756" text-anchor="middle">LV-802</text>
-
-        <text class="pl" x="1435" y="396" text-anchor="middle">LIN TANK</text>
-        <text class="id" x="1435" y="407" text-anchor="middle">TK-802</text>
-        <path class="eq" d="M1407,440 A28,28 0 0 1 1463,440 V600 A28,28 0 0 1 1407,600 Z"/>
-        <rect x="1413" y="426" width="44" height="174" fill="#ffffff"/>
-        <rect x="1413" y="461" width="44" height="139" fill="#f0cf4e"/>
-        <line x1="1413" y1="461" x2="1457" y2="461" stroke="#d9a400" stroke-width="2"/>
-        <rect x="1413" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
-        <text class="lvy" x="1435" y="491" text-anchor="middle" style="fill:#6b5200;font-size:10px">80%</text>
-
-        <!-- ══════════ TRANSMITTER : 취출점 → 스템 → ISA 밸룬 → 태그버스 ══════════ -->
-
-        <!-- K-201 토출 : PT-203 / FT-204 / TT-205 -->
-        <g class="tx txa">
-          <circle class="tap" cx="280" cy="505" r="2.4"/><circle class="tap" cx="297" cy="505" r="2.4"/><circle class="tap" cx="314" cy="505" r="2.4"/>
-          <path d="M280,505 V528 M297,505 V528 M314,505 V528"/>
-          <circle class="bal" cx="280" cy="535" r="7.5"/><circle class="bal" cx="297" cy="535" r="7.5"/><circle class="bal" cx="314" cy="535" r="7.5"/>
-          <text class="blt" x="280" y="537.5" text-anchor="middle">PT</text>
-          <text class="blt" x="297" y="537.5" text-anchor="middle">FT</text>
-          <text class="blt" x="314" y="537.5" text-anchor="middle">TT</text>
-          <path d="M280,543 V555 M297,543 V555 M314,543 V555 M280,555 H314 M297,555 V684"/>
-        </g>
-
-        <!-- A-301 / A-302 후단 수분 : MT-302 / MT-305 -->
-        <g class="tx txa">
-          <circle class="tap" cx="387" cy="505" r="2.4"/><path d="M387,505 V483"/>
-          <circle class="bal" cx="387" cy="475" r="7.5"/><text class="blt" x="387" y="477.5" text-anchor="middle">MT</text>
-          <circle class="tap" cx="467" cy="505" r="2.4"/><path d="M467,505 V483"/>
-          <circle class="bal" cx="467" cy="475" r="7.5"/><text class="blt" x="467" y="477.5" text-anchor="middle">MT</text>
-        </g>
-
-        <!-- COLD BOX INLET : FT-602 / TT-603 / PT-604 -->
-        <g class="tx txa">
-          <circle class="tap" cx="606" cy="505" r="2.4"/><circle class="tap" cx="623" cy="505" r="2.4"/><circle class="tap" cx="640" cy="505" r="2.4"/>
-          <path d="M606,505 V483 M623,505 V483 M640,505 V483"/>
-          <circle class="bal" cx="606" cy="475" r="7.5"/><circle class="bal" cx="623" cy="475" r="7.5"/><circle class="bal" cx="640" cy="475" r="7.5"/>
-          <text class="blt" x="606" y="477.5" text-anchor="middle">FT</text>
-          <text class="blt" x="623" y="477.5" text-anchor="middle">TT</text>
-          <text class="blt" x="640" y="477.5" text-anchor="middle">PT</text>
-          <path d="M606,467 V455 M623,467 V455 M640,467 V455 M606,455 H640 M623,455 V243"/>
-        </g>
-
-        <!-- X-501 인렛 : TT-501 / PT-502 -->
-        <g class="tx txa">
-          <circle class="tap" cx="560" cy="556" r="2.4"/><circle class="tap" cx="560" cy="574" r="2.4"/>
-          <path d="M560,556 H536 M560,574 H536"/>
-          <circle class="bal" cx="528" cy="556" r="7.5"/><circle class="bal" cx="528" cy="574" r="7.5"/>
-          <text class="blt" x="528" y="558.5" text-anchor="middle">TT</text>
-          <text class="blt" x="528" y="576.5" text-anchor="middle">PT</text>
-        </g>
-
-        <!-- FV-709 이송유량 : FT-710 -->
-        <g class="tx txa">
-          <circle class="tap" cx="900" cy="360" r="2.4"/><path d="M900,360 V342"/>
-          <circle class="bal" cx="900" cy="334" r="7.5"/><text class="blt" x="900" y="336.5" text-anchor="middle">FT</text>
-          <path d="M900,326 V318 M835,318 H900 M835,318 V282"/>
-        </g>
-        <text class="id" x="912" y="337" text-anchor="start">FV-709</text>
-
-        <!-- GN2 FINAL SUPPLY : PT-901 / FT-902 / MT-903 -->
-        <g class="tx txg">
-          <circle class="tap" cx="1400" cy="100" r="2.4"/><circle class="tap" cx="1417" cy="100" r="2.4"/><circle class="tap" cx="1434" cy="100" r="2.4"/>
-          <path d="M1400,100 V118 M1417,100 V118 M1434,100 V118"/>
-          <circle class="bal" cx="1400" cy="126" r="7.5"/><circle class="bal" cx="1417" cy="126" r="7.5"/><circle class="bal" cx="1434" cy="126" r="7.5"/>
-          <text class="blt" x="1400" y="128.5" text-anchor="middle">PT</text>
-          <text class="blt" x="1417" y="128.5" text-anchor="middle">FT</text>
-          <text class="blt" x="1434" y="128.5" text-anchor="middle">MT</text>
-          <path d="M1400,134 V144 M1417,134 V144 M1434,134 V144 M1400,144 H1434 M1417,144 V172"/>
-        </g>
-
-        <!-- VENT 유량 : FT-906 -->
-        <g class="tx txg">
-          <circle class="tap" cx="1135" cy="92" r="2.4"/><path d="M1135,92 H1110"/>
-          <circle class="bal" cx="1100" cy="92" r="7.5"/><text class="blt" x="1100" y="94.5" text-anchor="middle">FT</text>
-          <path d="M1135,108 V172"/>
-        </g>
-
-        <!-- ══════════ 시나리오 발생 알림창 (스크립트 생성) ══════════ -->
         <g id="alarmPanel"></g>
-
-        <!-- ══════════ 태그 레이어 (스크립트 생성) ══════════ -->
         <g id="tagLayer"></g>
       </svg>
 
       <div class="hmifoot">
         <div>ZOOM</div><div>PRINT</div>
         <div class="leg">
-          <i><s style="background:#5a5a5a"></s>AIR</i>
-          <i><s style="background:#d9a400"></s>GN2 · LIN</i>
-          <i><s style="background:#2f6bd8"></s>LOX</i>
+          <i><s style="background:#6b7280"></s>원수 · 공기</i>
+          <i><s style="background:#2f6bd8"></s>여과수 · 재이용수</i>
+          <i><s style="background:#7a8b3a"></s>폐수</i><i><s style="background:#1f8a92"></s>냉각수</i><i><s style="background:#d9773a"></s>약품</i>
         </div>
       </div>
       </div><!-- /viewOverview -->
@@ -568,18 +532,19 @@
   <details class="card">
     <summary>태그 명명 규칙 · 라인 구성</summary>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px 24px;font-size:12.5px;color:var(--sub)">
-      <div><b style="color:var(--ink)">접두 알파벳</b> — T 온도 · P 압력 · PD 차압 · F 유량 · L 레벨 · A 분석(순도·O₂) · M 수분 · Z 밸브개도 · S 회전수 · J 전력</div>
-      <div><b style="color:var(--ink)">번호 블록</b> — 100 Air Filter / 200 Compressor / 300 Adsorber / 400 Main HX / 500 Turbine / 600 Cold Box Inlet / 700 Column / 800 Tank / 900 GN2·Vent</div>
-      <div><b style="color:var(--ink)">단위</b> — 압력 bar · 온도 ℃ · 개도 % · 유량 Nm3/h · 전력 kW · 분석 ppm · 회전수 rpm</div>
-      <div><b style="color:var(--ink)">Transmitter</b> — 배관 취출점(점) → 스템 → ISA 밸룬(PT·FT·TT·MT) → 태그버스 → 태그 박스 순으로 연결합니다.</div>
-      <div><b style="color:var(--ink)">밸브 개도</b> — ZI 태그는 해당 밸브 바로 위/아래에 붙이고, 박스 안 막대로 개도를 함께 표시합니다. IGV(ZI-201·ZI-505)와 심볼이 없는 터빈 토출밸브(ZI-506)는 유닛 스택에 둡니다.</div>
-      <div><b style="color:#5a5a5a">AIR</b> Filter → Compressor(FV-202) → Adsorber A/B → Main HX(FV-601) → HP Column → FV-709 → LP Column<br>
-           <b style="color:#b98c00">GN2</b> LP 상부 → 헤더 → PV-902 &nbsp;·&nbsp; <b style="color:#b98c00">VENT</b> PV-903 대기방출<br>
-           <b style="color:#2f6bd8">LOX</b> LP 하부 → LV-801 → TK-801 &nbsp;·&nbsp; <b style="color:#b98c00">LIN</b> GN2 분기 → LV-802 → TK-802</div>
+      <div><b style="color:var(--ink)">접두 알파벳</b> — T 온도 · P 압력 · PD 차압 · VP 흡인압(TMP) · F 유량 · L 레벨 · TUR 탁도 · AT 분석(전도도·pH·ORP) · QI 수질(TMS) · CI 약품주입률 · Z 인버터 주파수 · J 전력</div>
+      <div><b style="color:var(--ink)">번호 블록</b> — 100 전처리 / 200 UF 막여과 / 300 여과수 공급 / 400 냉각탑 / 600 폐수 회수 / 800 TMS 방류 / 900 약품 주입</div>
+      <div><b style="color:var(--ink)">기기 태그</b> — <code>10-&lt;기기코드&gt;&lt;계통번호&gt;-&lt;일련&gt;&lt;계열&gt;</code> · D 탱크 · P 펌프 · C 송풍기 · S 스트레이너/수지 · CP 약품주입펌프 · 84xx 막여과 본계통 · 82xx 폐수 회수</div>
+      <div><b style="color:var(--ink)">단위</b> — 압력 bar·kPa · 온도 ℃ · 수위 % · 유량 m3/h(공기 Nm3/h) · 전력 kW · 탁도 NTU · 전도도 uS/cm · 수질 mg/L · 주입률 L/h</div>
+      <div><b style="color:var(--ink)">인버터 주파수</b> — ZI 태그는 해당 막조 바로 아래에 붙이고, 박스 안 막대로 함께 표시합니다. 계열 A/B/C 는 독립 운전·독립 세정입니다.</div>
+      <div><b style="color:#6b7280">원수</b> Strainer → Cation Resin → Flocculation Tank → Distribution Channel → 막조 A/B/C<br>
+           <b style="color:#2f6bd8">여과수</b> Process Pump 흡인 → Filtered Water Tank A/B → Transfer Pump → Fab · 냉각탑<br>
+           <b style="color:#7a8b3a">폐수</b> 역세수 · 세정폐수 · 냉각탑 B/D → WW Transfer Tank → 중화 → Clarifier → <b style="color:#2f6bd8">상등수 재이용</b> / 슬러지 탈수<br>
+           <b style="color:#d9773a">약품</b> CP-8496 8종 주입 &nbsp;·&nbsp; <b style="color:#1f8a92">냉각수</b> 냉각탑 순환 → B/D Sump</div>
     </div>
   </details>
 
-  <p class="note">임도영 스케치 기준 · <code>demo/index.html</code>의 HMI 미믹 스타일 계승 · 태그 53점 (스택 46 + 밸브 개도 7)</p>
+  <p class="note">임도영 스케치 기준 · <code>demo/index.html</code>의 HMI 미믹 스타일 계승 · 태그 65점 (스택 62 + 인버터 주파수 3)</p>
 
 </div>
 
@@ -597,63 +562,80 @@
   var BW = 54, BH = 34, GX = 5, RP = 39;
 
   // ── 유닛별 태그 스택 ──
-  // cx 중심 / y 첫행상단 / cap 캡션 / g 세로가이드[y1,y2] (null = TX 태그버스가 대신 연결)
+  // cx 중심 / y 첫행상단 / cap 캡션 / g 세로가이드[y1,y2]
   // col:1 = 1열 세로 / flat:1 = 1행 가로 / side:'L'|'R' + tick = 유닛 옆 세로배치
+  // 값은 태그 마스터의 정상값(공칭)이다. 화면은 정지 화면이고, 움직이는 값은
+  // SCENARIO INJECT 로 생성한 CSV 와 RTDB 탭에서 본다.
   var STACKS = [
-    {cx:65,   y:170, cap:'AIR FILTER',      g:[248,420], t:[
-      ['TI-101','28.5','℃'],['MI-102','68.5','%'],['PDI-103','0.012','bar']]},
+    {cx:1450, y:60,  cap:'AMBIENT', g:null, t:[
+      ['TI-101','28.5','℃'],['MI-102','68.5','%']]},
 
-    {cx:387,  y:170, cap:'ADSORBER A / B',  g:[287,420], t:[
-      ['TI-301','32.1','℃'],['MI-302','0.8','ppm'],['PDI-303','0.08','bar'],
-      ['TI-304','168.4','℃'],['MI-305','1.1','ppm'],['PDI-306','0.09','bar']]},
+    // ── 전처리 ──
+    {cx:130,  y:300, cap:'RAW WATER', g:[262,293], t:[
+      ['TT-03','18.0','℃'],['TUR-02','3.5','NTU'],['FI-101','180','m3/h'],['PDI-101','0.15','bar']]},
 
-    {cx:500,  y:170, cap:'MAIN HEAT EXCH',  g:[287,420], col:1, t:[
-      ['TI-401','12.4','℃'],['AI-402','1.8','%'],['TI-403','-172.5','℃']]},
+    {cx:330,  y:300, cap:'RESIN · CHANNEL', g:[268,293], t:[
+      ['FI-102','11.0','m3/h'],['PH-01','7.20',''],['LT-01','62.0','%']]},
 
-    {cx:623,  y:170, cap:'COLD BOX INLET',  g:null, t:[
-      ['FI-602','39800','Nm3/h'],['TI-603','-168.0','℃'],['PI-604','5.60','bar']]},
+    // ── UF 막여과 ──
+    {cx:560,  y:300, cap:'MEMBRANE TANK', g:null, t:[
+      ['VPT-01','104','kPa'],['TUR-01','0.045','NTU'],['AT-01','145','uS/cm'],
+      ['LT-02','72.0','%'],['FI-201','300','m3/h']]},
 
-    {cx:835,  y:248, cap:'FV-709 TRANSFER', g:null, t:[
-      ['FI-710','21400','Nm3/h']]},
+    {cx:700,  y:300, cap:'PROCESS PUMP', g:null, t:[
+      ['JI-201A','9.2','kW'],['JI-201B','9.2','kW'],['JI-201C','9.2','kW']]},
 
-    {cx:1135, y:180, cap:'VENT',            g:null, t:[
-      ['FI-906','1250','Nm3/h']]},
+    {cx:860,  y:300, cap:'BLOWER A / B', g:[244,293], t:[
+      ['PI-202A','35.0','kPa'],['PI-202B','35.0','kPa'],['FI-202A','833','Nm3/h'],
+      ['FI-202B','833','Nm3/h'],['JI-202A','16.0','kW'],['JI-202B','16.0','kW']]},
 
-    {cx:1417, y:180, cap:'GN2 SUPPLY',      g:null, flat:1, t:[
-      ['PI-901','4.85','bar'],['FI-902','18600','Nm3/h'],['MI-903','0.4','ppm']]},
+    // ── 여과수 저장 · 공급 ──
+    {cx:1071, y:300, cap:'FILTERED WATER', g:[268,293], t:[
+      ['LT-03A','65.0','%'],['LT-03B','65.0','%'],['FI-301A','150','m3/h'],
+      ['FI-301B','150','m3/h'],['JI-301A','62.0','kW'],['JI-301B','62.0','kW']]},
 
-    {cx:297,  y:698, cap:'AIR COMPRESSOR',  g:null, t:[
-      ['ZI-201','68.4','%'],['PI-203','5.85','bar'],['FI-204','42500','Nm3/h'],
-      ['TI-205','108.6','℃'],['JI-206','3240','kW']]},
+    {cx:1225, y:300, cap:'SUPPLY', g:null, t:[
+      ['PI-301','8.80','bar'],['FI-302','55.0','m3/h'],['FI-303','95.0','m3/h']]},
 
-    {cx:580,  y:698, cap:'TURBINE',         g:null, t:[
-      ['TI-501','-142.0','℃'],['PI-502','5.42','bar'],['TI-503','-178.3','℃'],
-      ['PI-504','1.28','bar'],['ZI-505','55.0','%'],['ZI-506','47.5','%'],['SI-507','18450','rpm']]},
+    // ── 냉각탑 ──
+    {cx:1450, y:300, cap:'COOLING TOWER', g:[262,293], t:[
+      ['AT-04','1200','uS/cm'],['TT-02','32.0','℃'],['FI-602','8.0','m3/h'],['LT-07','48.0','%']]},
 
-    // 컬럼 : HP는 우측, LP는 좌측 세로배치
-    {cx:767,  y:490, cap:'HP COLUMN', col:1, side:'L', tick:730, t:[
-      ['LI-701','25.4','%'],['PDI-702','0.31','bar'],['AI-703','38.2','%'],['TI-704','-178.0','℃']]},
+    // ── 폐수 회수 ──
+    {cx:150,  y:568, cap:'DRAIN PUMP', g:null, t:[
+      ['FI-203A','10.0','m3/h'],['FI-203B','10.0','m3/h'],['FI-203C','10.0','m3/h']]},
 
-    {cx:903,  y:490, cap:'LP COLUMN', col:1, side:'R', tick:945, t:[
-      ['LI-705','22.1','%'],['PDI-706','0.24','bar'],['AI-707','99.6','%'],['TI-708','-183.5','℃']]},
+    {cx:390,  y:568, cap:'WW TANK · 중화조', g:null, t:[
+      ['LT-06','45.0','%'],['AT-06','7.20','']]},
 
-    // 탱크 : 각 탱크 우측 세로배치
-    {cx:1205, y:440, cap:'LOX TANK', col:1, side:'L', tick:1163, t:[
-      ['LI-802','60.0','%'],['AI-803','99.7','%'],['MI-804','0.5','ppm']]},
+    {cx:640,  y:568, cap:'CLARIFIER', g:null, t:[
+      ['LT-08','70.0','%'],['TUR-03','4.0','NTU'],['FI-601','18.0','m3/h']]},
 
-    {cx:1505, y:440, cap:'LIN TANK', col:1, side:'L', tick:1463, t:[
-      ['LI-806','80.0','%'],['AI-807','99.9','%'],['MI-808','0.3','ppm']]}
+    // ── CIP ──
+    {cx:1150, y:568, cap:'CIP', g:null, t:[
+      ['TT-01','98.0','℃'],['AT-02','7.00',''],['AT-03','250','mV'],['LT-04','55.0','%']]},
+
+    // ── TMS 방류 ──
+    {cx:1450, y:534, cap:'TMS', g:[512,527], t:[
+      ['PH-02','7.30',''],['QI-801','8.0','mg/L'],['QI-802','6.0','mg/L'],
+      ['QI-803','12.0','mg/L'],['QI-804','0.60','mg/L'],['FI-603','12.0','m3/h']]},
+
+    // ── 약품 주입 : 탱크마다 한 점씩 ──
+    {cx:130,  y:772, cap:'', flat:1, t:[['CI-901','4.5','L/h']]},
+    {cx:310,  y:772, cap:'', flat:1, t:[['CI-902','6.0','L/h']]},
+    {cx:490,  y:772, cap:'', flat:1, t:[['CI-903','5.0','L/h']]},
+    {cx:670,  y:772, cap:'', flat:1, t:[['CI-904','9.0','L/h']]},
+    {cx:850,  y:772, cap:'', flat:1, t:[['CI-905','3.2','L/h']]},
+    {cx:1030, y:772, cap:'', flat:1, t:[['CI-907','2.4','L/h']]},
+    {cx:1210, y:772, cap:'', flat:1, t:[['CI-908','1.8','L/h']]},
+    {cx:1390, y:772, cap:'', flat:1, t:[['CI-909','2.8','L/h']]}
   ];
 
-  // ── 밸브 개도(ZI) : 해당 밸브 바로 위/아래 + 개도 막대 / gp = 밸브까지 연결선 ──
+  // ── 인버터 주파수(ZI) : 막 3계열 Process Pump. 막조 바로 아래 + 개도 막대 ──
   var VALVES = [
-    {cx:258,  y:428, n:'ZI-202', v:82.0, gp:'M258,462 V486'},
-    {cx:615,  y:525, n:'ZI-601', v:74.2, gp:'M588,511 V518 H615 V525'},
-    {cx:835,  y:374, n:'ZI-709', v:61.0, gp:'M835,366 V374'},
-    {cx:1060, y:706, n:'ZI-801', v:45.0, gp:'M1060,696 V706'},
-    {cx:1367, y:706, n:'ZI-805', v:38.5, gp:'M1367,696 V706'},
-    {cx:1480, y:118, n:'ZI-904', v:72.0, gp:'M1480,107 V118'},
-    {cx:1195, y:57,  n:'ZI-905', v:8.5,  gp:'M1148,74 H1168'}
+    {cx:550, y:246, n:'ZI-201A', v:68.0, gp:'M550,240 V246'},
+    {cx:690, y:246, n:'ZI-201B', v:68.0, gp:'M690,240 V246'},
+    {cx:830, y:246, n:'ZI-201C', v:68.0, gp:'M830,240 V246'}
   ];
 
   function el(name, attrs){
