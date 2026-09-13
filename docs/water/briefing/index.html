@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENGRA 수처리 이식 브리핑 — 무엇을 바꾸고 무엇을 그대로 뒀나</title>
+<style>
+:root{
+  --sk:#EA002C; --sk-deep:#B00021; --wash:#FFF4F6;
+  --ink:#15161A; --body:#2E3036; --muted:#71747E;
+  --rule:#E3E4E8; --rule-soft:#F0F1F4;
+  --aqua:#0E6E8C; --aqua-wash:#EFF7FA;
+}
+@page{ size:210mm 297mm; margin:16mm 15mm 15mm; }
+*{ box-sizing:border-box; }
+html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body{
+  margin:0 auto; max-width:212mm; padding:18mm 16mm 26mm; background:#fff; color:var(--body);
+  font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  font-size:10.4pt; line-height:1.75; word-break:keep-all; overflow-wrap:break-word;
+}
+p{ margin:0 0 .62em; text-align:justify; }
+strong,b{ color:var(--ink); font-weight:700; }
+code{ font-family:Consolas,"Courier New",monospace; font-size:.89em;
+  background:var(--rule-soft); padding:.06em .32em; border-radius:2px; color:var(--sk-deep); }
+
+/* 표지 */
+.poster{ page-break-after:always; display:flex; flex-direction:column; min-height:243mm; }
+.p-eyebrow{ display:flex; align-items:center; gap:9px; font-size:8.6pt; letter-spacing:.12em;
+  color:var(--muted); margin-bottom:16px; }
+.p-eyebrow::before{ content:""; width:24px; height:2.5px; background:var(--sk); flex:none; }
+.p-title{ font-size:25pt; line-height:1.22; font-weight:800; color:var(--ink);
+  letter-spacing:-.022em; margin:0 0 10px; text-wrap:balance; }
+.p-title .accent{ color:var(--sk); }
+.p-lead{ font-size:12.4pt; color:var(--body); margin:0; font-weight:500; text-align:left; }
+.p-lead b{ color:var(--sk); font-weight:800; }
+.p-rule{ height:3px; background:linear-gradient(90deg,var(--sk) 0 30%,var(--rule) 30% 100%);
+  margin:12px 0 14px; }
+.p-flow{ display:flex; align-items:center; justify-content:space-between; gap:4px;
+  border:1px solid var(--rule); background:var(--wash); padding:10px 12px; font-size:8.5pt;
+  color:var(--body); margin:0 0 24px; text-align:left; }
+.p-flow span{ text-align:center; line-height:1.4; }
+.p-flow b{ color:var(--sk-deep); }
+.p-flow i{ color:var(--sk); font-style:normal; font-weight:700; font-size:10pt; flex:none; }
+.p-flow .todo, .p-flow .todo b, .p-flow i.todo{ color:var(--muted); }
+.p-h{ font-size:8.8pt; font-weight:800; color:var(--sk); letter-spacing:.1em;
+  margin:0 0 9px; padding-bottom:4px; border-bottom:1.5px solid var(--rule); }
+.p-two{ display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; margin:0 0 24px; }
+.p-two h4{ margin:0 0 4px; font-size:9.9pt; color:var(--ink); font-weight:700;
+  padding-left:9px; border-left:3px solid var(--sk); }
+.p-two p{ margin:0; font-size:8.9pt; line-height:1.56; color:var(--body); padding-left:12px; text-align:left; }
+.p-three{ display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin:0 0 18px; }
+.p-three > div{ border:1px solid var(--rule); border-top:2.5px solid var(--sk); padding:11px 11px 12px; }
+.p-three h4{ margin:0 0 6px; font-size:9pt; color:var(--muted); font-weight:700; }
+.p-three .big{ font-size:13.4pt; font-weight:800; color:var(--sk); line-height:1.16;
+  letter-spacing:-.02em; margin:0 0 5px; }
+.p-three p{ margin:0; font-size:8.3pt; line-height:1.52; color:var(--body); text-align:left; }
+.p-foot{ margin-top:auto; font-size:7.9pt; color:var(--muted); line-height:1.62;
+  border-left:2.5px solid var(--sk); padding-left:10px; text-align:left; }
+
+/* 본문 */
+h1.sec{ font-size:15.6pt; font-weight:800; color:var(--ink); letter-spacing:-.01em;
+  margin:0 0 12px; padding-bottom:7px; border-bottom:2.5px solid var(--sk); page-break-after:avoid; }
+h1.sec .n{ color:var(--sk); margin-right:9px; }
+h2.sub{ font-size:11.5pt; font-weight:700; color:var(--ink); margin:22px 0 7px;
+  padding-left:11px; border-left:3.5px solid var(--sk); page-break-after:avoid; }
+h3.ss{ font-size:10.3pt; font-weight:700; color:var(--sk-deep); margin:15px 0 5px; page-break-after:avoid; }
+section{ margin-top:30px; }
+section.page-new{ page-break-before:always; margin-top:0; }
+
+table.d{ width:100%; border-collapse:collapse; font-size:9pt; margin:9px 0 13px; }
+table.d th{ background:var(--wash); color:var(--sk-deep); font-weight:700; text-align:left;
+  padding:5px 7px; border-bottom:1.6px solid var(--sk); border-top:1px solid var(--rule); line-height:1.45; }
+table.d td{ padding:5px 7px; border-bottom:1px solid var(--rule-soft); vertical-align:top; line-height:1.58; }
+table.d td:first-child{ font-weight:600; color:var(--ink); }
+table.d.num td:last-child,table.d.num th:last-child{ text-align:right;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+table.d tr{ page-break-inside:avoid; }
+table.d thead{ display:table-header-group; }
+table.d.sm{ font-size:8.4pt; }
+table.d.sm td,table.d.sm th{ padding:4px 6px; }
+.scroll{ overflow-x:auto; }
+
+.note{ border-left:3px solid var(--sk); background:var(--wash);
+  padding:8px 12px; margin:10px 0 13px; font-size:9.3pt; line-height:1.68; }
+.note strong{ color:var(--sk-deep); }
+.note.cool{ border-left-color:var(--aqua); background:var(--aqua-wash); }
+.note.cool strong{ color:var(--aqua); }
+.plain{ border-left:3px solid var(--rule); padding:7px 12px; margin:10px 0;
+  font-size:9.3pt; color:var(--muted); }
+.q{ font-size:9.7pt; font-weight:700; color:var(--ink); margin:15px 0 3px;
+  padding-left:10px; border-left:3px solid var(--sk); }
+.a{ font-size:9.4pt; margin:0 0 4px; padding-left:13px; text-align:left; }
+
+pre.cmd{ background:#F7F7F9; border:1px solid var(--rule); border-left:3px solid var(--sk);
+  padding:9px 12px; font:8.9pt/1.62 Consolas,"Courier New",monospace; white-space:pre-wrap;
+  color:var(--ink); margin:8px 0 12px; }
+ul.tight{ margin:.25em 0 .7em; padding-left:1.15em; }
+ul.tight li{ margin:.18em 0; }
+ol.hard{ counter-reset:hd; list-style:none; margin:0 0 12px; padding:0; }
+ol.hard > li{ counter-increment:hd; position:relative; padding-left:27px; margin:0 0 14px; }
+ol.hard > li::before{ content:counter(hd); position:absolute; left:0; top:.1em;
+  width:19px; height:19px; border-radius:50%; background:var(--sk); color:#fff;
+  font-size:8.4pt; font-weight:800; display:flex; align-items:center; justify-content:center; }
+ol.hard > li > .t{ display:block; font-weight:700; color:var(--ink); margin-bottom:2px; }
+.toc{ border:1px solid var(--rule); padding:12px 16px; margin:14px 0 4px; font-size:9.4pt; }
+.toc b{ color:var(--sk-deep); }
+.toc ol{ margin:6px 0 0; padding-left:1.3em; }
+.toc li{ margin:.2em 0; }
+.kv{ font-size:9pt; }
+.kv b{ color:var(--sk-deep); }
+
+.tag{ display:inline-block; font-size:7.6pt; font-weight:800; letter-spacing:.04em;
+  padding:.1em .45em; border-radius:2px; vertical-align:.12em; white-space:nowrap; }
+.tag.done{ background:var(--aqua); color:#fff; }
+.tag.todo{ background:#EDEDF0; color:var(--muted); }
+.tag.al{ background:var(--sk); color:#fff; }
+.tag.no{ background:#fff; color:var(--muted); border:1px solid var(--rule); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ 표지 ══════════════ -->
+<section class="poster">
+  <div class="p-eyebrow">SK AI 해커톤 2026 · 결선 준비 · 팀 앙그라쥬 내부 문서</div>
+
+  <h1 class="p-title">ENGRA를 <span class="accent">수처리 플랜트</span>에 옮기면<br>무엇이 바뀌고 무엇이 그대로인가</h1>
+  <p class="p-lead">ASU에서 만든 engra를, <b>엔진 코드 한 줄도 고치지 않고</b> 침지식 UF 수처리 플랜트에 올린 기록입니다.</p>
+  <div class="p-rule"></div>
+
+  <div class="p-flow">
+    <span>태그 마스터<br><b>65점</b></span><i>→</i>
+    <span>시나리오<br><b>10종</b></span><i>→</i>
+    <span>생성기<br>가상 DCS</span><i>→</i>
+    <span>정답지<br><b>알람 판정</b></span><i>→</i>
+    <span>OVERVIEW<br>개관도</span><i class="todo">→</i>
+    <span class="todo">검출·AI<br><b>남은 일</b></span><i class="todo">→</i>
+    <span class="todo">채점<br><b>남은 일</b></span>
+  </div>
+
+  <h2 class="p-h">이 문서가 답하는 것</h2>
+  <div class="p-two">
+    <div><h4>1. 왜 하필 수처리를 골랐나</h4>
+      <p>"이거 ASU 전용 아닌가요?"는 결선에서 반드시 나옵니다. 그래서 공정 성격이 가장 먼 쪽을 일부러 골랐습니다.</p></div>
+    <div><h4>2. 옮기는 데 무엇을 고쳤나</h4>
+      <p><b>엔진 0줄 · 앱 0줄.</b> 바꾼 것은 태그 마스터·시나리오·생성기·개관도, <b>데이터 파일 네 개</b>뿐입니다.</p></div>
+    <div><h4>3. 옮기다가 무엇이 부러졌나</h4>
+      <p>ASU를 깨지 않으려고 우회한 두 지점과, 데이터를 만들다 드러난 <b>정의 오류 네 건</b>을 그대로 적었습니다.</p></div>
+    <div><h4>4. 지금 어디까지 왔나</h4>
+      <p>데이터·정답지·화면은 끝났고 <b>검출·AI·채점은 아직 안 돌렸습니다.</b> 숨기지 않고 현황표로 냅니다.</p></div>
+  </div>
+
+  <h2 class="p-h">숫자 세 개로 보는 이식</h2>
+  <div class="p-three">
+    <div><h4>수처리 계측 태그</h4>
+      <p class="big">65 점</p>
+      <p>ASU 53점에서 12점 늘었습니다. 근무 1건은 <b>140만 4,000행</b> — 2초 간격 × 12시간.</p></div>
+    <div><h4>고친 엔진·앱 코드</h4>
+      <p class="big">0 줄</p>
+      <p><code>engine/</code>·<code>app/</code> 변경 0건. 공정이 바뀌어도 코드가 안 바뀌는 것이 규약 설계의 결과입니다.</p></div>
+    <div><h4>시나리오 10종 중 알람이 울리는 것</h4>
+      <p class="big">3 종</p>
+      <p>나머지 <b>7종은 알람이 안 울립니다.</b> ASU(24종 중 7종)와 같은 모양의 사각지대입니다.</p></div>
+  </div>
+
+  <p class="p-foot"><b>출처</b> — 전부 저장소 <code>ssmo0810/engra</code> 의 <code>docs/water/</code> 네 파일과 그 커밋 기록
+  (<code>f2dd4d0</code> · <code>e285116</code> · <code>5798247</code> · <code>9cba806</code>)에서 뽑았습니다.
+  ASU 측 수치는 <code>docs/공식수치.md</code>(2026-08-29 갱신 · 측정 임도영)를 단일 출처로 인용했습니다.
+  <b>수처리 검출 성능은 아직 측정 전이며, 이 문서에 수처리 포함률·오탐 수치는 없습니다.</b>
+  모든 운전 데이터는 <b>가상</b>이고, 사내 화면 캡처·실제 태그 체계·실제 운전 수치는 저장소에 들어 있지 않습니다.
+  작성 2026-09-13 · 결선(09-14) 대비.</p>
+</section>
+
+<!-- ══════════════ 0 ══════════════ -->
+<section>
+<h1 class="sec"><span class="n">0.</span>30초 요약 — 무엇을 했고 무엇을 안 했나</h1>
+
+<p>한 문장으로: <b>engra의 공정 의존 부분은 「데이터 파일 네 개」에 전부 모여 있었고, 그 넷을 수처리로 갈아끼우니 코드를 고치지 않고 돌았습니다.</b>
+다만 <b>지금 돌아가는 것은 데이터 생성까지</b>이고, 검출·AI·채점은 남은 일입니다.</p>
+
+<table class="d">
+  <thead><tr><th style="width:21%">단계</th><th style="width:12%">상태</th><th>결과 / 남은 것</th></tr></thead>
+  <tr><td>태그 마스터 65점</td><td><span class="tag done">완료</span></td><td>ASU와 같은 13컬럼 스키마 + 값 출처 구분용 <code>source</code> 열. 링크 전부 해석, 중복 0건</td></tr>
+  <tr><td>시나리오 10종</td><td><span class="tag done">완료</span></td><td>전파 경로 · 기대 탐지 태그 · 탐지 목표 시간 · 알람 발생 여부까지 표로 고정</td></tr>
+  <tr><td>가상 DCS 생성기</td><td><span class="tag done">완료</span></td><td>ASU 생성기 복제 후 태그·외기 물리·시나리오 주입부 교체. 헤드리스 Chrome 3회 생성 — JS 오류 0</td></tr>
+  <tr><td>정답지(answer key)</td><td><span class="tag done">완료</span></td><td>알람 칸이 문서의 기대 표와 전부 일치. DCS on-delay 10초 판정 추가</td></tr>
+  <tr><td>OVERVIEW 개관도</td><td><span class="tag done">완료</span></td><td><code>data-tag</code> 65/65 일치. 이벤트가 난 태그에 불이 들어오는 표시 동작 확인</td></tr>
+  <tr><td>검출 실행</td><td><span class="tag todo">남음</span></td><td>생성한 CSV를 <code>app/cli.py ingest</code> → <code>run</code> 으로 통과시키기</td></tr>
+  <tr><td>AI 초안</td><td><span class="tag todo">남음</span></td><td>수처리 문맥에서 AI가 문장을 어떻게 쓰는지 미확인</td></tr>
+  <tr><td>채점 (포함률·오탐)</td><td><span class="tag todo">남음</span></td><td><code>tools/score.py</code> + 수처리 정답지. <b>이 문서에 수처리 성능 수치가 없는 이유입니다</b></td></tr>
+</table>
+
+<h2 class="sub">0-1. 옮기는 비용을 결정한 것 — 규약 세 개</h2>
+<p>ENGRA는 처음부터 <b>세 덩어리(엔진 · 배선 · 데이터)</b>를 <b>세 개의 약속</b>으로만 붙였습니다.
+수처리 이식이 싸게 끝난 이유는 기술이 아니라 <b>이 약속들이 공정 이름을 모른다</b>는 데 있습니다.</p>
+
+<table class="d">
+  <thead><tr><th style="width:24%">약속</th><th style="width:30%">형식</th><th>수처리에서 무엇이 바뀌었나</th></tr></thead>
+  <tr><td>① 데이터 → 시스템</td><td><code>timestamp,tag,value</code> 세 칸 CSV</td><td><b>형식 그대로.</b> 태그 이름만 <code>TI-205</code>에서 <code>VPT-01</code>로 바뀝니다</td></tr>
+  <tr><td>② 검출기 → 시스템</td><td><code>detect(시계열, 기준선)</code></td><td><b>함수도 문턱값도 그대로.</b> "평소와 얼마나 다른가"는 기체든 물이든 같은 계산입니다</td></tr>
+  <tr><td>③ 시스템 → 화면</td><td>초안 항목 목록 + 채택/제외</td><td><b>그대로.</b> 화면은 태그 이름을 문자열로 받을 뿐 그 의미를 모릅니다</td></tr>
+</table>
+
+<div class="note"><strong>이것이 이 문서의 결론입니다 —</strong> 공정 지식은 <b>전부 데이터 파일 쪽</b>(태그 마스터·시나리오·개관도)에 있고,
+코드에는 "이 공정이 무엇인지"가 한 줄도 안 들어 있습니다. 그래서 ASU → 수처리 이식이
+<b>새 공정을 배우는 일</b>이었지 <b>새 소프트웨어를 만드는 일</b>이 아니었습니다.
+결선에서 확장성을 물으면 이 구조를 먼저 말하고, 근거로 <b>커밋 네 개에서 <code>engine/</code>·<code>app/</code> 변경 0건</b>을 대면 됩니다.</div>
+
+<div class="toc"><b>차례</b>
+  <ol>
+    <li>왜 수처리인가 — 가장 먼 공정을 고른 이유</li>
+    <li>대상 설비 — 침지식 UF 수처리 플랜트와 태그 65점</li>
+    <li>이식 — 바꾼 것, 안 바꾼 것, 그리고 <b>ASU를 깨지 않으려고 우회한 두 지점</b></li>
+    <li>시나리오 10종 — 무엇을 잡아야 하는가</li>
+    <li>데이터를 만들다 드러난 것 — <b>정의가 틀렸던 네 건</b></li>
+    <li>화면 — OVERVIEW 개관도를 수처리 계통으로</li>
+    <li>현황과 남은 일 — 결선에서 할 수 있는 것 / 못 하는 것</li>
+    <li>예상 질문과 한 줄 답</li>
+    <li>부록 — ASU ↔ 수처리 대조표</li>
+  </ol>
+</div>
+</section>
+
+<!-- ══════════════ 1 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">1.</span>왜 수처리인가</h1>
+
+<p>한 문장으로: <b>ASU와 가장 안 닮은 공정을 일부러 골랐습니다.</b>
+비슷한 공정으로 옮기면 "그럴 줄 알았다"가 되고, 먼 공정으로 옮겨야 구조가 증명됩니다.</p>
+
+<h2 class="sub">1-1. 결선에서 반드시 나올 질문</h2>
+<p class="q">"이거 ASU 전용 도구 아닌가요? 다른 공정에 쓰려면 다시 만들어야 하지 않나요?"</p>
+<p class="a">기획서 로드맵은 PHASE 2에서 <b>공장 단위 확대</b>를 말합니다. 그런데 결선 시점에 보여줄 수 있는 것이 ASU 하나뿐이면
+그 로드맵은 <b>주장일 뿐 증거가 없습니다.</b> 수처리판은 그 주장을 <b>커밋으로 증명하려고</b> 만들었습니다.</p>
+
+<h2 class="sub">1-2. 수처리를 고른 세 가지 이유</h2>
+<ol class="hard">
+  <li><span class="t">공정 성격이 ASU의 반대쪽입니다</span>
+    ASU는 <b>기체</b>를 다루고 순도·온도가 핵심이며, 한 번 세우면 재기동이 비쌉니다.
+    수처리는 <b>액체</b>를 다루고 탁도·차압이 핵심이며, <b>세정(CIP)이라는 계획된 정지</b>가 주기적으로 들어옵니다.
+    측정 대상도, 정상 운전의 모양도 다릅니다. 여기서 돌면 "공정 무관"이라는 말이 성립합니다.</li>
+
+  <li><span class="t">알람이 안 울리는 변화가 더 많은 공정입니다</span>
+    engra의 존재 이유는 <b>「알람은 안 울렸지만 인계해야 하는 변화」</b>입니다.
+    막 오염이 정확히 그 모양입니다 — TMP(흡인압)가 <b>수 시간에 걸쳐 서서히</b> 오르고, 알람선에 닿기 훨씬 전에
+    세정 계획을 세워야 합니다. 고정 임계값으로는 절대 안 잡히고 <b>그 태그의 평소와 비교해야만</b> 보입니다.</li>
+
+  <li><span class="t">참조할 실제 설비 구성이 있었습니다</span>
+    실설비(Y1_GP1 Water Treatment System)의 <b>공정 구성과 태그 체계만</b> 참고했습니다.
+    데이터는 전부 시뮬레이션이고, 사내 화면 캡처·실제 태그 체계·실제 운전 수치는 저장소에 넣지 않았습니다
+    (<code>CLAUDE.md</code> 보안 규칙). <b>그럴듯함은 구조에서 나오고 숫자는 우리가 만든 가정값</b>이라는 선을 지켰습니다.</li>
+</ol>
+
+<h2 class="sub">1-3. 이식이 성립하면 무엇이 증명되나</h2>
+<table class="d">
+  <thead><tr><th style="width:32%">주장</th><th>수처리판이 대는 증거</th></tr></thead>
+  <tr><td>공정이 바뀌어도 코드는 그대로다</td><td>커밋 4개에서 <code>engine/</code>·<code>app/</code> 변경 <b>0건</b>. 바뀐 것은 데이터 파일 4개뿐</td></tr>
+  <tr><td>검출 방식이 공정 지식에 기대지 않는다</td><td>통계 문턱값 8종을 <b>하나도 안 바꾸고</b> 그대로 씀 — 바꿀 이유가 없고, 바꾸면 같은 코드를 쓰는 ASU 측정치가 전부 무효가 된다</td></tr>
+  <tr><td>새 공정에 드는 비용은 「학습」이지 「개발」이 아니다</td><td>실제로 든 일은 <b>태그 65점 정의 · 시나리오 10종 정의 · 개관도 1장</b>. 전부 공정을 아는 사람이 쓰는 문서다</td></tr>
+  <tr><td>두 공정이 서로를 깨지 않는다</td><td>경로 분리(<code>docs/water/</code>) + DB 분리(<code>ENGRA_DB</code>) + 생성기 저장키 분리. 커밋마다 <code>git status</code>로 ASU 변경 0건 확인</td></tr>
+</table>
+</section>
+
+<!-- ══════════════ 2 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">2.</span>대상 설비 — 침지식 UF 수처리 플랜트</h1>
+
+<p>한 문장으로: <b>원수를 전처리해 막으로 거르고, 그 물을 Fab과 냉각탑에 보내고, 쓰고 나온 폐수를 회수해 다시 쓰는</b> 공정입니다.
+막은 물에 잠겨 있고(침지식), 펌프가 <b>빨아당겨</b> 물을 통과시킵니다. 그래서 핵심 계측이 「압력」이 아니라 <b>「흡인압」</b>입니다.</p>
+
+<h2 class="sub">2-1. 공정 다섯 단계</h2>
+<table class="d">
+  <thead><tr><th style="width:5%">#</th><th style="width:18%">단계</th><th>하는 일</th><th style="width:22%">핵심 계측</th></tr></thead>
+  <tr><td>1</td><td>전처리</td><td>Auto Strainer(500 µm)로 협잡물 제거 → Coagulant·NaOCl 주입 → Flocculation Tank에서 플록 형성 → 3계열 균등 분배</td><td><code>TUR-02</code> 원수 탁도<br><code>PDI-101</code> 스트레이너 차압</td></tr>
+  <tr><td>2</td><td>UF 막여과</td><td>막조에 잠긴 중공사막(공칭 0.04 µm)을 Process Pump로 <b>진공 흡인</b>. 막 하부 Blower 공기로 Air Scrubbing</td><td><b><code>VPT-01</code> 흡인압 / TMP</b><br><code>TUR-01</code> 투과수 탁도</td></tr>
+  <tr><td>3</td><td>여과수 저장·공급</td><td>Filtered Water Tank(120 m³, A/B 2실)에 담아 Transfer Pump로 Fab·냉각탑에 공급</td><td><code>LT-03A/B</code> 탱크 수위<br><code>FI-302</code>·<code>FI-303</code> 공급 유량</td></tr>
+  <tr><td>4</td><td>CIP 세정</td><td>TMP 상승 시 또는 정기. MC(약식·NaOCl) / RC(집중·알칼리→산→헹굼). 세정폐수는 NaOH/SBS로 중화</td><td><code>TT-01</code> 세정온도<br><code>AT-02</code>·<code>AT-03</code> 폐수 pH·ORP</td></tr>
+  <tr><td>5</td><td>폐수 회수</td><td>역세수·세정폐수·냉각탑 B/D 집수 → 응집 → 중화 → Clarifier 침전. 상등수는 재이용, 슬러지는 탈수 후 반출</td><td><code>TUR-03</code> 상등수 탁도<br><code>LT-06</code>·<code>LT-07</code> 계통 수위</td></tr>
+</table>
+
+<div class="note cool"><strong>ASU와 결정적으로 다른 점 —</strong> 4번 <b>CIP 세정은 「이상」이 아니라 「계획된 작업」</b>입니다.
+세정을 하면 TMP가 <b>뚝 떨어지는데</b> 이것은 고장이 아니라 정상입니다.
+그런데 다음 근무자는 <b>TMP가 왜 떨어졌는지 알아야 합니다</b> — 모르면 "막이 갑자기 좋아졌다"고 오해합니다.
+그래서 시나리오 <code>#10</code>에 <b>정상 작업</b>을 일부러 한 종 넣었습니다. ASU의 「제품 출하」 시나리오와 같은 구조입니다.</div>
+
+<h2 class="sub">2-2. 태그 체계 — 기기 태그와 계측 태그</h2>
+<p>기기 태그 형식은 <code>10-&lt;기기코드&gt;&lt;계통번호&gt;-&lt;일련&gt;&lt;계열&gt;</code> 입니다.</p>
+<table class="d sm">
+  <thead><tr><th style="width:11%">코드</th><th style="width:27%">기기</th><th style="width:24%">예시</th><th>비고</th></tr></thead>
+  <tr><td>D</td><td>Tank / Vessel</td><td><code>10-D8499-02A</code></td><td>막조 · 여과수 탱크 · CIP 탱크</td></tr>
+  <tr><td>P</td><td>Pump</td><td><code>10-P8469-01A/B/C</code></td><td>Process Pump는 인버터 구동</td></tr>
+  <tr><td>C</td><td>Blower</td><td><code>10-C8461-01A/B</code></td><td>1운전 1예비</td></tr>
+  <tr><td>CP / CD</td><td>약품 주입 펌프 / 탱크</td><td><code>10-CP8496-02A/B</code></td><td>약품 9종, 전부 A/B 이중화</td></tr>
+</table>
+<p class="kv">계통번호는 <b><code>84xx</code> 막여과 본계통 · <code>82xx</code> 폐수 회수 계통 · <code>8496</code> 약품 주입</b>으로 나뉘고,
+계열 접미사 <b>A/B</b>는 1운전·1예비, <b>A/B/C</b>는 막 3계열을 뜻합니다.</p>
+
+<h2 class="sub">2-3. 계측 태그 65점의 구성</h2>
+<table class="d num">
+  <thead><tr><th style="width:24%">계통</th><th>대표 태그</th><th style="width:11%">점수</th></tr></thead>
+  <tr><td>외기</td><td><code>TI-101</code> 외기 온도 · <code>MI-102</code> 외기 습도</td><td>2</td></tr>
+  <tr><td>전처리</td><td><code>TUR-02</code> 원수 탁도 · <code>PDI-101</code> 차압 · <code>PH-01</code> pH · <code>LT-01</code> 분배조 수위</td><td>7</td></tr>
+  <tr><td>UF 막여과</td><td><code>VPT-01</code> TMP · <code>TUR-01</code> 투과수 탁도 · <code>FI-201</code> 투과수 유량 · 펌프/블로워 3계열</td><td>20</td></tr>
+  <tr><td>여과수 저장·공급</td><td><code>LT-03A/B</code> 탱크 수위 · <code>FI-301A/B</code> 이송 유량 · <code>PI-301</code> 공급 압력</td><td>7</td></tr>
+  <tr><td>CIP 세정</td><td><code>TT-01</code> 세정온도 · <code>AT-02</code>·<code>AT-03</code> 폐수 pH·ORP · <code>LT-04</code> 수위</td><td>4</td></tr>
+  <tr><td>폐수 회수</td><td><code>TUR-03</code> 상등수 탁도 · <code>AT-06</code> 중화조 pH · <code>LT-06</code> · <code>LT-08</code></td><td>5</td></tr>
+  <tr><td>약품 주입</td><td><code>CI-901</code>~<code>CI-909</code> 주입률 (H2SO4 · NaOCl · NaOH · Coagulant · SBS 등)</td><td>8</td></tr>
+  <tr><td>공급처 (Fab·냉각탑)</td><td><code>FI-302</code>·<code>FI-303</code> 공급 유량 · <code>AT-04</code> 냉각탑 전도도 · <code>LT-07</code> B/D 집수조</td><td>6</td></tr>
+  <tr><td>TMS 방류</td><td><code>PH-02</code> · <code>QI-801</code>~<code>QI-804</code> · <code>FI-603</code></td><td>6</td></tr>
+  <tr><td><b>합계</b></td><td>ASU 53점 대비 <b>+12점</b></td><td><b>65</b></td></tr>
+</table>
+
+<div class="note"><strong>TMS 6점은 아직 가정입니다 —</strong> <code>PH-02</code>·<code>QI-801</code>~<code>QI-804</code>·<code>FI-603</code>은 근거 문서가 없습니다.
+TMS(수질원격감시)는 공공수역 <b>방류</b> 지점에 붙는 법정 설비인데, 설비 자료에는 "상등수 재이용"이라고만 되어 있어
+<b>방류 경로 자체가 정의되어 있지 않습니다.</b> 시나리오 <code>#7</code>·<code>#8</code>이 이 6점 위에 서 있으므로
+<b>실설비에 TMS가 없으면 두 시나리오와 6개 태그를 같이 뺍니다.</b> 지어내지 않고 조건부로 표시해 둔 부분입니다.</div>
+</section>
+
+<!-- ══════════════ 3 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">3.</span>이식 — 바꾼 것과 안 바꾼 것</h1>
+
+<p>한 문장으로: <b>전제는 「ASU가 절대 깨지지 않을 것」이었고, 그 전제를 지키려고 엔진·앱 코드를 한 줄도 고치지 않는 방법만 골랐습니다.</b></p>
+
+<h2 class="sub">3-1. 왜 그 전제가 먼저였나</h2>
+<p>ASU판은 <b>이미 제출이 끝난 결과물</b>입니다. 제출물의 성능 수치(포함률 100%, 오탐 근무당 1.0건 등)는
+<b>지금 저장소에 있는 코드로 측정한 값</b>이라서, 엔진을 한 줄이라도 고치면 <b>그 수치 전부가 무효</b>가 됩니다.
+수처리를 붙이려다 ASU 성적표를 잃는 것은 명백한 손해라, 이식 방법을 고를 때 <b>"코드를 고쳐야 하나?"가 곧 기각 사유</b>였습니다.</p>
+
+<h2 class="sub">3-2. 안 바꾼 것</h2>
+<table class="d">
+  <thead><tr><th style="width:26%">대상</th><th style="width:12%">변경</th><th>이유</th></tr></thead>
+  <tr><td><code>engine/</code> 검출기 전체</td><td><b>0 줄</b></td><td>"평소와 얼마나 다른가"는 공정과 무관한 계산. 수처리라고 바꿀 이유가 없다</td></tr>
+  <tr><td><code>app/</code> 배선·화면·AI 호출</td><td><b>0 줄</b></td><td>태그 이름을 문자열로 받을 뿐 의미를 모른다</td></tr>
+  <tr><td>통계 문턱값 8종</td><td><b>그대로</b></td><td>드리프트 <code>k≥3.5 AND |r|≥0.60</code>, 고착 20분, 상관 <code>|r|≥0.50</code> 등. 엔진 상수이고, 바꾸면 ASU 측정치가 무효가 된다</td></tr>
+  <tr><td>ASU 자산 (<code>docs/tag_master.csv</code> · <code>docs/scenarios.md</code> · ASU 생성기)</td><td><b>0 건</b></td><td>수처리는 <code>docs/water/</code> 아래에만 둔다. 커밋마다 <code>git status</code>로 확인했다</td></tr>
+</table>
+
+<h2 class="sub">3-3. 바꾼 것 — 데이터 파일 네 개</h2>
+<table class="d">
+  <thead><tr><th style="width:30%">파일</th><th>무엇을 바꿨나</th></tr></thead>
+  <tr><td><code>docs/water/tag_master.csv</code></td><td>계측 태그 65점. ASU와 같은 13컬럼 스키마 + 값 출처 구분용 <code>source</code> 열 추가(<code>spec_value</code> / <code>spec_tag</code> / <code>assumed</code>)</td></tr>
+  <tr><td><code>docs/water/scenarios.md</code></td><td>시나리오 10종 + 전파 경로표 + 감시 항목 1~3급 + 합격선</td></tr>
+  <tr><td><code>docs/water/dcs_overview.html</code></td><td>ASU 생성기 복제 후 <b>DEFAULTS(65태그)·AMB(외기 물리)·외기 기준태그·저장키·파일명 접두사·SCEN(시나리오 주입부)</b> 교체 + 개관도 SVG 전면 교체</td></tr>
+  <tr><td><code>docs/water/PLANT_SPEC.md</code></td><td>설비 개요·공정 5단계·기기 정격·태그 명명 규칙. <b>공정을 아는 사람이 쓰는 문서</b></td></tr>
+</table>
+
+<div class="note cool"><strong>외기 물리는 새로 썼습니다 —</strong> 복제만으로는 안 되는 부분이 하나 있었습니다.
+ASU의 외기 연동을 그대로 쓰면 수처리가 안 맞습니다. 수처리는 <b>수온이 점도를 통해 TMP를 지배</b>하므로
+<code>VPT-01</code>의 수온 감도를 <b>−0.50</b>으로 두었고, <b>냉각탑은 습구온도 지배</b>라
+<code>TT-02</code>(냉각탑 출구 수온)의 습도 감도를 <b>0.45</b>로 크게 잡았습니다.
+이 한 덩어리가 「공정을 안다」에 해당하는 부분이고, 나머지는 전부 갈아끼우기였습니다.</div>
+
+<h2 class="sub">3-4. ASU를 깨지 않으려고 우회한 두 지점</h2>
+<p>처음 계획한 방법 두 개가 <b>둘 다 ASU를 깼습니다.</b> 이식에서 가장 손이 많이 간 부분이라 그대로 적어 둡니다.</p>
+
+<ol class="hard">
+  <li><span class="t">외기 보정 — 태그 이름을 ASU와 똑같이 뒀다</span>
+    <code>engine/core.py:206</code>의 <code>NOISE_TAGS = ("TI-101","MI-102")</code>는 <b>모듈 상수</b>라 ASU와 수처리가 함께 씁니다.
+    수처리 외기를 <code>TI-001</code>·<code>MI-001</code>로 두면 이 목록에 안 걸려 <b>드리프트 검출의 외기 보정이 통째로 건너뛰어지고</b>,
+    목록을 수처리 태그로 바꾸면 <b>ASU 보정이 죽습니다.</b><br>
+    → 수처리 외기 태그를 <code>TI-101</code>·<code>MI-102</code>로 <b>같게 명명</b>해 우회했습니다.
+    <b>코드 수정 0줄</b>이고 양쪽 다 돕니다. 태그 마스터와 DB(<code>ENGRA_DB</code>)가 공정별로 분리돼 있어 이름이 겹쳐도 데이터는 섞이지 않습니다.<br>
+    <b>왜 중요한가</b> — <code>VPT-01</code>이 수온에 −0.50 감도라, 이 보정이 없으면 <b>막 오염 드리프트와 수온 일변동이 섞여</b>
+    <code>#1</code>의 조기 검출이 무너집니다.</li>
+
+  <li><span class="t">간헐 운전 태그 — 세 점을 아예 뺐다</span>
+    <code>JI-401</code>(CIP 히터 전력)·<code>CI-906</code>(Citric Acid 주입률)·<code>PSH-01</code>(흡인 고압 스위치)은
+    비운전 구간에 값이 <b>진짜로 한 점에 멈춥니다</b>(0 kW · 0 L/h · 0).
+    고착 검출기는 20분 무변동을 <b>중요도 '상'으로 무조건 보고</b>하므로,
+    세정을 안 하는 근무에서는 <b>이 셋만으로 오탐 예산(근무당 3.0건)을 혼자 넘깁니다.</b><br>
+    운전모드 플래그로 막으려면 <code>engine/</code>을 고쳐야 해서 버렸습니다.
+    → <b>세 태그를 태그 마스터에서 뺐습니다</b>(68 → 65점). <code>TT-01</code>(세정온도)은 남겼는데,
+    세정을 안 할 때도 탱크가 외기를 따라 실제로 움직여 고착으로 잡히지 않기 때문입니다(<code>AMB</code>에 <code>TT-01:[0.55, 0]</code> 추가).
+    <code>#10</code>의 신호는 <b><code>VPT-01</code> 하강 + <code>TT-01</code> 상승</b>이라 세 태그가 없어도 시나리오가 성립합니다.</li>
+</ol>
+
+<div class="note"><strong>여기서 배운 것 —</strong> "공정 무관"이라고 설계한 코드에도 <b>공정이 스며든 자리가 두 군데 있었습니다.</b>
+모듈 상수로 박힌 외기 태그 이름과, 「값은 항상 움직인다」는 암묵 가정입니다.
+둘 다 <b>코드를 고치지 않고</b> 데이터 쪽에서 우회했지만, 실배포에서 공정을 더 늘린다면
+<b>이 두 가지가 먼저 손봐야 할 지점</b>이라는 것을 이식이 알려준 셈입니다. 심사에서 확장성의 한계를 물으면 이 두 개를 그대로 말하면 됩니다.</div>
+
+<h2 class="sub">3-5. 두 공정이 섞이지 않게 한 장치</h2>
+<table class="d sm">
+  <thead><tr><th style="width:26%">분리 지점</th><th>ASU</th><th>수처리</th></tr></thead>
+  <tr><td>문서·데이터 경로</td><td><code>docs/</code></td><td><code>docs/water/</code></td></tr>
+  <tr><td>데이터베이스</td><td colspan="2"><code>ENGRA_DB</code> 환경변수로 분리 — 태그 이름이 겹쳐도 데이터가 섞이지 않는다</td></tr>
+  <tr><td>생성기 저장키</td><td><code>engra_asu_shiftrun_v2</code></td><td><code>engra_water_shiftrun_v1</code></td></tr>
+  <tr><td>정답지 파일명</td><td><code>asu_answer_*</code></td><td><code>water_answer_*</code></td></tr>
+</table>
+<p class="kv"><b>저장키 분리는 실제 사고를 막은 것</b>입니다 — 복제 직후에는 저장키가 ASU와 같아서,
+<b>같은 브라우저에서 양쪽 생성기를 쓰면 근무 이력이 섞였습니다.</b></p>
+</section>
+
+<!-- ══════════════ 4 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">4.</span>시나리오 10종 — 무엇을 잡아야 하는가</h1>
+
+<p>시나리오는 <b>모의 데이터 생성기의 입력이자 채점 기준</b>입니다. ASU 24종과 같은 서식을 씁니다.
+<b>1~4번</b>은 설비 문서의 「이상 시나리오(데모용 우선순위)」를 옮긴 것이고, <b>5~10번</b>은 냉각탑·TMS 계통 추가분입니다.</p>
+
+<div class="scroll">
+<table class="d sm">
+  <thead><tr><th style="width:4%">#</th><th style="width:13%">유형</th><th style="width:16%">대상</th><th style="width:22%">크기</th><th style="width:8%">지속</th><th style="width:7%">중요도</th><th>왜 인계해야 하나</th></tr></thead>
+  <tr><td>1</td><td>드리프트</td><td><code>VPT-01</code> TMP</td><td>104 → 113 kPa (시간당 +1.5)</td><td>6시간</td><td>상</td><td><b>H(125) 미달이라 알람이 안 울린다.</b> 알람 전 드리프트 구간이 engra의 핵심 소구점 <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>2</td><td>급등</td><td><code>TUR-01</code> 투과수 탁도</td><td>0.045 → 0.28 NTU (H 0.1)</td><td>50분</td><td>상</td><td>막 파손 의심 — 막 교체 판단에 직결 <span class="tag al">알람</span></td></tr>
+  <tr><td>3</td><td>연쇄 드리프트</td><td><code>TUR-02</code> 원수 탁도</td><td>3.5 → 10.4 NTU (H 12 미달)</td><td>3시간</td><td>상</td><td>3계열 공통 원인. 후단 <code>VPT-01</code>에 <b>30분 지연</b>으로 도달 <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>4</td><td>계단 변화</td><td><code>FI-202A/B</code> Blower 공기량</td><td>−15% (833 → 708 Nm³/h)</td><td>4분</td><td>중</td><td>짧아서 알람 미달. 스크러빙 부족이 반복되면 <b>막 오염이 가속</b>된다 <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>5</td><td>연쇄</td><td><code>FI-302</code> 냉각탑 공급 유량</td><td>55 → 73 m³/h (H 90 미달)</td><td>4시간</td><td>상</td><td><b>단일 태그로는 안 잡힌다.</b> 탱크 수위 하강 → UF 증산 요구 → TMP 상승 <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>6</td><td>고착 + 드리프트</td><td><code>FI-602</code> 냉각탑 B/D 유량</td><td>8.0 고정 · <code>AT-04</code> 1200 → 1800 µS/cm</td><td>2시간</td><td>중</td><td>유량값 자체는 정상범위. <b>농축배수가 관리한계로 가는 것은 전도도로만 보인다</b> <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>7</td><td>동반 초과</td><td><code>TUR-03</code> → <code>QI-802</code> 방류수 SS</td><td>4 → 17.5 NTU · SS 6 → 24.5 mg/L (H 20)</td><td>2시간</td><td>상</td><td><b>법정 배출기준 초과 — 행정처분 대상.</b> 인계 누락 시 책임 소재가 불분명해진다 <span class="tag al">알람</span></td></tr>
+  <tr><td>8</td><td>순간 이상값</td><td><code>QI-801</code> 방류수 TOC</td><td>8 → 350 mg/L (약 44배)</td><td>4초 × 4회</td><td>중</td><td>on-delay(10초)보다 짧아 알람 미발생. <b>TMS는 순간값도 관제센터 기록에 남는다</b> — 분석기 셀 고장 전조 <span class="tag no">알람 없음</span></td></tr>
+  <tr><td>9</td><td>임계 근접 → 초과</td><td><code>LT-07</code> 냉각탑 B/D 집수조</td><td>48 → 92% (H 85)</td><td>90분</td><td>중</td><td>방치 시 <code>LT-06</code>으로 넘어가 <b>폐수 회수 계통 전체가 밀린다</b> <span class="tag al">알람</span></td></tr>
+  <tr><td><b>10</b></td><td><b>정상 작업</b> — CIP 세정(MC)</td><td><code>VPT-01</code> (<code>TT-01</code>·<code>AT-02</code>·<code>CI-902</code> 연쇄)</td><td>TMP −5.8 kPa · 세정온도 +3.5 ℃ · 폐수 pH +2.0</td><td>90분</td><td>중</td><td><b>이상이 아니라 계획된 작업.</b> 다음 근무자는 TMP가 왜 떨어졌는지 알아야 한다 <span class="tag no">알람 없음</span></td></tr>
+</table>
+</div>
+
+<div class="note"><strong>10종 중 알람이 울리는 것은 3종(<code>#2</code>·<code>#7</code>·<code>#9</code>)입니다 —</strong>
+나머지 <b>7종은 DCS 화면에 아무 표시도 뜨지 않습니다.</b>
+ASU가 24종 중 7종만 알람이었던 것과 같은 비율이고, <b>이 7종이 engra가 존재하는 이유</b>입니다.
+발표에서 수처리 사례를 한 줄로 말해야 하면 <code>#1</code>(막 오염)을 쓰면 됩니다 —
+"TMP가 6시간 동안 9 kPa 올랐는데 알람선까지 아직 12 kPa 남아 있다. 알람은 안 울리지만 <b>세정 계획은 지금 세워야 한다</b>."</div>
+
+<h2 class="sub">4-1. 전파 경로와 기대 탐지 — 통합테스트 판정 기준</h2>
+<p>위 표가 "무슨 일이 일어나는가"라면, 이 표는 <b>"그래서 어느 태그에서 몇 분 안에 잡혀야 하는가"</b>입니다. 그대로 합격/불합격 기준으로 씁니다.</p>
+<div class="scroll">
+<table class="d sm">
+  <thead><tr><th style="width:4%">#</th><th style="width:13%">트리거</th><th style="width:26%">주입 파형</th><th style="width:21%">전파 (지연)</th><th style="width:18%">탐지 목표</th><th>걸려야 할 검출기</th></tr></thead>
+  <tr><td>1</td><td><code>VPT-01</code></td><td>램프 +1.5 kPa/h · 6시간</td><td><code>JI-201A</code> 즉시 · <code>FI-201</code> 60초</td><td>90분 이내</td><td>드리프트 (240·720분 창)</td></tr>
+  <tr><td>2</td><td><code>TUR-01</code></td><td>계단 상승 후 유지 (+0.235 NTU)</td><td><code>AT-01</code> 60초</td><td>10분 이내</td><td>한계선 교차 + 레벨 시프트</td></tr>
+  <tr><td>3</td><td><code>TUR-02</code></td><td>램프 +2.3 NTU/h · 3시간</td><td><code>CI-904</code> 60초 · <code>VPT-01</code> 1800초</td><td><b>알람보다 먼저</b> (60분)</td><td>드리프트 + 상관 이탈</td></tr>
+  <tr><td>4</td><td><code>FI-202A</code></td><td>딥 −125 Nm³/h · 4분</td><td><code>VPT-01</code> 600초</td><td>발생 즉시</td><td>순간 이탈</td></tr>
+  <tr><td>5</td><td><code>FI-302</code></td><td>램프 +4.5 m³/h/h · 4시간</td><td><code>LT-03A</code> 120초 · <code>AT-04</code> 300초</td><td>60분 이내</td><td>드리프트 + 상관 이탈</td></tr>
+  <tr><td>6</td><td><code>FI-602</code></td><td><code>AT-04</code> 램프 +600 µS/cm + <code>FI-602</code> 값 고정</td><td><code>AT-04</code> 추세 이탈 600초</td><td>60분 이내</td><td><b>고착</b> + 드리프트</td></tr>
+  <tr><td>7</td><td><code>TUR-03</code></td><td>지수 상승 +13.5 NTU</td><td><code>QI-802</code> 240초</td><td><b>알람보다 먼저</b> (40분)</td><td>한계선 교차 + 상관 이탈</td></tr>
+  <tr><td>8</td><td><code>QI-801</code></td><td>스파이크 ×44 · 4초 × 4회</td><td>—</td><td>3회 발생 내</td><td>순간 이탈</td></tr>
+  <tr><td>9</td><td><code>LT-07</code></td><td>램프 +29%/h · 90분</td><td><code>LT-06</code> 300초</td><td><b>알람보다 먼저</b> (45분)</td><td>임계 근접 → 한계선 교차</td></tr>
+  <tr><td>10</td><td><code>VPT-01</code></td><td>하강 램프 −5.8 kPa + <code>TT-01</code> +3.5 ℃</td><td><code>AT-02</code>·<code>CI-902</code> 동시</td><td>30분 이내</td><td>레벨 시프트</td></tr>
+</table>
+</div>
+
+<h2 class="sub">4-2. 합격선 — ASU와 같게 잡는다</h2>
+<table class="d num">
+  <thead><tr><th style="width:46%">지표</th><th style="width:22%">합격선</th><th>ASU 실측 (참고)</th></tr></thead>
+  <tr><td>주입 건 포함률</td><td>≥ 90%</td><td>100% (46/46)</td></tr>
+  <tr><td>시나리오 종 커버</td><td>≥ 9 / 10 종</td><td>21/21 종</td></tr>
+  <tr><td><b>근무당 오탐</b></td><td><b>≤ 3.0 건</b></td><td>1.8건 (복귀 제외 0건)</td></tr>
+  <tr><td>오탐률 (오탐 / 전체 이벤트)</td><td>≤ 10%</td><td>11 / 175 = 6.3%</td></tr>
+  <tr><td>알람 발생 종의 선행 검출</td><td>≥ 70%</td><td>16 / 18 = 89%</td></tr>
+</table>
+<p class="kv"><b>오른쪽 열은 ASU 숫자입니다.</b> 수처리 합격 여부는 <b>아직 측정하지 않았습니다</b>(7장 참조).
+발표에서 이 표를 쓸 때 <b>오른쪽 열을 수처리 성적으로 말하면 안 됩니다.</b></p>
+</section>
+
+<!-- ══════════════ 5 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">5.</span>데이터를 만들다 드러난 것 — 정의가 틀렸던 네 건</h1>
+
+<p>시나리오를 문서로 정의하는 것과, 그 정의로 <b>실제 데이터를 만들어 보는 것</b>은 다릅니다.
+만들어 보니 <b>문서가 틀렸던 곳이 네 군데</b> 나왔습니다. 전부 「그럴듯한데 틀린」 종류라 그대로 남겨 둡니다.</p>
+
+<ol class="hard">
+  <li><span class="t">문서의 주입 크기를 그대로 넣으면 알람이 울린다</span>
+    시나리오 표의 「크기」는 <b>공칭값 기준</b>으로 적은 값입니다. 그런데 실제 데이터에는
+    자체 드리프트(정상범위 폭의 최대 16.8%)·노이즈 3σ·외기 일변동·유입 연동이 겹쳐 있습니다.
+    공칭에 문서 진폭을 그대로 더하면 <b>「알람 전에 잡는다」가 전제인 시나리오가 알람을 울립니다.</b>
+    전제가 깨지면 그 시나리오는 존재 이유를 잃습니다. 그래서 예산 규칙을 세웠습니다.
+    <pre class="cmd">미발생 시나리오 : 공칭 + 베이스라인진폭 + 주입 ≤ H   (L 쪽도 같게)
+발생   시나리오 : 공칭 − 베이스라인진폭 + 주입 &gt;  H   (최악에도 울린다)</pre>
+    이 규칙으로 <code>#1</code>·<code>#3</code>·<code>#5</code>·<code>#6</code>·<code>#7</code>·<code>#9</code>·<code>#10</code>의 크기를 다시 잡았습니다.</li>
+
+  <li><span class="t">TMP만 보고 크기를 정하면 안 된다 — 연동이 닿는 태그의 한계까지 봐야 한다</span>
+    <code>#1</code>에 문서값 <b>+18 kPa</b>를 넣으면 <b>TMP 알람(H 125)보다 펌프 전력 알람이 먼저 울립니다.</b>
+    선언 연동 <code>VPT-01 → JI-201A</code>(0.60) 때문에 TMP가 오르면 Process Pump 전력이 따라 오르는데,
+    <code>JI-201A</code>는 공칭 9.2에 H가 11이라 <b>여유가 1.8밖에 없습니다.</b>
+    주입 <b>9.0</b>(= 1.5 kPa/h × 6h)이 두 알람을 모두 피하는 최대치였습니다.<br>
+    같은 종류로 <code>#10</code>도 전제가 틀렸습니다. 문서의 「TMP 122 → 105(−17)」는
+    <b>「<code>#1</code>로 122까지 올라가 있는 상태」를 전제한 값</b>인데, 생성기는 <code>#1</code>과 <code>#10</code>을 <b>독립으로 배치</b>하므로
+    기준선이 공칭 104입니다. 여기서 −17을 내리면 <b>L(90)을 뚫습니다</b> —
+    <b>세정 자체가 알람을 만드는 것은 「계획 작업」의 정의에 어긋나서</b> −5.8로 줄였습니다.</li>
+
+  <li><span class="t">계산상 「가능」이었는데 실제로는 안 울렸다</span>
+    <code>#9</code>는 정적 계산으로 통상 86%(H 85)면 될 줄 알고 주입 38을 넣었는데,
+    <b>헤드리스로 생성한 근무에서 베이스라인이 아래로 몰려 79%에서 멈췄습니다.</b>
+    <code>LT-07</code>은 H 85 · HH 92 사이가 7인데 진폭이 6.96이라, <b>H를 확정 초과시키면 HH도 같이 건드리게</b> 됩니다.
+    「발생」이 전제인 시나리오가 <b>절반의 확률로 미발생</b>이 되면 통합테스트 판정이 흔들리므로,
+    주입을 44로 올려 최악에서도 85.04(H 확정)가 되게 하고 <b>높은 근무에서 HH까지 가는 쪽</b>을 택했습니다.
+    어느 쪽이든 「상한 돌파」라는 뜻은 같고, <b>정답지는 실측을 적으므로 거짓이 되지 않습니다.</b></li>
+
+  <li><span class="t">연동 방향이 뒤집혀 있어 오탐을 만들고 있었다</span>
+    <code>TUR-03 → CI-909:-0.50</code>(상등수 탁도가 오르면 Polymer 주입률이 내려간다)로 선언돼 있었는데
+    <b>원인과 결과가 거꾸로</b>입니다. 응집제를 덜 넣어서 탁도가 오르는 것이지 그 반대가 아닙니다.<br>
+    방향만 문제가 아니었습니다. <code>#7</code>이 <code>TUR-03</code>을 +13.5 올리면 <code>CI-909</code>가
+    <b>2.8 → −0.09로 음수가 되어 물리 클램프에 걸려 0에 붙습니다.</b>
+    주입률이 0에 고정되면 3-4에서 뺀 간헐 운전 태그와 똑같이 <b>고착 검출기에 중요도 '상'으로 잡힙니다 — 오탐입니다.</b>
+    <code>CI-909 → TUR-03:-0.50:180</code>으로 뒤집어 원인이 결과를 끌게 했습니다.</li>
+
+  <li><span class="t">4초 스파이크가 정답지에 「알람 발생」으로 적혔다</span>
+    알람 판정이 구간 최대/최소만 보던 때는 <code>#8</code>(4초 스파이크)이 <b>「발생 · <code>QI-801</code> HH」</b>로 기록됐습니다.
+    <b>on-delay 미달이라 알람이 안 뜬다는 것이 <code>#8</code>의 존재 이유인데 정반대로 적힌 것</b>입니다.
+    한계 초과가 <b>10초(5샘플) 이상 이어져야</b> 알람으로 세도록 고쳤습니다.
+    ASU 생성기의 999 ppm 스파이크도 같은 구조지만 <b>ASU 파일은 손대지 않았습니다</b> —
+    담당이 다르고, 고치면 ASU 측정치가 전부 무효가 됩니다.</li>
+</ol>
+
+<div class="note"><strong>이 다섯 건이 말하는 것 —</strong> <b>시나리오는 문서로 끝나지 않습니다.</b>
+「TMP를 18 올린다」는 문장은 읽을 때 아무 문제가 없지만, 데이터로 만들면 <b>엉뚱한 태그의 알람을 울립니다.</b>
+그래서 정의 → 생성 → <b>정답지 대조</b>까지 한 바퀴를 돌기 전에는 시나리오를 확정하지 않았습니다.
+이 PC에 python·node가 없어서 검증은 <b>awk 정적 검사기 + 헤드리스 Chrome</b>으로 했고,
+검사기는 임시 폴더에 두고 저장소에는 넣지 않았습니다(<code>tools/</code>는 담당이 다름).</div>
+
+<h3 class="ss">확인 방법 — 커밋에 남긴 것</h3>
+<ul class="tight">
+  <li>65태그 <b>베이스라인 진폭 전수 검사</b> — 침범 0건 (1단 4.2% / 2단 8.4% / 3단 16.8% 기준)</li>
+  <li>10종 전부 주입한 근무를 <b>헤드리스 Chrome으로 3회 생성</b> — JS 오류 0, 정답지 알람 칸이 기대 표와 전부 일치</li>
+  <li>결과: <code>#2</code> 3/3 발생 · <code>#7</code> 3/3 발생 · <code>#9</code> H 1회 / HH 1회 / 잘림 1회 · 나머지 7종 3/3 미발생</li>
+  <li><code>git status</code> — <code>docs/water/</code> 밖으로 나간 변경 0건</li>
+</ul>
+</section>
+
+<!-- ══════════════ 6 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">6.</span>화면 — OVERVIEW 개관도</h1>
+
+<p>데이터·정답지가 수처리로 돌기 시작한 뒤에도 <b>화면만 ASU 도면</b>(공기압축기·콜드박스·LOX/LIN 탱크)이 그대로였습니다.
+<code>data-tag</code>가 ASU 태그 이름으로 박혀 있어 <b>이벤트가 난 태그에 불이 들어오는 표시가 아예 동작하지 않았습니다.</b> 마지막 커밋이 이것을 고친 것입니다.</p>
+
+<h2 class="sub">6-1. 무엇을 근거로 그렸나</h2>
+<p>팀장이 공유한 실제 수처리 OVERVIEW 화면을 <b>계통 배치 구조만</b> 참고했습니다.
+<code>CLAUDE.md</code> 보안 규칙(사내 시스템 화면 캡처·실제 태그 체계·실제 운전 수치 금지)에 따라
+<b>사진도 실제 태그도 저장소에 넣지 않았습니다.</b>
+표시값은 전부 우리 태그 마스터의 공칭값이고, 기기 태그는 <code>PLANT_SPEC.md</code>의 가상 체계를 씁니다.</p>
+
+<h2 class="sub">6-2. 구성 — 실제 화면의 4단 배치를 따랐다</h2>
+<table class="d">
+  <thead><tr><th style="width:14%">단</th><th>내용</th></tr></thead>
+  <tr><td>상단</td><td>원수 → 전처리(Strainer · Cation Resin · Flocculation · Distribution Channel) → <b>UF 막여과 3계열</b>(막조 A/B/C · Process Pump · Blower) → 여과수 탱크 A/B → Transfer Pump → Fab / 냉각탑</td></tr>
+  <tr><td>중단</td><td>폐수 회수(Drain Pump → WW Transfer → 중화조 → Clarifier Supply → Clarifier → 상등수 재이용 / 탈수기) · CIP · TMS 방류</td></tr>
+  <tr><td>하단</td><td>약품 주입 8종 (<code>CP-8496</code>)</td></tr>
+  <tr><td>우상단</td><td>외기 2점</td></tr>
+</table>
+<p class="kv">태그 <b>65점 전부</b>에 <code>data-tag</code> 박스를 붙였습니다 — 스택 62 + 인버터 주파수(<code>ZI-201A/B/C</code>) 3점이고,
+<code>ZI</code>는 개도 막대를 그대로 씁니다.</p>
+
+<h2 class="sub">6-3. 같이 바꾼 것</h2>
+<ul class="tight">
+  <li>제목·머리말·HMI 바를 수처리로 (<code>ASU-100</code> → <code>WTP-100</code>, 미믹 <code>WTP-OVW-01</code>)</li>
+  <li><b>배관 색 규약 교체</b> — AIR/GN2/LOX → 원수·공기 / 여과수 / 폐수 / 냉각수 / 약품</li>
+  <li>「태그 명명 규칙」 절을 수처리 접두·번호블록·기기 태그 규칙으로 다시 씀</li>
+  <li>Tag Point 53점 → <b>65점</b></li>
+</ul>
+
+<h2 class="sub">6-4. 확인 방법</h2>
+<table class="d">
+  <thead><tr><th style="width:34%">무엇을</th><th>결과</th></tr></thead>
+  <tr><td>헤드리스 Chrome 렌더 후 <code>data-tag</code> 목록을 <code>tag_master.csv</code>와 대조</td><td><b>65/65 일치</b> · 누락·잉여 0</td></tr>
+  <tr><td>10종 전부 주입한 근무를 생성해 OVERVIEW에서 표시 확인</td><td>이벤트 태그 <b>17점</b>(연빨강) · 알람 태그 <b>4점</b>(진빨강)에 불이 들어오고, ACTIVE EVENTS 알림창에 <b>EVENT 7건 / ALARM 3건</b>. JS 오류 0</td></tr>
+  <tr><td>캡처를 눈으로 확인</td><td>겹친 글자·선을 <b>세 군데</b> 고침 (블로워 공기 헤더가 막조 이름을 가로지름 · 역세수 배관이 전처리 구역을 관통 · 스택 캡션이 <code>ZI</code> 박스에 물림)</td></tr>
+</table>
+
+<div class="note"><strong>이 커밋으로 수처리판이 이어졌습니다 —</strong>
+태그 마스터 → 시나리오 → 생성기 → 정답지 → 화면이 <b>하나로 연결된 상태</b>입니다.
+심사위원 앞에서 <b>가상 DCS 화면을 열고, 근무를 생성하고, 이벤트가 난 태그에 불이 들어오는 것까지</b> 보여줄 수 있습니다.
+그 다음 단계(검출·AI 초안)가 아직 남아 있다는 것이 7장입니다.</div>
+</section>
+
+<!-- ══════════════ 7 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">7.</span>현황과 남은 일</h1>
+
+<p><b>가장 중요한 장입니다.</b> 결선에서 수처리판으로 무엇을 말할 수 있고 무엇을 말하면 안 되는지가 여기서 갈립니다.</p>
+
+<h2 class="sub">7-1. 결선에서 할 수 있는 것 / 못 하는 것</h2>
+<table class="d">
+  <thead><tr><th style="width:50%">할 수 있는 것</th><th>못 하는 것</th></tr></thead>
+  <tr>
+    <td>
+      <ul class="tight">
+        <li>"엔진 코드 0줄로 다른 공정에 올렸다"를 <b>커밋으로</b> 보여주기</li>
+        <li>수처리 <b>가상 DCS 화면</b>을 열어 계통·태그 65점 보여주기</li>
+        <li>근무를 <b>그 자리에서 생성</b>하고 이벤트 태그에 불이 들어오는 것 보여주기</li>
+        <li>시나리오 10종과 <b>그중 7종은 알람이 안 울린다</b>는 것 설명하기</li>
+        <li>이식하며 부러진 곳(3-4)과 정의 오류(5장)를 <b>솔직하게</b> 말하기</li>
+      </ul>
+    </td>
+    <td>
+      <ul class="tight">
+        <li><b>수처리 포함률·오탐 수치를 말하는 것</b> — 아직 측정 전</li>
+        <li>수처리 <b>AI 초안 화면</b>을 시연하는 것 — 검출을 안 돌렸으므로 초안이 없음</li>
+        <li>ASU 성적표를 수처리 성적처럼 말하는 것 — <b>절대 금지</b></li>
+        <li>TMS 관련 주장(<code>#7</code>·<code>#8</code>) — 실설비 확인 전이라 조건부로만</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<h2 class="sub">7-2. 남은 일 셋과 각각의 난점</h2>
+<ol class="hard">
+  <li><span class="t">생성한 CSV를 검출까지 통과시키기</span>
+    ASU와 같은 경로입니다. DB만 분리하면 됩니다.
+    <pre class="cmd">export ENGRA_DB=/tmp/water.db ENGRA_LLM=off
+python3 app/cli.py init
+python3 app/cli.py ingest &lt;생성한 수처리 CSV&gt;
+python3 app/cli.py run &lt;근무 ID&gt;</pre>
+    <b>난점</b> — 근무 1건의 크기입니다. ASU는 53태그에 35.8MB였는데 수처리는 <b>65태그</b>라
+    같은 비율이면 <b>약 44MB</b>(계산값, 미실측)이고, 업로드 한도가 <b>48MB</b>입니다.
+    여유가 4MB밖에 없으니 <b>웹 업로드 대신 CLI로 넣는 편이 안전합니다.</b></li>
+
+  <li><span class="t">AI 초안을 한 번 뽑아 문장 확인하기</span>
+    <b>난점</b> — AI는 이 공장의 절차를 모르고, 수처리 과거 확정 일지가 <b>하나도 없습니다.</b>
+    ASU에서도 「조치는 과거 일지에 있는 것만 쓴다」는 규칙이라, 수처리 첫 근무의 초안은
+    <b>조치 칸이 비어 있는 것이 정상</b>입니다. 이것을 결함으로 오해하지 않도록 미리 알고 있어야 합니다.</li>
+
+  <li><span class="t">채점해서 합격선(4-2)과 대조하기</span>
+    <b>난점</b> — 시간입니다. 결선이 내일이라 <b>2번·3번은 못 할 가능성이 큽니다.</b>
+    그 경우 <b>1번까지만 하고, 7-1의 「못 하는 것」을 그대로 지키는 것</b>이 안전합니다.
+    측정 안 한 숫자를 말하는 것보다 <b>"아직 안 쟀습니다"가 훨씬 강합니다</b> — 이미 ASU에서
+    오탐·정밀도를 감추지 않고 낸 팀이기 때문입니다.</li>
+</ol>
+
+<h2 class="sub">7-3. 실설비에 붙일 때 먼저 확인할 것</h2>
+<table class="d">
+  <thead><tr><th style="width:30%">확인 대상</th><th>왜 / 아니면 어떻게 되나</th></tr></thead>
+  <tr><td><b>TMS 유무</b></td><td>없으면 태그 6점과 시나리오 <code>#7</code>·<code>#8</code>을 <b>같이 뺀다.</b> 근거 문서가 없는 가정 위에 서 있다</td></tr>
+  <tr><td><b>계열 구분</b></td><td><code>VPT-01</code>·<code>TUR-01</code>·<code>LT-02</code>는 <b>3계열 대표값 하나</b>다. <code>#2</code>(막 파손)가 어느 계열인지 계측값으로 못 가린다. 계열을 봐야 하면 <code>JI-201A/B/C</code>·<code>ZI-201A/B/C</code>·<code>FI-203A/B/C</code>를 쓴다</td></tr>
+  <tr><td><b>간헐 운전 태그</b></td><td>실데이터에는 <code>JI-401</code>·<code>CI-906</code>·<code>PSH-01</code> 같은 태그가 그대로 들어온다. 고착 검출기가 오탐을 내므로 <b>운전모드 플래그를 엔진에 넣는 작업이 필요</b>하다 (지금은 태그를 빼서 우회)</td></tr>
+  <tr><td><b>데이터 입구</b></td><td>ASU와 같다 — <code>collect.py</code>의 <code>CsvSource</code> → <code>RtdbSource</code> 한 클래스</td></tr>
+  <tr><td><b>가정값 65점 중 실측 확인</b></td><td>태그 마스터의 <code>source</code> 열에 <code>spec_value</code>(설비 자료의 수치) / <code>spec_tag</code>(자료에 태그만 있음) / <code>assumed</code>(우리 가정)로 구분해 두었다. <b>현장 검토는 <code>assumed</code>부터</b></td></tr>
+</table>
+</section>
+
+<!-- ══════════════ 8 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">8.</span>예상 질문과 한 줄 답</h1>
+
+<p class="q">Q1. ASU 전용 도구 아닌가요?</p>
+<p class="a">공정이 전혀 다른 수처리 플랜트에 올렸고, <b>엔진·앱 코드는 한 줄도 안 고쳤습니다.</b>
+바꾼 것은 태그 마스터·시나리오·생성기·개관도 <b>네 개의 데이터 파일</b>입니다. 커밋 네 개로 확인할 수 있습니다.</p>
+
+<p class="q">Q2. 그럼 수처리에서 성능은 얼마나 나왔나요?</p>
+<p class="a"><b>아직 안 쟀습니다.</b> 데이터 생성·정답지·화면까지 끝냈고 검출·AI·채점은 남은 일입니다.
+합격선은 ASU와 같게(포함률 90% 이상, 근무당 오탐 3.0건 이하) 미리 정해 두었습니다.
+<b>측정하지 않은 숫자는 말하지 않는다</b>는 것이 이 팀의 원칙입니다.</p>
+
+<p class="q">Q3. 검출 문턱값은 공정마다 다시 튜닝해야 하지 않나요?</p>
+<p class="a">안 바꿨습니다. 문턱값은 <b>「그 태그의 평소 대비 몇 배인가」</b>를 재는 값이라 공정과 무관합니다.
+공정별로 다른 것은 <b>「평소」 쪽</b>이고, 그건 데이터에서 자동으로 만들어집니다.</p>
+
+<p class="q">Q4. 태그 이름이 ASU와 겹치던데요? (<code>TI-101</code>·<code>MI-102</code>)</p>
+<p class="a"><b>일부러 겹쳤습니다.</b> 엔진의 외기 보정 대상이 모듈 상수로 박혀 있어서,
+다른 이름을 쓰면 수처리에서 보정이 통째로 건너뛰어지고 상수를 바꾸면 ASU가 깨집니다.
+이름을 맞추면 <b>코드 수정 0줄로 양쪽 다</b> 돕니다. DB가 공정별로 분리돼 있어 데이터는 섞이지 않습니다.</p>
+
+<p class="q">Q5. 수처리에서 engra가 잡아야 할 가장 중요한 것은 뭔가요?</p>
+<p class="a"><b>막 오염(<code>#1</code>)</b>입니다. TMP가 6시간 동안 9 kPa 오르는데 알람선까지 12 kPa이 남아 있습니다.
+DCS에는 아무 표시도 안 뜨지만 <b>세정 계획은 그 근무 안에 세워야</b> 합니다. 고정 임계값으로는 절대 안 잡힙니다.</p>
+
+<p class="q">Q6. 세정을 하면 값이 크게 변하는데, 그것도 이상으로 잡히지 않나요?</p>
+<p class="a">잡힙니다. 그런데 <b>그게 맞습니다.</b> CIP 세정은 이상이 아니라 계획 작업이지만,
+<b>다음 근무자는 TMP가 왜 떨어졌는지 알아야 합니다.</b> 그래서 시나리오 10종 중 한 종을
+<b>정상 작업</b>으로 일부러 넣었습니다. 「이상 탐지」가 아니라 <b>「인계할 가치가 있는 변화」</b>를 찾는 도구입니다.</p>
+
+<p class="q">Q7. 시나리오를 직접 만들었으면 유리하게 만든 것 아닌가요?</p>
+<p class="a">반대 방향으로 갔습니다. <b>10종 중 7종을 알람이 안 울리는 것</b>으로 잡았고,
+문서값을 그대로 쓰면 알람이 울려서 <b>주입 크기를 오히려 줄였습니다.</b>
+쉽게 잡히게 만들려면 크게 넣으면 되는데, 그러면 <b>알람이 울려서 시나리오의 전제가 깨집니다.</b></p>
+
+<p class="q">Q8. 데이터가 전부 가상인데 의미가 있나요?</p>
+<p class="a">가상입니다. 먼저 밝힙니다. 이 이식이 증명하려는 것은 <b>검출 성능이 아니라 구조</b>입니다 —
+공정을 바꿨을 때 <b>코드가 얼마나 바뀌는가</b>. 그 답이 0줄이고, 그건 가상 데이터로도 참입니다.
+성능 검증은 실데이터 단계(PHASE 1)의 일입니다.</p>
+
+<p class="q">Q9. 새 공정 하나 추가하는 데 얼마나 걸리나요?</p>
+<p class="a">수처리는 <b>커밋 네 개</b>였고, 실제로 든 일은 <b>태그 65점 정의 · 시나리오 10종 정의 · 개관도 1장</b>입니다.
+전부 <b>공정을 아는 사람이 쓰는 문서</b>이지 개발이 아닙니다. 다만 정의 → 생성 → 정답지 대조까지
+<b>한 바퀴를 돌기 전에는 확정하지 않는다</b>는 것이 이번에 얻은 규칙입니다(5장).</p>
+
+<p class="q">Q10. 옮기면서 안 부러진 게 정말 없나요?</p>
+<p class="a">두 군데 있었습니다. <b>모듈 상수로 박힌 외기 태그 이름</b>과, <b>「값은 항상 움직인다」는 암묵 가정</b>입니다.
+둘 다 데이터 쪽에서 우회했지만, 공정을 더 늘린다면 <b>이 두 개가 먼저 손봐야 할 지점</b>입니다.
+"공정 무관"이라고 설계한 코드에도 공정이 스며든 자리가 있었다는 것이 이번 이식의 소득입니다.</p>
+</section>
+
+<!-- ══════════════ 9 ══════════════ -->
+<section class="page-new">
+<h1 class="sec"><span class="n">9.</span>부록 — ASU ↔ 수처리 대조표</h1>
+
+<h2 class="sub">9-1. 두 공정 한눈에</h2>
+<table class="d">
+  <thead><tr><th style="width:22%">항목</th><th style="width:39%">ASU (제출본)</th><th>수처리 (이식판)</th></tr></thead>
+  <tr><td>공정</td><td>공기분리 — 기체</td><td>침지식 UF 막여과 — 액체</td></tr>
+  <tr><td>계측 태그</td><td>53점</td><td><b>65점</b> (68점에서 간헐 운전 3점 제외)</td></tr>
+  <tr><td>근무 1건 데이터</td><td>114만 4,800행 · 약 35.8MB</td><td><b>140만 4,000행</b> · 약 44MB (계산값)</td></tr>
+  <tr><td>시나리오</td><td>24종 (알람 7종)</td><td><b>10종</b> (알람 3종)</td></tr>
+  <tr><td>핵심 소구 시나리오</td><td>순도·온도 드리프트</td><td><b>막 오염 TMP 드리프트</b> (<code>#1</code>)</td></tr>
+  <tr><td>계획 작업 시나리오</td><td>제품 출하</td><td><b>CIP 세정</b> (<code>#10</code>)</td></tr>
+  <tr><td>문서·데이터 경로</td><td><code>docs/</code></td><td><code>docs/water/</code></td></tr>
+  <tr><td>생성기 저장키</td><td><code>engra_asu_shiftrun_v2</code></td><td><code>engra_water_shiftrun_v1</code></td></tr>
+  <tr><td>정답지 파일명</td><td><code>asu_answer_*</code></td><td><code>water_answer_*</code></td></tr>
+  <tr><td>미믹 화면</td><td><code>ASU-100</code></td><td><code>WTP-100</code> · <code>WTP-OVW-01</code></td></tr>
+  <tr><td>검출 성능</td><td>포함률 100% (46/46) · 오탐 근무당 1.8건</td><td><b>미측정</b></td></tr>
+</table>
+
+<h2 class="sub">9-2. 검출기 8종과 문턱값 — 양쪽이 같은 값을 쓴다</h2>
+<table class="d sm">
+  <thead><tr><th style="width:22%">검출기</th><th style="width:34%">문턱값</th><th>수처리에서 어느 시나리오가 걸리나</th></tr></thead>
+  <tr><td>한계선 교차</td><td><code>hi &gt; H</code> / <code>lo &lt; L</code>, 최소 1블록(30초)</td><td><code>#2</code> · <code>#7</code> · <code>#9</code></td></tr>
+  <tr><td><b>드리프트</b></td><td><code>k ≥ 3.5</code> <b>AND</b> <code>|r| ≥ 0.60</code>, 창 60·120·240·720분</td><td><code>#1</code> · <code>#3</code> · <code>#5</code> · <code>#6</code></td></tr>
+  <tr><td>레벨 시프트</td><td><code>k ≥ 3.0</code>, 앞뒤 중앙값 비교, w=10분</td><td><code>#2</code> · <code>#10</code></td></tr>
+  <tr><td>헌팅</td><td>MAD비 <code>≥ 3.0</code>이 60초 이상 연속</td><td>—</td></tr>
+  <tr><td>순간 이탈</td><td><code>z ≥ 8.0</code> <b>AND</b> 지속 ≤ 2분</td><td><code>#4</code> · <code>#8</code></td></tr>
+  <tr><td>임계 근접</td><td><code>frac ≥ 0.85</code>가 30분 이상 연속</td><td><code>#9</code></td></tr>
+  <tr><td>고착</td><td>20분간 변동 ≤ <code>max(q, 노이즈×0.05)</code></td><td><code>#6</code></td></tr>
+  <tr><td>상관 이탈</td><td><code>links</code> 선언 쌍만, <code>|r| ≥ 0.50</code></td><td><code>#3</code> · <code>#5</code> · <code>#7</code></td></tr>
+</table>
+<p class="kv">산포는 평균·표준편차가 아니라 <b>MAD × 1.4826</b>을 씁니다(이상값에 안 끌려가게).
+블록 30초로 접되 <code>lo</code>·<code>hi</code>를 남겨 <b>짧은 스파이크가 평균에 묻히지 않게</b> 합니다 — <code>#8</code>이 여기에 기댑니다.</p>
+
+<h2 class="sub">9-3. 수처리 용어 — 이 문서에 나온 것만</h2>
+<table class="d sm">
+  <thead><tr><th style="width:20%">용어</th><th>한 줄 설명</th></tr></thead>
+  <tr><td>UF (한외여과)</td><td>아주 작은 구멍(공칭 0.04 µm)으로 물을 걸러 미세입자·세균을 잡는 막여과. 침지식은 막을 물에 담가 놓고 <b>빨아당기는</b> 방식</td></tr>
+  <tr><td><b>TMP</b> · 흡인압</td><td>막을 사이에 둔 압력 차. <b>막이 막힐수록 더 세게 빨아야 해서 올라간다</b> — 막 오염의 유일한 지표(<code>VPT-01</code>)</td></tr>
+  <tr><td>탁도 (NTU)</td><td>물의 흐린 정도. 투과수 탁도(<code>TUR-01</code>)가 튀면 <b>막이 찢어졌다는 뜻</b>일 수 있다</td></tr>
+  <tr><td>CIP · MC / RC</td><td>막을 제자리에서 약품으로 씻는 것. MC=약식(NaOCl) · RC=집중(알칼리 → 산 → 헹굼)</td></tr>
+  <tr><td>Air Scrubbing</td><td>막 아래에서 공기를 불어 막 표면의 오염을 털어내는 것. 블로워 공기량(<code>FI-202A/B</code>)이 떨어지면 <b>오염이 빨리 쌓인다</b></td></tr>
+  <tr><td>응집 (Coagulant · Polymer)</td><td>작은 입자를 뭉쳐 큰 덩어리(플록)로 만들어 거르거나 가라앉히기 쉽게 하는 것</td></tr>
+  <tr><td>Clarifier · 상등수</td><td>침전조 / 가라앉히고 남은 위쪽 맑은 물. 재이용하거나 방류한다</td></tr>
+  <tr><td>B/D (블로다운)</td><td>냉각탑에서 농축된 물을 빼내는 것. 안 빼면 전도도(<code>AT-04</code>)가 계속 오른다</td></tr>
+  <tr><td>전도도 (µS/cm)</td><td>물에 녹아 있는 이온의 양. <b>농축 정도를 보는 값</b></td></tr>
+  <tr><td>TMS</td><td>수질원격감시체계. 방류 수질을 실시간으로 관제센터에 전송하는 <b>법정 설비</b></td></tr>
+  <tr><td>on-delay</td><td>한계를 넘어도 <b>일정 시간 이상 이어져야</b> 알람을 울리는 지연. 우리 생성기는 10초로 잡았다</td></tr>
+  <tr><td>베이스라인 진폭</td><td>시나리오를 하나도 안 넣어도 데이터가 저절로 흔들리는 폭. <b>주입 크기는 이 폭을 고려해 정해야 한다</b>(5장)</td></tr>
+</table>
+
+<p class="p-foot" style="margin-top:26px"><b>이 문서에 없는 것</b> — 사내 시스템 화면 캡처, 실제 태그 체계, 실제 운전 수치.
+<b>수처리 검출 성능 수치도 없습니다</b> — 아직 측정하지 않았기 때문입니다(7장).
+숫자에 의문이 생기면 ASU 측은 <code>docs/공식수치.md</code>, 수처리 측은 <code>docs/water/scenarios.md</code>와 커밋 기록이 단일 출처입니다.
+· 팀 앙그라쥬 · SK AI 해커톤 2026 결선</p>
+
+</section>
+
+</body>
+</html>
