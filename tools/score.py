@@ -23,6 +23,7 @@
 
 DB 는 이미 `ingest → run` 이 끝난 상태여야 한다. 이 도구는 읽기만 한다.
 """
+import contextlib
 import json
 import sys
 from datetime import datetime
@@ -106,8 +107,12 @@ def score(answer_path, only=None):
     return score_shifts(shifts)
 
 
-def score_shifts(shifts):
-    """정답지(근무 dict 목록)를 DB 의 이벤트와 대조한다. 화면(app/jobs.py)과 CLI 가 같은 함수를 쓴다."""
+def score_shifts(shifts, events_of=None):
+    """정답지(근무 dict 목록)를 DB 의 이벤트와 대조한다. 화면(app/jobs.py)과 CLI 가 같은 함수를 쓴다.
+
+    `events_of(shift_id)` 를 주면 DB 대신 거기서 이벤트를 받는다 — 사람 기준치(tools/baseline)가
+    사람이 적은 발견 기록을 엔진과 **같은 규칙**으로 채점할 때 쓴다. 규칙이 두 벌이면 비교가 성립하지 않는다.
+    """
     per_shift = []
     hit_ids, inj_ids = set(), set()
     total_inj = total_hit = total_events = total_fp = 0
@@ -119,10 +124,14 @@ def score_shifts(shifts):
     per_shift_trk = {}   # shift_id -> 추적 중 건수
     detail = {}          # shift_id -> {"injected": [...주입+매칭 이벤트], "fp": [...오탐 이벤트], "overlaps": [...]}
 
-    with db.connect() as conn:
+    # 사람 기록만 채점할 때는 DB 가 없는 PC 에서도 돌아야 한다 — 그때는 연결을 열지 않는다
+    with (db.connect() if events_of is None else contextlib.nullcontext()) as conn:
         for sh in shifts:
             sid = sh["shift_id"]
-            events = [dict(e) for e in db.load_events(conn, sid)]
+            rows = db.load_events(conn, sid) if events_of is None else events_of(sid)
+            # IoU 가 같으면 먼저 나온 이벤트를 고른다 — 그래서 순서를 두 경로 모두 (시각, 태그, 번호)로 못 박는다.
+            # 번호는 DB 는 적재 순서, 사람 기록지는 기록 순서다. SQL 의 ORDER BY start_ts, tag 는 동률 순서를 보장하지 않는다 (Codex)
+            events = sorted((dict(e) for e in rows), key=lambda e: (e.get("start_ts") or "", e["tag"], e.get("id") or 0))
             if not events:
                 per_shift.append((sid, None, len(sh["injected"]), 0, 0))
                 continue
