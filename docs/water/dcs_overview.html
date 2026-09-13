@@ -1,0 +1,2143 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASU DCS Overview · ENGRA</title>
+<meta name="description" content="ASU 공정 모의 DCS Overview 화면과 태그 마스터·베이스라인 데이터 생성기 (가상 데이터)">
+<style>
+  /* ── demo/index.html 디자인 토큰 계승 ── */
+  :root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;--accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6}
+  .wrap{max-width:1280px;margin:0 auto;padding:18px 20px 44px}
+
+  .top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
+  .top h1{font-size:19px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
+  .top span{font-size:12px;color:var(--sub)}
+  .pill{font-size:10.5px;font-weight:700;padding:1.5px 8px;border-radius:9px;background:#eceae6;color:var(--sub)}
+  .pill.amber{background:#fdf0d8;color:var(--warn)}
+  .disc{font-size:11.5px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;padding:6px 11px;border-radius:6px;margin:9px 0 11px}
+  .disc b{color:var(--ink)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:13px 15px;margin-bottom:11px}
+  .card h2{font-size:14px;margin-bottom:9px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  details.card>summary{font-size:14px;font-weight:700;cursor:pointer;list-style:none}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary::before{content:"▸ ";color:var(--sub)}
+  details.card[open]>summary::before{content:"▾ "}
+  details.card>div{margin-top:10px}
+
+  /* ── DCS 미믹 크롬 ── */
+  .hmi{background:#c8c9c4;border:1px solid #9a9b96;border-radius:5px;padding:5px}
+  .hminav{display:flex;gap:3px;margin-bottom:4px}
+  .hminav div{background:#7fd4f0;border:1px solid #3d7f96;border-radius:2px;font-size:10px;padding:2px 11px;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:#0b2b33}
+  .hmibar{background:#1c3f8f;color:#fff;font-size:10px;padding:3px 9px;display:flex;justify-content:space-between;gap:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .hmibar .mid{opacity:.82;letter-spacing:.06em}
+  .hmifoot{display:flex;gap:3px;margin-top:4px;align-items:stretch;flex-wrap:wrap}
+  .hmifoot div{background:linear-gradient(#fdfdfd,#dedfda);border:1px solid #8f9089;border-radius:2px;font-size:9.5px;padding:2px 9px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#6a6b66}
+  .hmifoot .leg{margin-left:auto;display:flex;gap:12px;align-items:center;background:linear-gradient(#fdfdfd,#eceded);border-color:#a8a9a3}
+  .hmifoot .leg i{display:inline-flex;align-items:center;gap:5px;font-style:normal;color:#4a4b47}
+  .hmifoot .leg i s{width:14px;height:3px;border-radius:2px;text-decoration:none;display:inline-block}
+  svg.mimic{display:block;width:100%;height:auto;background:#e8e9e4;border:1px solid #b4b5b0}
+
+  /* ── SVG 내부 (demo 클래스 규약 계승) ── */
+  .pipe{fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .air{stroke:#5a5a5a}.gn2{stroke:#d9a400}.lox{stroke:#2f6bd8}
+  .eq{fill:#f4f4f1;stroke:#3a3a3a;stroke-width:1.3}
+  .eqline{fill:none;stroke:#9a9a94;stroke-width:.9}
+  .tray{fill:none;stroke:#dcded6;stroke-width:1}
+  .pl{font-size:10px;fill:#2b2b2b;font-weight:700;letter-spacing:.02em}
+  .id{font-size:8px;fill:#8a8a84;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .cap{font-size:8px;fill:#7a7a74}
+  .lv{font-size:8px;fill:#1f4f9c;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+  .lvy{font-size:8px;fill:#8a6a00;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+  .sect{font-size:8.5px;fill:#9a9b93;letter-spacing:.08em}
+
+  /* ── 태그 박스 ── */
+  .tbox{fill:#fbfbf8;stroke:#a9a9a4;stroke-width:.8}
+  .zbox{fill:#fbfbf8;stroke:#7b7c76;stroke-width:1.1}
+  .tn{font-size:7.5px;fill:#6a6a6a;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .tv{font-size:11px;font-weight:700;fill:#0b3d91;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .tu{font-size:7px;fill:#8a8a84}
+  .tcap{font-size:7.5px;fill:#84857e;letter-spacing:.09em;font-weight:700}
+  .guide{fill:none;stroke:#c2c3bd;stroke-width:1;stroke-dasharray:2 3}
+  .bartrk{fill:#dedfd8}
+
+  /* ── 시나리오 발생 태그 표시 ── */
+  @keyframes tagBlink{0%,100%{fill:#fbfbf8;stroke:#a9a9a4}50%{fill:#ffdcdc;stroke:#e0776e}}
+  @keyframes tagBlinkA{0%,100%{fill:#fdefee;stroke:#c0392b}50%{fill:#ffb6af;stroke:#EA002C}}
+  svg.mimic g[data-tag].alm  rect.tbox, svg.mimic g[data-tag].alm  rect.zbox{animation:tagBlink 1.25s ease-in-out infinite}
+  svg.mimic g[data-tag].almA rect.tbox, svg.mimic g[data-tag].almA rect.zbox{animation:tagBlinkA 1s ease-in-out infinite}
+  svg.mimic g[data-tag].alm  .tn{fill:#b5453b}
+  svg.mimic g[data-tag].almA .tn{fill:#c0392b;font-weight:700}
+  .apBox{fill:#fff;stroke:#d98b84;stroke-width:1.2}
+  .apBar{fill:#EA002C}
+  .apTtl{font-size:9px;fill:#fff;font-weight:700;letter-spacing:.1em;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apSub{font-size:9.5px;fill:#4a4b47;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apLbl{font-size:8px;fill:#8a8a84;letter-spacing:.08em;font-weight:700}
+  .apEv{font-size:10.5px;fill:#0b3d91;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .apAl{font-size:10.5px;fill:#EA002C;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+
+  /* ── RTDB 화면 ── */
+  #viewRtdb{background:#eceded;border:1px solid #b4b5b0;padding:9px}
+  .rbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:11.5px;color:var(--sub)}
+  .rbtn{font-size:11px;font-weight:700;padding:3px 11px;border:1px solid #8f9089;border-radius:3px;background:linear-gradient(#fdfdfd,#dedfda);color:#3a3a3a;cursor:pointer}
+  .rbtn.on{background:linear-gradient(#3a63c0,#1c3f8f);border-color:#16337a;color:#fff}
+  .rsplit{display:grid;grid-template-columns:1fr 330px;gap:9px;align-items:start}
+  @media(max-width:1000px){.rsplit{grid-template-columns:1fr}}
+  .rtwrap{max-height:600px;overflow:auto;background:#fff;border:1px solid #c8c9c4;border-radius:4px}
+  table.rt{border-collapse:separate;border-spacing:0;font-size:9.5px;font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
+  table.rt th{position:sticky;top:0;z-index:3;background:#1c3f8f;color:#fff;font-weight:700;padding:4px 6px;font-size:9px;text-align:right}
+  table.rt th.tg0{position:sticky;left:0;z-index:4;text-align:left}
+  table.rt td{padding:2px 6px;text-align:right;border-bottom:1px solid #f0efe9;color:#333}
+  table.rt td.tg0{position:sticky;left:0;z-index:2;background:#fff;text-align:left;border-right:1px solid #d8d9d3;cursor:pointer}
+  table.rt td.tg0 b{color:#0b3d91;font-size:10px}
+  table.rt td.tg0 span{color:#8a8a84;font-size:8.5px}
+  table.rt td.mt{color:#c8c9c4;text-align:center}
+  table.rt td.cH{background:#fdf0d8;color:#8a5a00;font-weight:700}
+  table.rt td.cHH{background:#ffd9d4;color:#c0392b;font-weight:700}
+  table.rt tr.grp td{background:#e8ecf5;color:#1c3f8f;font-weight:700;font-size:9px;padding:3px 6px;letter-spacing:.05em}
+  table.rt tr.sel td{background:#fff6d8}
+  table.rt tr.sel td.tg0{background:#fff6d8}
+  table.rt tr:hover td{background:#f4f6fb}
+  table.rt tr:hover td.tg0{background:#f4f6fb}
+  .barfil{fill:#0b3d91}
+
+  /* ── Transmitter : 취출점 + 스템 + ISA 밸룬 ── */
+  .tx path{fill:none;stroke-width:1}
+  .tx .bal{fill:#fbfbf8;stroke-width:1.1}
+  .tx .blt{font-size:6.5px;font-weight:700;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .txa .tap{fill:#5a5a5a}.txa path{stroke:#5a5a5a}.txa .bal{stroke:#5a5a5a}.txa .blt{fill:#4a4a4a}
+  .txg .tap{fill:#c79600}.txg path{stroke:#c79600}.txg .bal{stroke:#c79600}.txg .blt{fill:#8a6a00}
+
+  .note{font-size:11px;color:var(--sub);margin-top:2px}
+  .note code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#eceae6;padding:1px 5px;border-radius:3px;color:var(--ink)}
+
+  /* ── 페이지 탭 ── */
+  .hminav div{cursor:pointer;user-select:none}
+  .hminav div.off{background:#cdd5d8;border-color:#8ea0a6;color:#5c6d72;font-weight:400}
+
+  /* ── DATA DETAIL 화면 ── */
+  #viewData{background:#eceded;border:1px solid #b4b5b0;padding:9px}
+  .dbar{display:flex;flex-wrap:wrap;gap:7px 14px;align-items:center;font-size:11.5px;margin-bottom:8px}
+  .dbar label{display:inline-flex;align-items:center;gap:5px;color:var(--sub)}
+  .dbar input,.dbar select{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;padding:2px 5px;border:1px solid #a9a9a4;border-radius:3px;background:#fff}
+  .dbar input[type=number]{width:88px}
+  .dbtn{font-size:11.5px;font-weight:700;padding:3px 11px;border:1px solid #8f9089;border-radius:3px;background:linear-gradient(#fdfdfd,#dedfda);color:#3a3a3a;cursor:pointer}
+  .dbtn:hover{background:linear-gradient(#fff,#eceded)}
+  .dbtn.pri{background:linear-gradient(#3a63c0,#1c3f8f);border-color:#16337a;color:#fff}
+  #dMsg{font-size:11.5px;color:var(--ok);min-height:18px}
+
+  .dsplit{display:grid;grid-template-columns:1fr 320px;gap:9px;align-items:start}
+  @media(max-width:1000px){.dsplit{grid-template-columns:1fr}}
+  .dside{background:#fff;border:1px solid #c8c9c4;border-radius:4px;padding:9px}
+  .dside h4{font-size:11.5px;margin-bottom:6px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .dside p{font-size:11px;color:var(--sub);line-height:1.5}
+  .dside svg{display:block;width:100%;height:auto;background:#fbfbf8;border:1px solid #e2e0dc;border-radius:3px}
+
+  .dtwrap{max-height:520px;overflow:auto;background:#fff;border:1px solid #c8c9c4;border-radius:4px}
+  table.dt{border-collapse:collapse;width:100%;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  table.dt th{position:sticky;top:0;z-index:2;background:#1c3f8f;color:#fff;font-weight:700;padding:5px 6px;text-align:left;white-space:nowrap;font-size:10.5px}
+  table.dt td{border-bottom:1px solid #eceae6;padding:2px 4px;white-space:nowrap}
+  table.dt tr.grp td{background:#e8ecf5;color:#1c3f8f;font-weight:700;font-size:10.5px;padding:4px 6px;letter-spacing:.05em}
+  table.dt tr.sel td{background:#fff6d8}
+  table.dt tr:hover td{background:#f4f6fb}
+  table.dt tr.sel:hover td{background:#fff2c4}
+  table.dt .tg{font-weight:700;color:#0b3d91;cursor:pointer}
+  table.dt .ds{color:var(--sub);white-space:nowrap}
+  table.dt input,table.dt select{font-family:inherit;font-size:11px;border:1px solid #d8d9d3;border-radius:2px;padding:1px 3px;background:#fff}
+  table.dt input{width:66px;text-align:right}
+  table.dt input.lnk{width:230px;text-align:left}
+  table.dt input:focus,table.dt select:focus{outline:2px solid #7fb0f0;border-color:#7fb0f0}
+  table.dt td.al input{background:#fdf6f4}
+  table.dt td.am input{background:#f2f7ec;width:52px}
+  #dOut{width:100%;height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;border:1px solid #a9a9a4;border-radius:3px;padding:6px;margin-top:8px;background:#fff;white-space:pre;display:none}
+
+  /* ── SCENARIO INJECT 화면 ── */
+  #viewScen{background:#eceded;border:1px solid #b4b5b0;padding:9px}
+  .sgrid{display:grid;grid-template-columns:300px 1fr;gap:9px;align-items:start}
+  @media(max-width:900px){.sgrid{grid-template-columns:1fr}}
+  .spanel{background:#fff;border:1px solid #c8c9c4;border-radius:4px;padding:10px}
+  .spanel h4{font-size:11.5px;margin-bottom:7px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#1c3f8f}
+  .schk{max-height:250px;overflow:auto;border:1px solid #e2e0dc;border-radius:3px;padding:5px}
+  .schk label{display:flex;gap:6px;align-items:flex-start;font-size:11px;padding:2px 3px;border-radius:2px;cursor:pointer}
+  .schk label:hover{background:#f4f6fb}
+  .schk input{margin-top:2px}
+  .schk b{color:#0b3d91;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700}
+  .schk span{color:var(--sub)}
+  #sTl{display:block;width:100%;height:auto;background:#fbfbf8;border:1px solid #e2e0dc;border-radius:3px}
+  table.st{border-collapse:collapse;width:100%;font-size:11px;margin-top:8px}
+  table.st th{background:#1c3f8f;color:#fff;padding:4px 6px;text-align:left;font-size:10.5px;white-space:nowrap}
+  table.st td{border-bottom:1px solid #eceae6;padding:3px 6px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  table.st td.nm{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+  #sMsg{font-size:11.5px;color:var(--ok);min-height:18px;margin:6px 0}
+  #sModal{position:fixed;inset:0;background:rgba(20,22,26,.45);display:flex;align-items:center;justify-content:center;padding:24px;z-index:50}
+  #sModal[hidden]{display:none}
+  #sModal .mbox{background:#fff;border-radius:9px;max-width:920px;width:100%;max-height:82vh;overflow:auto;padding:16px 18px;box-shadow:0 8px 30px rgba(0,0,0,.28)}
+  #sModal .mhead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+  #sModal .mhead b{font-size:13.5px}
+  #sModal h4{font-size:12px;color:#1c3f8f}
+  #sWarn{font-size:11px;color:var(--warn);background:#fff8e6;border:1px solid #f0e3bd;border-radius:4px;padding:6px 9px;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>ASU <b>DCS Overview</b></h1>
+    <span>ENGRA 기준 도면 · v3.0</span>
+    <span class="pill amber">Tag Point 53점</span>
+    <span class="pill" id="pillScen">시나리오 주입 —</span>
+  </div>
+
+  <div class="disc"><b>모의 화면</b> — 사내 실제 태그 체계·시스템 화면과 무관하게 작성한 데모용 도면입니다. 표시된 값은 정상 운전 기준 목데이터입니다.</div>
+
+  <div class="card">
+    <h2>ASU-100 공정 개관도 <span class="pill">Air Separation Unit</span></h2>
+
+    <div class="hmi">
+      <div class="hminav">
+        <div id="tabOvw">OVERVIEW PAGE</div>
+        <div id="tabData" class="off">DATA DETAIL</div>
+        <div id="tabScen" class="off">SCENARIO INJECT</div>
+        <div id="tabRtdb" class="off">RTDB</div>
+      </div>
+      <div class="hmibar">
+        <span>ASU-100 &nbsp;AIR SEPARATION UNIT</span>
+        <span class="mid">MIMIC ASU-OVW-01</span>
+        <span>REV 3.0 &nbsp;|&nbsp; 2026-08-16</span>
+      </div>
+
+      <div id="viewOverview">
+      <svg class="mimic" viewBox="0 0 1600 870" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mAir" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5a5a5a"/></marker>
+          <marker id="mGn2" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d9a400"/></marker>
+          <marker id="mLox" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f6bd8"/></marker>
+
+          <symbol id="cv" viewBox="-10 -19 20 26">
+            <path d="M-7.5,-5.5 L0,0 L-7.5,5.5 Z M7.5,-5.5 L0,0 L7.5,5.5 Z" fill="currentColor"/>
+            <line x1="0" y1="-1" x2="0" y2="-11" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M-6.5,-11 A6.5,4.8 0 0 1 6.5,-11 Z" fill="currentColor"/>
+          </symbol>
+
+          <clipPath id="clipHP"><rect x="650" y="490" width="80" height="165" rx="3"/></clipPath>
+          <clipPath id="clipLP"><rect x="945" y="358" width="80" height="297" rx="3"/></clipPath>
+        </defs>
+
+        <!-- ══════════ 구역 프레임 ══════════ -->
+        <rect x="30" y="320" width="425" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="39" y="333">COMPRESSION &amp; PURIFICATION</text>
+        <rect x="465" y="320" width="570" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="474" y="333">COLD BOX</text>
+        <rect x="1075" y="320" width="485" height="380" fill="#eeefe9" stroke="#d8d9d3" stroke-width="1" stroke-dasharray="4 4" rx="4"/>
+        <text class="sect" x="1084" y="333">PRODUCT STORAGE</text>
+
+        <!-- ══════════ ① AIR FILTER ══════════ -->
+        <text class="pl" x="65" y="428" text-anchor="middle">AIR FILTER</text>
+        <text class="id" x="65" y="439" text-anchor="middle">F-101</text>
+        <rect class="eq" x="50" y="460" width="30" height="90" rx="2"/>
+        <path class="eqline" d="M54,471 L76,493 M54,495 L76,517 M54,519 L76,541"/>
+        <path class="pipe air" d="M80,505 H140" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ② AIR COMPRESSOR + MOTOR + 토출밸브 FV-202 ══════════ -->
+        <text class="pl" x="180" y="428" text-anchor="middle">AIR COMPRESSOR</text>
+        <text class="id" x="180" y="439" text-anchor="middle">K-201</text>
+        <polygon class="eq" points="140,462 240,476 240,534 140,548"/>
+        <path class="eqline" d="M165,466 V544 M190,470 V540 M215,473 V537"/>
+        <line x1="190" y1="548" x2="190" y2="582" stroke="#3a3a3a" stroke-width="1.8"/>
+        <circle class="eq" cx="190" cy="600" r="18"/>
+        <text class="pl" x="190" y="605" text-anchor="middle" style="font-size:12px">M</text>
+        <text class="pl" x="190" y="637" text-anchor="middle">MOTOR</text>
+        <text class="id" x="190" y="648" text-anchor="middle">M-202</text>
+        <path class="pipe air" d="M240,505 H330" marker-end="url(#mAir)"/>
+        <use href="#cv" x="248" y="486" width="20" height="26" style="color:#5a5a5a"/>
+        <text class="id" x="258" y="479" text-anchor="middle">FV-202</text>
+
+        <!-- ══════════ ③ ADSORBER A / B ══════════ -->
+        <text class="pl" x="387" y="428" text-anchor="middle">ADSORBER A / B</text>
+        <text class="id" x="387" y="439" text-anchor="middle">A-301 / A-302</text>
+        <path class="eq" d="M330,482 A25,25 0 0 1 380,482 V528 A25,25 0 0 1 330,528 Z"/>
+        <path d="M332,507 H378 M332,517 H378 M332,527 H378" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
+        <text class="pl" x="355" y="495" text-anchor="middle">A</text>
+        <path class="eq" d="M395,482 A25,25 0 0 1 445,482 V528 A25,25 0 0 1 395,528 Z"/>
+        <path d="M397,507 H443 M397,517 H443 M397,527 H443" fill="none" stroke="#c8c9c1" stroke-width="1.4"/>
+        <text class="pl" x="420" y="495" text-anchor="middle">B</text>
+        <path class="pipe air" d="M380,505 H395"/>
+        <path class="pipe air" d="M445,505 H490" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ④ MAIN HEAT EXCHANGER + FV-601 ══════════ -->
+        <text class="pl" x="530" y="428" text-anchor="middle">MAIN HEAT EXCHANGER</text>
+        <text class="id" x="530" y="439" text-anchor="middle">E-401</text>
+        <rect class="eq" x="490" y="465" width="80" height="80" rx="2"/>
+        <path class="eqline" d="M490,479 H570 M490,493 H570 M490,507 H570 M490,521 H570 M490,535 H570"/>
+        <path class="pipe air" d="M570,505 H650" marker-end="url(#mAir)"/>
+        <use href="#cv" x="578" y="486" width="20" height="26" style="color:#5a5a5a"/>
+        <text class="id" x="566" y="524" text-anchor="end">FV-601</text>
+        <path class="pipe air" d="M560,545 V584" marker-end="url(#mAir)"/>
+
+        <!-- ══════════ ⑤ TURBINE + GENERATOR ══════════ -->
+        <circle class="eq" cx="495" cy="613" r="18"/>
+        <text class="pl" x="495" y="618" text-anchor="middle" style="font-size:12px">G</text>
+        <line x1="513" y1="613" x2="530" y2="613" stroke="#3a3a3a" stroke-width="1.8"/>
+        <polygon class="eq" points="610,578 530,592 530,634 610,648"/>
+        <path class="eqline" d="M555,588 V638 M580,584 V643"/>
+        <text class="pl" x="495" y="668" text-anchor="middle">GENERATOR</text>
+        <text class="id" x="495" y="679" text-anchor="middle">G-502</text>
+        <text class="pl" x="580" y="668" text-anchor="middle">TURBINE</text>
+        <text class="id" x="580" y="679" text-anchor="middle">X-501</text>
+
+        <!-- ══════════ ⑥ HP COLUMN ══════════ -->
+        <rect x="650" y="490" width="80" height="165" rx="3" fill="#fafbf8"/>
+        <g clip-path="url(#clipHP)">
+          <path class="tray" d="M650,510 H730 M650,530 H730 M650,550 H730 M650,570 H730 M650,590 H730"/>
+          <rect x="650" y="614" width="80" height="41" fill="#6d9ce8"/>
+          <line x1="650" y1="614" x2="730" y2="614" stroke="#2f6bd8" stroke-width="1.8"/>
+        </g>
+        <rect x="650" y="490" width="80" height="165" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
+        <text class="lv" x="690" y="639" text-anchor="middle" style="fill:#fff">LIQ 25%</text>
+        <text class="pl" x="690" y="428" text-anchor="middle">HP COLUMN</text>
+        <text class="id" x="690" y="439" text-anchor="middle">C-701</text>
+
+        <!-- ══════════ ⑦ HP 상부 → LP 좌측 상부 이송 (FV-709) ══════════ -->
+        <path class="pipe air" d="M690,490 V360 H920 V385 H945" marker-end="url(#mAir)"/>
+        <use href="#cv" x="825" y="341" width="20" height="26" style="color:#5a5a5a"/>
+
+        <!-- ══════════ ⑧ LP COLUMN ══════════ -->
+        <rect x="945" y="358" width="80" height="297" rx="3" fill="#fafbf8"/>
+        <g clip-path="url(#clipLP)">
+          <path class="tray" d="M945,378 H1025 M945,403 H1025 M945,428 H1025 M945,453 H1025 M945,478 H1025 M945,503 H1025 M945,528 H1025 M945,553 H1025 M945,578 H1025"/>
+          <rect x="945" y="590" width="80" height="65" fill="#6d9ce8"/>
+          <line x1="945" y1="590" x2="1025" y2="590" stroke="#2f6bd8" stroke-width="1.8"/>
+        </g>
+        <rect x="945" y="358" width="80" height="297" rx="3" fill="none" stroke="#3a3a3a" stroke-width="1.4"/>
+        <text class="lv" x="985" y="617" text-anchor="middle" style="fill:#fff">LOX 22%</text>
+        <text class="pl" x="985" y="338" text-anchor="middle">LP COLUMN</text>
+        <text class="id" x="985" y="349" text-anchor="middle">C-702</text>
+
+        <!-- ══════════ ⑨ GN2 헤더 + VENT + FINAL SUPPLY ══════════ -->
+        <path class="pipe gn2" d="M1025,380 H1060 V100 H1540" marker-end="url(#mGn2)"/>
+        <text class="pl" x="1552" y="104" style="fill:#b98c00">GN2</text>
+
+        <circle cx="1135" cy="100" r="3.4" fill="#d9a400"/>
+        <path class="pipe gn2" d="M1135,100 V48" marker-end="url(#mGn2)"/>
+        <g transform="rotate(90 1135 74)"><use href="#cv" x="1125" y="55" width="20" height="26" style="color:#d9a400"/></g>
+        <text class="id" x="1112" y="77" text-anchor="end">PV-903</text>
+        <text class="cap" x="1135" y="34" text-anchor="middle" style="fill:#b98c00">VENT TO ATM</text>
+
+        <use href="#cv" x="1470" y="81" width="20" height="26" style="color:#d9a400"/>
+        <text class="id" x="1480" y="74" text-anchor="middle">PV-902</text>
+
+        <!-- ══════════ ⑩ LOX → TK-801 ══════════ -->
+        <path class="pipe lox" d="M985,655 V690 H1135 V628" marker-end="url(#mLox)"/>
+        <use href="#cv" x="1050" y="671" width="20" height="26" style="color:#2f6bd8"/>
+        <text class="id" x="1060" y="756" text-anchor="middle">LV-801</text>
+
+        <text class="pl" x="1135" y="396" text-anchor="middle">LOX TANK</text>
+        <text class="id" x="1135" y="407" text-anchor="middle">TK-801</text>
+        <path class="eq" d="M1107,440 A28,28 0 0 1 1163,440 V600 A28,28 0 0 1 1107,600 Z"/>
+        <rect x="1113" y="426" width="44" height="174" fill="#ffffff"/>
+        <rect x="1113" y="496" width="44" height="104" fill="#6d9ce8"/>
+        <line x1="1113" y1="496" x2="1157" y2="496" stroke="#2f6bd8" stroke-width="2"/>
+        <rect x="1113" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
+        <text class="lv" x="1135" y="526" text-anchor="middle" style="fill:#fff;font-size:10px">60%</text>
+
+        <!-- ══════════ ⑪ LIN → TK-802 ══════════ -->
+        <circle cx="1300" cy="100" r="3.4" fill="#d9a400"/>
+        <path class="pipe gn2" d="M1300,100 V690 H1435 V628" marker-end="url(#mGn2)"/>
+        <use href="#cv" x="1357" y="671" width="20" height="26" style="color:#d9a400"/>
+        <text class="id" x="1367" y="756" text-anchor="middle">LV-802</text>
+
+        <text class="pl" x="1435" y="396" text-anchor="middle">LIN TANK</text>
+        <text class="id" x="1435" y="407" text-anchor="middle">TK-802</text>
+        <path class="eq" d="M1407,440 A28,28 0 0 1 1463,440 V600 A28,28 0 0 1 1407,600 Z"/>
+        <rect x="1413" y="426" width="44" height="174" fill="#ffffff"/>
+        <rect x="1413" y="461" width="44" height="139" fill="#f0cf4e"/>
+        <line x1="1413" y1="461" x2="1457" y2="461" stroke="#d9a400" stroke-width="2"/>
+        <rect x="1413" y="426" width="44" height="174" style="fill:none;stroke:#a9a9a4;stroke-width:.9"/>
+        <text class="lvy" x="1435" y="491" text-anchor="middle" style="fill:#6b5200;font-size:10px">80%</text>
+
+        <!-- ══════════ TRANSMITTER : 취출점 → 스템 → ISA 밸룬 → 태그버스 ══════════ -->
+
+        <!-- K-201 토출 : PT-203 / FT-204 / TT-205 -->
+        <g class="tx txa">
+          <circle class="tap" cx="280" cy="505" r="2.4"/><circle class="tap" cx="297" cy="505" r="2.4"/><circle class="tap" cx="314" cy="505" r="2.4"/>
+          <path d="M280,505 V528 M297,505 V528 M314,505 V528"/>
+          <circle class="bal" cx="280" cy="535" r="7.5"/><circle class="bal" cx="297" cy="535" r="7.5"/><circle class="bal" cx="314" cy="535" r="7.5"/>
+          <text class="blt" x="280" y="537.5" text-anchor="middle">PT</text>
+          <text class="blt" x="297" y="537.5" text-anchor="middle">FT</text>
+          <text class="blt" x="314" y="537.5" text-anchor="middle">TT</text>
+          <path d="M280,543 V555 M297,543 V555 M314,543 V555 M280,555 H314 M297,555 V684"/>
+        </g>
+
+        <!-- A-301 / A-302 후단 수분 : MT-302 / MT-305 -->
+        <g class="tx txa">
+          <circle class="tap" cx="387" cy="505" r="2.4"/><path d="M387,505 V483"/>
+          <circle class="bal" cx="387" cy="475" r="7.5"/><text class="blt" x="387" y="477.5" text-anchor="middle">MT</text>
+          <circle class="tap" cx="467" cy="505" r="2.4"/><path d="M467,505 V483"/>
+          <circle class="bal" cx="467" cy="475" r="7.5"/><text class="blt" x="467" y="477.5" text-anchor="middle">MT</text>
+        </g>
+
+        <!-- COLD BOX INLET : FT-602 / TT-603 / PT-604 -->
+        <g class="tx txa">
+          <circle class="tap" cx="606" cy="505" r="2.4"/><circle class="tap" cx="623" cy="505" r="2.4"/><circle class="tap" cx="640" cy="505" r="2.4"/>
+          <path d="M606,505 V483 M623,505 V483 M640,505 V483"/>
+          <circle class="bal" cx="606" cy="475" r="7.5"/><circle class="bal" cx="623" cy="475" r="7.5"/><circle class="bal" cx="640" cy="475" r="7.5"/>
+          <text class="blt" x="606" y="477.5" text-anchor="middle">FT</text>
+          <text class="blt" x="623" y="477.5" text-anchor="middle">TT</text>
+          <text class="blt" x="640" y="477.5" text-anchor="middle">PT</text>
+          <path d="M606,467 V455 M623,467 V455 M640,467 V455 M606,455 H640 M623,455 V243"/>
+        </g>
+
+        <!-- X-501 인렛 : TT-501 / PT-502 -->
+        <g class="tx txa">
+          <circle class="tap" cx="560" cy="556" r="2.4"/><circle class="tap" cx="560" cy="574" r="2.4"/>
+          <path d="M560,556 H536 M560,574 H536"/>
+          <circle class="bal" cx="528" cy="556" r="7.5"/><circle class="bal" cx="528" cy="574" r="7.5"/>
+          <text class="blt" x="528" y="558.5" text-anchor="middle">TT</text>
+          <text class="blt" x="528" y="576.5" text-anchor="middle">PT</text>
+        </g>
+
+        <!-- FV-709 이송유량 : FT-710 -->
+        <g class="tx txa">
+          <circle class="tap" cx="900" cy="360" r="2.4"/><path d="M900,360 V342"/>
+          <circle class="bal" cx="900" cy="334" r="7.5"/><text class="blt" x="900" y="336.5" text-anchor="middle">FT</text>
+          <path d="M900,326 V318 M835,318 H900 M835,318 V282"/>
+        </g>
+        <text class="id" x="912" y="337" text-anchor="start">FV-709</text>
+
+        <!-- GN2 FINAL SUPPLY : PT-901 / FT-902 / MT-903 -->
+        <g class="tx txg">
+          <circle class="tap" cx="1400" cy="100" r="2.4"/><circle class="tap" cx="1417" cy="100" r="2.4"/><circle class="tap" cx="1434" cy="100" r="2.4"/>
+          <path d="M1400,100 V118 M1417,100 V118 M1434,100 V118"/>
+          <circle class="bal" cx="1400" cy="126" r="7.5"/><circle class="bal" cx="1417" cy="126" r="7.5"/><circle class="bal" cx="1434" cy="126" r="7.5"/>
+          <text class="blt" x="1400" y="128.5" text-anchor="middle">PT</text>
+          <text class="blt" x="1417" y="128.5" text-anchor="middle">FT</text>
+          <text class="blt" x="1434" y="128.5" text-anchor="middle">MT</text>
+          <path d="M1400,134 V144 M1417,134 V144 M1434,134 V144 M1400,144 H1434 M1417,144 V172"/>
+        </g>
+
+        <!-- VENT 유량 : FT-906 -->
+        <g class="tx txg">
+          <circle class="tap" cx="1135" cy="92" r="2.4"/><path d="M1135,92 H1110"/>
+          <circle class="bal" cx="1100" cy="92" r="7.5"/><text class="blt" x="1100" y="94.5" text-anchor="middle">FT</text>
+          <path d="M1135,108 V172"/>
+        </g>
+
+        <!-- ══════════ 시나리오 발생 알림창 (스크립트 생성) ══════════ -->
+        <g id="alarmPanel"></g>
+
+        <!-- ══════════ 태그 레이어 (스크립트 생성) ══════════ -->
+        <g id="tagLayer"></g>
+      </svg>
+
+      <div class="hmifoot">
+        <div>ZOOM</div><div>PRINT</div>
+        <div class="leg">
+          <i><s style="background:#5a5a5a"></s>AIR</i>
+          <i><s style="background:#d9a400"></s>GN2 · LIN</i>
+          <i><s style="background:#2f6bd8"></s>LOX</i>
+        </div>
+      </div>
+      </div><!-- /viewOverview -->
+
+      <div id="viewData" hidden>
+        <div class="dbar">
+          <label>샘플 주기
+            <select id="dStep"><option value="1">1초</option><option value="5" selected>5초</option><option value="10">10초</option><option value="60">60초</option></select>
+          </label>
+          <label>생성 길이
+            <select id="dDur"><option value="30">30분</option><option value="60" selected>60분</option><option value="240">4시간</option><option value="1440">24시간</option></select>
+          </label>
+          <button class="dbtn pri" id="dSave">저장</button>
+          <button class="dbtn" id="dGen">베이스라인 생성</button>
+          <button class="dbtn" id="dSpec">태그 마스터 CSV</button>
+          <button class="dbtn" id="dJson">JSON</button>
+          <button class="dbtn" id="dReset">기본값 복원</button>
+        </div>
+        <div id="dMsg"></div>
+
+        <div class="dsplit">
+          <div class="dtwrap">
+            <table class="dt">
+              <thead><tr>
+                <th>태그</th><th>설명</th><th>단위</th>
+                <th>정상값</th><th>정상↓</th><th>정상↑</th>
+                <th>LL</th><th>L</th><th>H</th><th>HH</th>
+                <th>드리프트</th><th>노이즈</th><th>외기T</th><th>외기H</th><th>연동 태그 (대상:이득:지연초)</th>
+              </tr></thead>
+              <tbody id="dBody"></tbody>
+            </table>
+          </div>
+
+          <div class="dside">
+            <h4 id="pvTag">태그를 선택하세요</h4>
+            <svg id="pvChart" viewBox="0 0 300 130"></svg>
+            <p id="pvNote" style="margin-top:6px">왼쪽 표에서 태그명을 누르면 그 태그의 60분 베이스라인 파형을 여기서 미리 봅니다. 드리프트·노이즈 단계를 바꾸면 즉시 다시 그립니다.</p>
+            <hr style="border:0;border-top:1px solid var(--line);margin:9px 0">
+            <p><b style="color:var(--ink)">드리프트</b> 1 완만 · 2 보통 · 3 큼 — 정상범위 폭의 2 / 6 / 12%<br>
+               <b style="color:var(--ink)">노이즈</b> 1 정밀 · 2 보통 · 3 거침 — 정상범위 폭의 0.5 / 1.5 / 3.5%<br><br>
+               <b style="color:var(--ink)">연동 태그</b> 예: <code>FI-602:0.95, PI-604:-0.4:20</code><br>
+               이 태그가 정상값에서 벗어난 만큼 대상 태그를 이득배로 따라 움직입니다. 세 번째 숫자는 반응 지연(초).</p>
+          </div>
+        </div>
+
+        <textarea id="dOut" readonly></textarea>
+      </div>
+
+      <div id="viewScen" hidden>
+        <div id="sWarn">
+          <b>연결 규약 준수</b> — 내보내기 형식은 <code>timestamp,tag,value</code> CSV · 2초 주기 · 12시간 1근무입니다 (<code>app/README.md</code>).
+          <b>날짜와 근무(주간/야간)를 골라 생성</b>합니다 — 누를 때마다 새로운 랜덤 데이터가 나옵니다.
+          이상은 근무 경계를 넘어 이어질 수 있고, 같은 태그에서 동시에 일어날 수도 있습니다. 정답지는 <b>별도 파일</b>로 분리합니다.
+        </div>
+
+        <div class="sgrid">
+          <div class="spanel">
+            <h4>주입 설정</h4>
+            <div class="dbar" style="display:block">
+              <label style="display:flex;margin-bottom:6px">날짜 <input id="sDate" type="date" value="2026-08-21" style="width:135px"></label>
+              <label style="display:flex;margin-bottom:6px">근무
+                <select id="sKind" style="width:155px">
+                  <option value="day">주간 (06~18시)</option>
+                  <option value="night">야간 (18~06시)</option>
+                </select>
+              </label>
+              <label style="display:flex;margin-bottom:8px">방식
+                <select id="sMode" style="width:155px">
+                  <option value="rand">랜덤 6~10종</option>
+                  <option value="manual">아래에서 직접 선택</option>
+                </select>
+              </label>
+            </div>
+            <div class="schk" id="sList"></div>
+            <button class="dbtn pri" id="sRun" style="width:100%;margin-top:8px">시나리오 주입 &amp; 생성</button>
+            <button class="dbtn" id="sReset" style="width:100%;margin-top:5px">처음부터 다시</button>
+            <p class="note" style="margin-top:6px">같은 날짜·근무를 다시 생성하면 이전 것을 새 랜덤 데이터로 대체합니다. 직전 근무의 바로 다음 근무를 만들면 근무를 넘는 이상이 이어집니다.</p>
+          </div>
+
+          <div class="spanel">
+            <h4 id="sHead">아직 생성하지 않았습니다</h4>
+            <svg id="sTl" viewBox="0 0 720 60"></svg>
+            <div id="sMsg">날짜와 근무를 정하고 좌측 버튼을 누르세요.</div>
+            <div id="sTbl"></div>
+            <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="dbtn" id="sCsv" disabled>이 근무 CSV</button>
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--sub)">결함
+                <select id="sDef" style="font-size:11px;padding:2px 4px;border:1px solid #a9a9a4;border-radius:3px">
+                  <option value="">없음</option>
+                  <option value="empty">빈 값</option>
+                  <option value="bad">깨진 값</option>
+                  <option value="mix">혼합</option>
+                </select>
+                <input id="sDefR" type="number" value="0.2" step="0.1" min="0" max="20" style="width:52px;font-size:11px;padding:2px 4px;border:1px solid #a9a9a4;border-radius:3px">%
+              </label>
+              <button class="dbtn" id="sAns" disabled>이 근무 답안지</button>
+              <button class="dbtn" id="sAll" disabled>통합 답안지</button>
+            </div>
+            <p class="note" style="margin-top:6px">파일 저장은 GitHub Pages 주소에서만 됩니다. 아티팩트 미리보기 화면은 브라우저가 다운로드를 차단합니다.</p>
+          </div>
+        </div>
+
+        <div class="spanel" style="margin-top:9px">
+          <h4>과거 기록 <span id="sHistCnt" style="color:#6b7280;font-weight:400"></span></h4>
+          <div id="sHist"></div>
+          <p class="note" style="margin-top:6px">CSV 는 최근 3근무만 다시 받을 수 있습니다. 생성한 근무의 CSV 와 답안지는 그 자리에서 함께 저장하세요 — 그 이전 근무를 다시 만들면 새 랜덤 데이터가 됩니다.</p>
+        </div>
+      </div>
+
+      <div id="viewRtdb" hidden>
+        <div class="rbar">
+          <b style="color:var(--ink)">근무 선택</b>
+          <span id="rShifts"></span>
+          <span style="margin-left:auto">셀 = 그 시각 1시간 평균 (2초 원시값 1,800점) · 색 = 그 시각에 한계 초과 순간 존재 (<b style="color:#8a5a00">주황 H/L</b> · <b style="color:#c0392b">빨강 HH/LL</b>) · 태그를 누르면 우측에 12시간 트렌드</span>
+        </div>
+        <div class="rsplit">
+          <div class="rtwrap" id="rTbl"></div>
+          <div class="dside">
+            <h4 id="rTag">태그를 선택하세요</h4>
+            <svg id="rChart" viewBox="0 0 300 150"></svg>
+            <p id="rNote" style="margin-top:6px">왼쪽 표에서 태그를 누르면 선택한 근무 12시간의 트렌드(1분 평균 720점)를 여기서 봅니다. 초록 밴드가 정상 범위, 점선이 알람 한계입니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary>태그 명명 규칙 · 라인 구성</summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px 24px;font-size:12.5px;color:var(--sub)">
+      <div><b style="color:var(--ink)">접두 알파벳</b> — T 온도 · P 압력 · PD 차압 · F 유량 · L 레벨 · A 분석(순도·O₂) · M 수분 · Z 밸브개도 · S 회전수 · J 전력</div>
+      <div><b style="color:var(--ink)">번호 블록</b> — 100 Air Filter / 200 Compressor / 300 Adsorber / 400 Main HX / 500 Turbine / 600 Cold Box Inlet / 700 Column / 800 Tank / 900 GN2·Vent</div>
+      <div><b style="color:var(--ink)">단위</b> — 압력 bar · 온도 ℃ · 개도 % · 유량 Nm3/h · 전력 kW · 분석 ppm · 회전수 rpm</div>
+      <div><b style="color:var(--ink)">Transmitter</b> — 배관 취출점(점) → 스템 → ISA 밸룬(PT·FT·TT·MT) → 태그버스 → 태그 박스 순으로 연결합니다.</div>
+      <div><b style="color:var(--ink)">밸브 개도</b> — ZI 태그는 해당 밸브 바로 위/아래에 붙이고, 박스 안 막대로 개도를 함께 표시합니다. IGV(ZI-201·ZI-505)와 심볼이 없는 터빈 토출밸브(ZI-506)는 유닛 스택에 둡니다.</div>
+      <div><b style="color:#5a5a5a">AIR</b> Filter → Compressor(FV-202) → Adsorber A/B → Main HX(FV-601) → HP Column → FV-709 → LP Column<br>
+           <b style="color:#b98c00">GN2</b> LP 상부 → 헤더 → PV-902 &nbsp;·&nbsp; <b style="color:#b98c00">VENT</b> PV-903 대기방출<br>
+           <b style="color:#2f6bd8">LOX</b> LP 하부 → LV-801 → TK-801 &nbsp;·&nbsp; <b style="color:#b98c00">LIN</b> GN2 분기 → LV-802 → TK-802</div>
+    </div>
+  </details>
+
+  <p class="note">임도영 스케치 기준 · <code>demo/index.html</code>의 HMI 미믹 스타일 계승 · 태그 53점 (스택 46 + 밸브 개도 7)</p>
+
+</div>
+
+  <div id="sModal" hidden>
+    <div class="mbox">
+      <div class="mhead"><b id="mTitle"></b><button class="dbtn" id="mClose">닫기</button></div>
+      <div id="mBody"></div>
+    </div>
+  </div>
+
+
+<script>
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var BW = 54, BH = 34, GX = 5, RP = 39;
+
+  // ── 유닛별 태그 스택 ──
+  // cx 중심 / y 첫행상단 / cap 캡션 / g 세로가이드[y1,y2] (null = TX 태그버스가 대신 연결)
+  // col:1 = 1열 세로 / flat:1 = 1행 가로 / side:'L'|'R' + tick = 유닛 옆 세로배치
+  var STACKS = [
+    {cx:65,   y:170, cap:'AIR FILTER',      g:[248,420], t:[
+      ['TI-101','28.5','℃'],['MI-102','68.5','%'],['PDI-103','0.012','bar']]},
+
+    {cx:387,  y:170, cap:'ADSORBER A / B',  g:[287,420], t:[
+      ['TI-301','32.1','℃'],['MI-302','0.8','ppm'],['PDI-303','0.08','bar'],
+      ['TI-304','168.4','℃'],['MI-305','1.1','ppm'],['PDI-306','0.09','bar']]},
+
+    {cx:500,  y:170, cap:'MAIN HEAT EXCH',  g:[287,420], col:1, t:[
+      ['TI-401','12.4','℃'],['AI-402','1.8','%'],['TI-403','-172.5','℃']]},
+
+    {cx:623,  y:170, cap:'COLD BOX INLET',  g:null, t:[
+      ['FI-602','39800','Nm3/h'],['TI-603','-168.0','℃'],['PI-604','5.60','bar']]},
+
+    {cx:835,  y:248, cap:'FV-709 TRANSFER', g:null, t:[
+      ['FI-710','21400','Nm3/h']]},
+
+    {cx:1135, y:180, cap:'VENT',            g:null, t:[
+      ['FI-906','1250','Nm3/h']]},
+
+    {cx:1417, y:180, cap:'GN2 SUPPLY',      g:null, flat:1, t:[
+      ['PI-901','4.85','bar'],['FI-902','18600','Nm3/h'],['MI-903','0.4','ppm']]},
+
+    {cx:297,  y:698, cap:'AIR COMPRESSOR',  g:null, t:[
+      ['ZI-201','68.4','%'],['PI-203','5.85','bar'],['FI-204','42500','Nm3/h'],
+      ['TI-205','108.6','℃'],['JI-206','3240','kW']]},
+
+    {cx:580,  y:698, cap:'TURBINE',         g:null, t:[
+      ['TI-501','-142.0','℃'],['PI-502','5.42','bar'],['TI-503','-178.3','℃'],
+      ['PI-504','1.28','bar'],['ZI-505','55.0','%'],['ZI-506','47.5','%'],['SI-507','18450','rpm']]},
+
+    // 컬럼 : HP는 우측, LP는 좌측 세로배치
+    {cx:767,  y:490, cap:'HP COLUMN', col:1, side:'L', tick:730, t:[
+      ['LI-701','25.4','%'],['PDI-702','0.31','bar'],['AI-703','38.2','%'],['TI-704','-178.0','℃']]},
+
+    {cx:903,  y:490, cap:'LP COLUMN', col:1, side:'R', tick:945, t:[
+      ['LI-705','22.1','%'],['PDI-706','0.24','bar'],['AI-707','99.6','%'],['TI-708','-183.5','℃']]},
+
+    // 탱크 : 각 탱크 우측 세로배치
+    {cx:1205, y:440, cap:'LOX TANK', col:1, side:'L', tick:1163, t:[
+      ['LI-802','60.0','%'],['AI-803','99.7','%'],['MI-804','0.5','ppm']]},
+
+    {cx:1505, y:440, cap:'LIN TANK', col:1, side:'L', tick:1463, t:[
+      ['LI-806','80.0','%'],['AI-807','99.9','%'],['MI-808','0.3','ppm']]}
+  ];
+
+  // ── 밸브 개도(ZI) : 해당 밸브 바로 위/아래 + 개도 막대 / gp = 밸브까지 연결선 ──
+  var VALVES = [
+    {cx:258,  y:428, n:'ZI-202', v:82.0, gp:'M258,462 V486'},
+    {cx:615,  y:525, n:'ZI-601', v:74.2, gp:'M588,511 V518 H615 V525'},
+    {cx:835,  y:374, n:'ZI-709', v:61.0, gp:'M835,366 V374'},
+    {cx:1060, y:706, n:'ZI-801', v:45.0, gp:'M1060,696 V706'},
+    {cx:1367, y:706, n:'ZI-805', v:38.5, gp:'M1367,696 V706'},
+    {cx:1480, y:118, n:'ZI-904', v:72.0, gp:'M1480,107 V118'},
+    {cx:1195, y:57,  n:'ZI-905', v:8.5,  gp:'M1148,74 H1168'}
+  ];
+
+  function el(name, attrs){
+    var n = document.createElementNS(NS, name);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+  function txt(cls, x, y, s){
+    var n = el('text', {'class':cls, x:x, y:y, 'text-anchor':'middle'});
+    n.textContent = s;
+    return n;
+  }
+
+  var layer = document.getElementById('tagLayer');
+  if (!layer) return;
+
+  STACKS.forEach(function(S){
+    var g = el('g', {});
+    if (S.g) g.appendChild(el('line', {'class':'guide', x1:S.cx, y1:S.g[0], x2:S.cx, y2:S.g[1]}));
+    g.appendChild(txt('tcap', S.cx, S.y - 8, S.cap));
+
+    var n = S.t.length;
+    S.t.forEach(function(tag, i){
+      var x, y;
+      if (S.flat){
+        x = S.cx - (n * BW + (n - 1) * GX) / 2 + i * (BW + GX);
+        y = S.y;
+      } else if (S.col){
+        x = S.cx - BW / 2;
+        y = S.y + i * RP;
+      } else {
+        var row = Math.floor(i / 2), col = i % 2;
+        var solo = (i === n - 1) && (n % 2 === 1);
+        x = solo ? (S.cx - BW / 2) : (col === 0 ? S.cx - BW - GX / 2 : S.cx + GX / 2);
+        y = S.y + row * RP;
+      }
+      if (S.side){
+        var ex = (S.side === 'L') ? x : x + BW;
+        g.appendChild(el('line', {'class':'guide', x1:ex, y1:y + BH / 2, x2:S.tick, y2:y + BH / 2}));
+      }
+      // 태그마다 별도 그룹. 시나리오 주입 결과를 화면에 표시할 때 이 표식으로 찾는다.
+      var tg = el('g', {'data-tag': tag[0]});
+      tg.appendChild(el('rect', {'class':'tbox', x:x, y:y, width:BW, height:BH, rx:2}));
+      tg.appendChild(txt('tn', x + BW / 2, y + 11, tag[0]));
+      tg.appendChild(txt('tv', x + BW / 2, y + 22.5, tag[1]));
+      tg.appendChild(txt('tu', x + BW / 2, y + 31, tag[2]));
+      g.appendChild(tg);
+    });
+    layer.appendChild(g);
+  });
+
+  VALVES.forEach(function(V){
+    var g = el('g', {'data-tag': V.n});
+    var x = V.cx - BW / 2, y = V.y;
+    g.appendChild(el('path', {'class':'guide', d:V.gp}));
+    g.appendChild(el('rect', {'class':'zbox', x:x, y:y, width:BW, height:BH, rx:2}));
+    g.appendChild(txt('tn', x + BW / 2, y + 10, V.n));
+    g.appendChild(txt('tv', x + BW / 2, y + 21, V.v.toFixed(1) + ' %'));
+    g.appendChild(el('rect', {'class':'bartrk', x:x + 5, y:y + 25, width:44, height:4.5, rx:1}));
+    g.appendChild(el('rect', {'class':'barfil', x:x + 5, y:y + 25, width:44 * V.v / 100, height:4.5, rx:1}));
+    layer.appendChild(g);
+  });
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   DATA DETAIL — 태그 마스터 · 베이스라인 생성기
+   ══════════════════════════════════════════════════════════════ */
+(function(){
+  var NS = 'http://www.w3.org/2000/svg';
+  var LSKEY = 'engra_water_tagmaster_v1';
+
+  // 드리프트/노이즈 단계 → 정상범위 폭 대비 비율
+  var DRIFT = [0.02, 0.06, 0.12];
+  var NOISE = [0.005, 0.015, 0.035];
+
+  /* ── 외기 일주기 (여름 기준) ────────────────────────────────
+     TI-101 대기온도 24.0 → 33.0℃ · MI-102 대기습도 82 → 55% (역위상)
+     최저 05시 · 최고 15시. 실제 일교차는 상승 10시간·하강 14시간으로
+     비대칭이므로 반코사인 두 구간을 이어 붙인다.                     */
+  var AMBT = {tag:'TI-101', base:24.0, span:9.0,  minH:5, maxH:15};
+  var AMBH = {tag:'MI-102', base:82.0, span:-27.0};
+
+  function diurnal(hourOfDay){          // 05시 0 → 15시 1 → 다음날 05시 0
+    var h = ((hourOfDay % 24) + 24) % 24, a = AMBT.minH, b = AMBT.maxH;
+    if (h >= a && h <= b) return (1 - Math.cos(Math.PI * (h - a) / (b - a))) / 2;
+    var span = 24 - (b - a);
+    var d = h > b ? h - b : h + 24 - b;
+    return (1 + Math.cos(Math.PI * d / span)) / 2;
+  }
+
+  /* ── 외기 감도 [온도, 습도] ─────────────────────────────────
+     수처리에서 외기가 들어오는 경로는 ASU 와 다르다.
+       ① 원수 수온 — 기온을 따라간다. 수온이 점도를 바꾸고, 점도가 막
+          투과저항(TMP)을 지배한다. 수처리에서 가장 굵은 외기 경로다.
+       ② 냉각탑 — 습구온도 지배라 습도 감도가 크다. 증발량이 농축배수
+          (전도도)와 블로다운까지 끌고 간다.
+       ③ 강우 — 원수·상등수 탁도를 올린다. 습도로 대리한다.
+     제외 : 제어로 유지되는 레벨·압력·전력,
+            TMS 분석값(방류 수질은 공정 운전이 지배)
+
+     외기 태그 이름을 ASU 와 같은 TI-101 · MI-102 로 둔 것은 의도다.
+     engine/core.py 의 NOISE_TAGS 가 그 두 이름으로 선언돼 있어서,
+     같게 두면 ASU 코드를 한 줄도 고치지 않고 외기 보정이 그대로 돈다.
+     태그 마스터와 DB 가 공정별로 분리돼 있어 이름이 겹쳐도 섞이지 않는다. */
+  var AMB = {
+    /* 원수·전처리 */
+    'TT-03' :[ 0.85, 0   ],   // 지표수 수온이 기온을 따라간다
+    'TUR-02':[ 0,    0.35],   // 강우 시 원수 탁도 상승
+    'CI-904':[-0.35, 0   ],   // 저수온에서 응집 효율이 떨어져 주입률을 올린다
+    'CI-902':[ 0.30, 0   ],   // 수온 상승 → 미생물 부하 증가
+    /* 막여과 — 수온이 점도를 통해 TMP 를 지배한다 */
+    'VPT-01':[-0.50, 0   ],   // 수온↑ → 점도↓ → 흡인압이 낮아진다
+    'FI-201':[ 0.30, 0   ],   // 같은 원인으로 투과 유량은 늘어난다
+    /* 냉각탑 — 습구온도 지배 */
+    'FI-302':[ 0.55, 0.20],   // 냉각 부하 증가
+    'TT-02' :[ 0.70, 0.45],   // 습하면 냉각 효율이 떨어져 출구 수온이 오른다
+    'AT-04' :[ 0.40,-0.30],   // 증발 농축. 습하면 증발이 줄어 농축도 덜하다
+    'FI-602':[ 0.30,-0.25],   // 농축을 따라가는 블로다운
+    /* CIP — 세정 안 하는 구간에는 탱크가 외기를 따라간다.
+       값이 실제로 움직여야 고착 검출기에 걸리지 않는다. */
+    'TT-01' :[ 0.55, 0   ],
+    /* 폐수 회수 */
+    'TUR-03':[ 0,    0.25]    // 강우 유입분
+  };
+
+  // 물리적으로 불가능한 값 방지. % 는 0~100, 나머지는 0 이상.
+  function clampPhysical(D, ids){
+    ids.forEach(function(id){
+      var u = state[id].unit, a = D[id], lo = 0, hi = Infinity;
+      if (u === '%') hi = 100;
+      else if (u === '℃') { lo = -273; }
+      for (var i = 0; i < a.length; i++){
+        if (a[i] < lo) a[i] = lo; else if (a[i] > hi) a[i] = hi;
+      }
+    });
+  }
+
+  // id, 설명, 단위, 정상값, 정상↓, 정상↑, LL, L, H, HH, 드리프트, 노이즈, 연동
+  var DEFAULTS = [
+    ['#000', 'AMBIENT'],
+    ['TI-101','외기 온도','℃',28.5,10,35,-5,0,35,40,1,1,''],
+    ['MI-102','외기 습도','%',68.5,30,85,'',20,85,95,1,1,''],
+
+    ['#100', 'PRE TREATMENT  S-8445 / S-8446 / D-8499-01'],
+    ['TT-03','원수 수온','℃',18,8,28,2,5,30,33,2,1,'VPT-01:-0.45:600, CI-904:-0.30:300'],
+    ['TUR-02','원수 탁도','NTU',3.5,1,8,'',0.5,12,20,2,2,'CI-904:0.55:60, VPT-01:0.30:1800'],
+    ['FI-101','원수 유량 (10-S8445-01)','m3/h',180,150,200,100,130,200,210,1,2,'PDI-101:-0.35, LT-01:0.50:120'],
+    ['PDI-101','Strainer 차압 (10-S8445-01)','bar',0.15,0.08,0.3,'','',0.45,0.6,2,2,'FI-101:-0.30'],
+    ['FI-102','Cation Resin 처리 유량 (10-S8446-01A/B)','m3/h',11,8,13,5,7,13,14,1,2,''],
+    ['PH-01','전처리 pH','',7.2,6.8,7.6,6,6.5,8,8.5,1,2,'CI-901:-0.50:120, CI-903:0.50:120'],
+    ['LT-01','Distribution Channel 수위 (10-D8499-01B)','%',62,45,80,20,30,85,92,1,1,'FI-201:0.45:60'],
+
+    ['#200', 'UF MEMBRANE  D-8499-02A/B/C / P-8469-01 / C-8461-01'],
+    ['VPT-01','흡인압 / TMP','kPa',104,95,115,'',90,125,140,3,1,'JI-201A:0.60, FI-201:-0.45:60'],
+    ['TUR-01','투과수 탁도','NTU',0.045,0.01,0.09,'','',0.1,0.3,1,2,'AT-01:0.35:60'],
+    ['AT-01','여과수 전도도','uS/cm',145,120,180,'','',220,280,2,1,''],
+    ['LT-02','막조 수위 (10-D8499-02A/B/C)','%',72,60,85,35,50,90,95,1,1,'FI-201:-0.35:30'],
+    ['FI-201','투과수 유량 (3계열 합산)','m3/h',300,260,330,180,230,336,350,2,2,'JI-201A:0.70, LT-03A:0.40:180'],
+    ['JI-201A','Process Pump A 전력 (10-P8469-01A)','kW',9.2,7.5,10.5,'',6.5,11,12,1,2,''],
+    ['JI-201B','Process Pump B 전력 (10-P8469-01B)','kW',9.2,7.5,10.5,'',6.5,11,12,1,2,''],
+    ['JI-201C','Process Pump C 전력 (10-P8469-01C)','kW',9.2,7.5,10.5,'',6.5,11,12,1,2,''],
+    ['ZI-201A','Process Pump A 인버터 주파수 (10-P8469-01A)','%',68,50,85,'',40,92,97,1,1,'JI-201A:0.85, FI-201:0.60'],
+    ['ZI-201B','Process Pump B 인버터 주파수 (10-P8469-01B)','%',68,50,85,'',40,92,97,1,1,'JI-201B:0.85'],
+    ['ZI-201C','Process Pump C 인버터 주파수 (10-P8469-01C)','%',68,50,85,'',40,92,97,1,1,'JI-201C:0.85'],
+    ['PI-202A','Blower A 토출압 (10-C8461-01A)','kPa',35,30,40,22,26,45,52,1,2,'FI-202A:0.75'],
+    ['PI-202B','Blower B 토출압 (10-C8461-01B)','kPa',35,30,40,22,26,45,52,1,2,'FI-202B:0.75'],
+    ['FI-202A','Blower A 공기량 (10-C8461-01A)','Nm3/h',833,750,900,600,680,920,980,1,2,'VPT-01:-0.30:600'],
+    ['FI-202B','Blower B 공기량 (10-C8461-01B)','Nm3/h',833,750,900,600,680,920,980,1,2,'VPT-01:-0.30:600'],
+    ['JI-202A','Blower A 전력 (10-C8461-01A)','kW',16,13,18,'',11,18.5,20,1,2,'PI-202A:0.70'],
+    ['JI-202B','Blower B 전력 (10-C8461-01B)','kW',16,13,18,'',11,18.5,20,1,2,'PI-202B:0.70'],
+    ['FI-203A','Drain Pump A 유량 (10-P8469-02A)','m3/h',10,6,12,'',3,12,13,1,2,''],
+    ['FI-203B','Drain Pump B 유량 (10-P8469-02B)','m3/h',10,6,12,'',3,12,13,1,2,''],
+    ['FI-203C','Drain Pump C 유량 (10-P8469-02C)','m3/h',10,6,12,'',3,12,13,1,2,''],
+
+    ['#300', 'FILTERED WATER  D-8499-03A/B / P-8469-03A/B'],
+    ['LT-03A','여과수 탱크 A 수위 (10-D8499-03A)','%',65,40,85,15,25,90,95,2,1,'FI-301A:-0.55:60'],
+    ['LT-03B','여과수 탱크 B 수위 (10-D8499-03B)','%',65,40,85,15,25,90,95,2,1,'FI-301B:-0.55:60'],
+    ['FI-301A','Transfer Pump A 유량 (10-P8469-03A)','m3/h',150,120,170,80,100,172,180,2,2,'PI-301:0.65, JI-301A:0.80, FI-302:0.50'],
+    ['FI-301B','Transfer Pump B 유량 (10-P8469-03B)','m3/h',150,120,170,80,100,172,180,2,2,'PI-301:0.65, JI-301B:0.80'],
+    ['PI-301','여과수 공급 압력','bar',8.8,8.2,9.3,7,7.8,9.6,10.2,2,2,''],
+    ['JI-301A','Transfer Pump A 전력 (10-P8469-03A)','kW',62,50,70,'',42,75,82,1,2,''],
+    ['JI-301B','Transfer Pump B 전력 (10-P8469-03B)','kW',62,50,70,'',42,75,82,1,2,''],
+    ['FI-302','냉각탑 공급 유량','m3/h',55,35,80,15,25,90,100,2,2,'AT-04:-0.40:300, LT-03A:-0.45:120'],
+    ['FI-303','Fab 공급 유량','m3/h',95,70,120,40,55,130,145,1,2,'LT-03B:-0.45:120'],
+
+    ['#400', 'COOLING TOWER'],
+    ['AT-04','냉각탑 순환수 전도도 (농축배수 관리)','uS/cm',1200,800,1800,'',600,2200,2800,2,2,'FI-602:0.65:600'],
+    ['TT-02','냉각탑 출구 수온','℃',32,25,38,15,20,42,46,2,2,'AT-04:0.30:900'],
+    ['FI-602','냉각탑 B/D 유량','m3/h',8,4,14,'',2,20,26,1,2,'LT-07:0.55:120'],
+    ['LT-07','냉각탑 B/D 집수조 수위','%',48,25,75,8,15,85,92,2,1,'LT-06:0.50:300'],
+
+    ['#500', 'CIP  D-8499-04'],
+    ['TT-01','CIP 세정온도 (10-D8499-04, 세정 중에만 유효)','℃',98,92,103,'',88,105,110,2,2,''],
+    ['AT-02','CIP 폐수 pH','',7,6,8.5,4,5.5,9.5,11,2,2,'AT-03:-0.40:60'],
+    ['AT-03','CIP 폐수 ORP','mV',250,150,400,'',80,600,750,2,2,''],
+    ['LT-04','CIP Tank 수위 (10-D8499-04)','%',55,30,80,10,20,90,95,2,1,'TT-01:0.25'],
+
+    ['#600', 'WASTE WATER RECOVERY  D-8299-06'],
+    ['LT-06','WW Transfer Tank 수위','%',45,20,75,5,10,85,92,2,1,'FI-203A:0.40:180'],
+    ['AT-06','중화조 pH','',7.2,6.5,8,5,6,8.8,9.5,2,2,'CI-903:0.60:90, CI-901:-0.60:90, PH-02:0.75:300'],
+    ['LT-08','Clarifier 상등수 수위 (10-D8299-06)','%',70,55,85,'',45,90,95,1,1,'FI-601:-0.45:120, FI-603:-0.35:120'],
+    ['TUR-03','Clarifier 상등수 탁도 (10-D8299-06)','NTU',4,1,10,'','',15,25,2,2,'CI-909:-0.50:180, QI-802:0.70:240'],
+    ['FI-601','상등수 재이용 유량','m3/h',18,10,28,'',5,35,42,2,2,''],
+
+    ['#700', 'TMS DISCHARGE'],
+    ['PH-02','방류수 pH (TMS · 실설비 확인 필요)','',7.3,6.5,8.2,5.5,6,8.6,9,1,2,''],
+    ['QI-801','방류수 TOC (TMS · 실설비 확인 필요)','mg/L',8,3,15,'','',25,40,2,2,''],
+    ['QI-802','방류수 SS (TMS · 실설비 확인 필요)','mg/L',6,2,12,'','',20,30,2,2,''],
+    ['QI-803','방류수 T-N (TMS · 실설비 확인 필요)','mg/L',12,5,20,'','',30,45,1,2,''],
+    ['QI-804','방류수 T-P (TMS · 실설비 확인 필요)','mg/L',0.6,0.2,1.2,'','',2,3,1,2,''],
+    ['FI-603','방류 유량 (TMS · 실설비 확인 필요)','m3/h',12,5,22,'',2,30,38,2,2,''],
+
+    ['#800', 'CHEMICAL DOSING  CP-8496'],
+    ['CI-901','H2SO4 주입률 (10-CP8496-01A/B)','L/h',4.5,2,8,'','',12,16,1,2,''],
+    ['CI-902','NaOCl 12.6% 주입률 (10-CP8496-02A/B)','L/h',6,3,10,'','',14,18,1,2,''],
+    ['CI-903','NaOH 5% 주입률','L/h',5,2,9,'','',13,17,1,2,''],
+    ['CI-904','Coagulant 주입률','L/h',9,5,15,'','',20,26,2,2,''],
+    ['CI-905','SBS 38% 주입률','L/h',3.2,1,6,'','',9,12,1,2,'AT-03:-0.55:60'],
+    ['CI-907','Antiscalant 주입률','L/h',2.4,1,4.5,'','',6,8,1,1,''],
+    ['CI-908','동부식방지제 주입률','L/h',1.8,0.8,3.5,'','',5,6.5,1,1,''],
+    ['CI-909','Polymer 주입률','L/h',2.8,1,5,'','',7,9,1,2,'']
+
+  ];
+
+  var COLS = ['nom','lo','hi','LL','L','H','HH'];
+
+  function baseState(){
+    var s = {};
+    DEFAULTS.forEach(function(r){
+      if (r[0].charAt(0) === '#') return;
+      var a = AMB[r[0]] || [0, 0];
+      s[r[0]] = {desc:r[1], unit:r[2], nom:r[3], lo:r[4], hi:r[5],
+                 LL:r[6], L:r[7], H:r[8], HH:r[9], drift:r[10], noise:r[11], links:r[12],
+                 ambT:a[0], ambH:a[1]};
+    });
+    return s;
+  }
+
+  var state = baseState();
+  try {
+    var saved = localStorage.getItem(LSKEY);
+    if (saved){
+      var o = JSON.parse(saved);
+      Object.keys(state).forEach(function(k){ if (o[k]) Object.assign(state[k], o[k]); });
+    }
+  } catch(e){}
+
+  var sel = null;
+  var $ = function(id){ return document.getElementById(id); };
+  function msg(t, ok){ var m = $('dMsg'); m.textContent = t; m.style.color = ok === false ? '#b45309' : '#1a7f37'; }
+
+  /* ── 표 그리기 ── */
+  function buildTable(){
+    var tb = $('dBody');
+    tb.innerHTML = '';
+    DEFAULTS.forEach(function(r){
+      var tr = document.createElement('tr');
+      if (r[0].charAt(0) === '#'){
+        tr.className = 'grp';
+        tr.innerHTML = '<td colspan="15">' + r[1] + '</td>';
+        tb.appendChild(tr);
+        return;
+      }
+      var id = r[0], d = state[id];
+      tr.dataset.id = id;
+
+      var h = '<td><span class="tg">' + id + '</span></td>'
+            + '<td class="ds">' + d.desc + '</td>'
+            + '<td class="ds">' + d.unit + '</td>';
+      COLS.forEach(function(c){
+        h += '<td' + (['LL','L','H','HH'].indexOf(c) >= 0 ? ' class="al"' : '') + '>'
+           + '<input data-f="' + c + '" value="' + (d[c] === '' ? '' : d[c]) + '"></td>';
+      });
+      h += '<td><select data-f="drift">' + opt(d.drift) + '</select></td>'
+         + '<td><select data-f="noise">' + opt(d.noise) + '</select></td>'
+         + '<td class="am"><input data-f="ambT" value="' + d.ambT + '"></td>'
+         + '<td class="am"><input data-f="ambH" value="' + d.ambH + '"></td>'
+         + '<td><input class="lnk" data-f="links" value="' + d.links + '"></td>';
+      tr.innerHTML = h;
+      tb.appendChild(tr);
+    });
+  }
+  function opt(v){
+    return [1,2,3].map(function(n){
+      return '<option value="' + n + '"' + (n === +v ? ' selected' : '') + '>' + n + '</option>';
+    }).join('');
+  }
+
+  function onEdit(e){
+    var t = e.target, f = t.dataset.f;
+    if (!f) return;
+    var id = t.closest('tr').dataset.id;
+    var v = t.value.trim();
+    if (f === 'links') state[id][f] = v;
+    else if (f === 'drift' || f === 'noise') state[id][f] = +v;
+    else if (f === 'ambT' || f === 'ambH') state[id][f] = (v === '' ? 0 : +v);
+    else state[id][f] = (v === '' ? '' : (isNaN(+v) ? v : +v));
+    if (id === sel) drawPreview();
+  }
+
+  function select(id){
+    sel = id;
+    Array.prototype.forEach.call($('dBody').rows, function(r){
+      r.classList.toggle('sel', r.dataset.id === id);
+    });
+    drawPreview();
+  }
+
+  /* ── 시드 난수 (재현성) ── */
+  function rng(seed){
+    var a = seed >>> 0;
+    return function(){
+      a += 0x6D2B79F5;
+      var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(rnd){
+    var u = 1 - rnd(), v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function hash(s){ var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+
+  /* 3-입력 해시 난수. 값이 전역 인덱스만으로 정해지므로 근무를 나눠 생성해도
+     경계에서 파형이 끊기지 않고, 아무 근무나 독립적으로 재생성할 수 있다. */
+  function hrnd(a,b,c){
+    var h = (a ^ Math.imul(b,0x27d4eb2d) ^ Math.imul(c,0x85ebca6b)) | 0;
+    h = Math.imul(h ^ (h>>>15), 0x2c1b3c6d); h ^= h>>>12;
+    h = Math.imul(h, 0x297a2d39); h ^= h>>>15;
+    return (h>>>0) / 4294967296;
+  }
+  function gaussAt(seed, th, i){
+    var u = 1 - hrnd(seed, th, i*2+1), v = hrnd(seed, th, i*2+2);
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  /* ── 태그 1개 베이스라인 ──────────────────────────────────
+     외기 두 태그는 24시간 일주기를 따르고, 나머지는 드리프트+노이즈.
+     startHour = 전체 데이터 시작 시각 / gOffset = 전체 시작부터의 스텝 오프셋. */
+  function series(id, seed, stepSec, n, startHour, gOffset){
+    var d = state[id];
+    var nom = +d.nom, lo = +d.lo, hi = +d.hi;
+    var range = Math.abs(hi - lo) || Math.abs(nom) * 0.1 || 1;
+    var sig = range * NOISE[Math.min(2, Math.max(0, d.noise - 1))];
+    var th = hash(id), g0 = gOffset || 0;
+    var rnd = rng(seed ^ th);                    // 드리프트 위상만 뽑는다 (근무와 무관)
+    var h0 = (startHour === undefined ? 6 : startHour);
+    var out = new Array(n), i, gi, t;
+
+    if (id === AMBT.tag || id === AMBH.tag){
+      var A = (id === AMBT.tag) ? AMBT : AMBH;
+      for (i = 0; i < n; i++){
+        gi = g0 + i; t = gi * stepSec;
+        out[i] = A.base + A.span * diurnal(h0 + t / 3600) + sig * gaussAt(seed, th, gi);
+      }
+      return out;
+    }
+
+    var amp = range * DRIFT[Math.min(2, Math.max(0, d.drift - 1))];
+    var p1 = 1200 + rnd() * 2400, p2 = 300 + rnd() * 600;
+    var f1 = rnd() * 6.283, f2 = rnd() * 6.283;
+    for (i = 0; i < n; i++){
+      gi = g0 + i; t = gi * stepSec;
+      out[i] = nom
+             + amp * Math.sin(2 * Math.PI * t / p1 + f1)
+             + amp * 0.4 * Math.sin(2 * Math.PI * t / p2 + f2)
+             + sig * gaussAt(seed, th, gi);
+    }
+    return out;
+  }
+
+  /* ── 외기 영향 전파 ───────────────────────────────────────
+     연동(applyLinks) 이후에 적용한다. 그래야 감도값이 '순 일변동'을
+     그대로 의미하고, IGV 보상과 밀도 저하가 이중 계산되지 않는다.     */
+  function applyAmbient(D, n){
+    var tN = +state[AMBT.tag].nom, tR = Math.abs(+state[AMBT.tag].hi - +state[AMBT.tag].lo) || 1;
+    var hN = +state[AMBH.tag].nom, hR = Math.abs(+state[AMBH.tag].hi - +state[AMBH.tag].lo) || 1;
+    var T = D[AMBT.tag], H = D[AMBH.tag];
+    if (!T || !H) return;
+
+    Object.keys(D).forEach(function(id){
+      var d = state[id], gt = +d.ambT || 0, gh = +d.ambH || 0;
+      if (!gt && !gh) return;
+      var R = Math.abs(+d.hi - +d.lo) || 1, a = D[id];
+      for (var i = 0; i < n; i++){
+        if (gt) a[i] += gt * (T[i] - tN) * (R / tR);
+        if (gh) a[i] += gh * (H[i] - hN) * (R / hR);
+      }
+    });
+  }
+
+  /* ── 연동 태그 반영 ── */
+  function applyLinks(data, stepSec, n){
+    var add = {};
+    Object.keys(data).forEach(function(k){ add[k] = new Float64Array(n); });
+
+    Object.keys(state).forEach(function(src){
+      var raw = state[src].links;
+      if (!raw) return;
+      var sN = +state[src].nom;
+      var sR = Math.abs(+state[src].hi - +state[src].lo) || 1;
+
+      raw.split(',').forEach(function(part){
+        var p = part.trim().split(':');
+        var tgt = (p[0] || '').trim();
+        if (!tgt || !data[tgt]) return;
+        var gain = parseFloat(p[1]) || 0;
+        var lag = Math.round((parseFloat(p[2]) || 0) / stepSec);
+        var tR = Math.abs(+state[tgt].hi - +state[tgt].lo) || 1;
+
+        for (var i = 0; i < n; i++){
+          var j = Math.max(0, i - lag);
+          add[tgt][i] += gain * (data[src][j] - sN) * (tR / sR);
+        }
+      });
+    });
+
+    Object.keys(data).forEach(function(k){
+      for (var i = 0; i < n; i++) data[k][i] += add[k][i];
+    });
+  }
+
+  function decimals(id){
+    var d = state[id], s = String(d.nom);
+    var i = s.indexOf('.');
+    var n = i < 0 ? 0 : s.length - i - 1;
+    return Math.min(4, Math.max(n, Math.abs(+d.hi - +d.lo) < 5 ? 2 : 1));
+  }
+
+  /* 미리보기와 베이스라인 생성이 쓰는 난수 기준값. 화면에서 입력받지 않고 자동
+     발급한다 — 「베이스라인 생성」을 누를 때마다 새로 뽑아 매번 다른 데이터가 나온다. */
+  var DSEED = ((Math.random()*0x7fffffff)|0)||1;
+
+  /* ── 미리보기 차트 ── */
+  function drawPreview(){
+    var svg = $('pvChart');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (!sel){ return; }
+
+    var d = state[sel];
+    $('pvTag').textContent = sel + '  ·  ' + d.desc + '  (' + d.unit + ')';
+
+    var step = 60, n = 1440;                      // 24시간 / 60초 — 일주기가 보이도록
+    var sd = DSEED, tmp = {}, y;
+    [sel, AMBT.tag, AMBH.tag].forEach(function(id){ if (!tmp[id]) tmp[id] = series(id, sd, step, n, 6); });
+    applyAmbient(tmp, n);
+    clampPhysical(tmp, Object.keys(tmp));
+    y = tmp[sel];
+    var mn = Math.min.apply(null, y), mx = Math.max.apply(null, y);
+    var lo = +d.lo, hi = +d.hi;
+    if (!isNaN(lo)) mn = Math.min(mn, lo);
+    if (!isNaN(hi)) mx = Math.max(mx, hi);
+    var pad = (mx - mn) * 0.12 || 1;
+    mn -= pad; mx += pad;
+
+    var W = 300, H = 130, L = 40, R = 6, T = 8, B = 16;
+    var px = function(i){ return L + (W - L - R) * i / (n - 1); };
+    var py = function(v){ return T + (H - T - B) * (1 - (v - mn) / (mx - mn)); };
+
+    function add(tag, at){ var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); svg.appendChild(e); return e; }
+    function label(x, yy, s, col, anc){
+      var e = document.createElementNS(NS, 'text');
+      e.setAttribute('x', x); e.setAttribute('y', yy);
+      e.setAttribute('font-size', '7'); e.setAttribute('fill', col);
+      e.setAttribute('font-family', 'ui-monospace,Menlo,Consolas,monospace');
+      if (anc) e.setAttribute('text-anchor', anc);
+      e.textContent = s; svg.appendChild(e);
+    }
+
+    // 정상 범위 밴드
+    if (!isNaN(lo) && !isNaN(hi)){
+      add('rect', {x:L, y:py(hi), width:W - L - R, height:Math.abs(py(lo) - py(hi)), fill:'#e8f0e6'});
+      add('line', {x1:L, y1:py(hi), x2:W - R, y2:py(hi), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      add('line', {x1:L, y1:py(lo), x2:W - R, y2:py(lo), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      label(L - 3, py(hi) + 2.5, fmt(hi, sel), '#5f7f5f', 'end');
+      label(L - 3, py(lo) + 2.5, fmt(lo, sel), '#5f7f5f', 'end');
+    }
+    // 알람선
+    [['H', '#b45309'], ['HH', '#EA002C'], ['L', '#b45309'], ['LL', '#EA002C']].forEach(function(a){
+      var v = parseFloat(d[a[0]]);
+      if (isNaN(v) || v < mn || v > mx) return;
+      add('line', {x1:L, y1:py(v), x2:W - R, y2:py(v), stroke:a[1], 'stroke-width':.7, 'stroke-dasharray':'1 2'});
+      label(W - R, py(v) - 2, a[0], a[1], 'end');
+    });
+    // 정상값
+    add('line', {x1:L, y1:py(+d.nom), x2:W - R, y2:py(+d.nom), stroke:'#a9a9a4', 'stroke-width':.7});
+    // 트렌드
+    var pth = '';
+    for (var i = 0; i < n; i++) pth += (i ? 'L' : 'M') + px(i).toFixed(1) + ',' + py(y[i]).toFixed(1);
+    add('path', {d:pth, fill:'none', stroke:'#0b3d91', 'stroke-width':1.1});
+    // 축
+    add('line', {x1:L, y1:H - B, x2:W - R, y2:H - B, stroke:'#c8c9c4', 'stroke-width':.8});
+    label(L, H - 5, '06시', '#8a8a84');
+    label((L+W-R)/2, H - 5, '18시', '#8a8a84', 'middle');
+    label(W - R, H - 5, '06시', '#8a8a84', 'end');
+
+    var mn2 = Math.min.apply(null, y), mx2 = Math.max.apply(null, y);
+    $('pvNote').innerHTML = '생성값 범위 <b>' + fmt(mn2, sel) + ' ~ ' + fmt(mx2, sel) + '</b> ' + d.unit
+      + ' · 드리프트 ' + d.drift + ' / 노이즈 ' + d.noise
+      + (d.ambT || d.ambH ? ' · 외기감도 T' + d.ambT + ' H' + d.ambH : ' · 외기 영향 없음')
+      + '<br>24시간 파형입니다. 초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
+  }
+  function fmt(v, id){ return (+v).toFixed(decimals(id)); }
+
+  /* ── 베이스라인 CSV 생성 ── */
+  function generate(){
+    DSEED = ((Math.random()*0x7fffffff)|0)||1;    // 누를 때마다 새 랜덤
+    var seed = DSEED;
+    var step = +$('dStep').value;
+    var mins = +$('dDur').value;
+    var n = Math.floor(mins * 60 / step) + 1;
+    var ids = Object.keys(state);
+
+    if (n * ids.length > 3000000){ msg('데이터가 너무 큽니다. 샘플 주기를 늘리거나 길이를 줄이세요.', false); return; }
+
+    var data = {};
+    ids.forEach(function(id){ data[id] = series(id, seed, step, n, 6); });
+    applyLinks(data, step, n);
+    applyAmbient(data, n);
+    clampPhysical(data, ids);
+
+    var dec = {};
+    ids.forEach(function(id){ dec[id] = decimals(id); });
+
+    var t0 = new Date('2026-08-21T08:00:00');
+    var rows = ['timestamp,' + ids.join(',')];
+    for (var i = 0; i < n; i++){
+      var ts = new Date(t0.getTime() + i * step * 1000).toISOString().slice(0, 19).replace('T', ' ');
+      var line = new Array(ids.length);
+      for (var k = 0; k < ids.length; k++) line[k] = data[ids[k]][i].toFixed(dec[ids[k]]);
+      rows.push(ts + ',' + line.join(','));
+    }
+    show(rows.join('\n'));
+    if (sel) drawPreview();                       // 미리보기도 방금 만든 데이터로 맞춘다
+    msg('베이스라인 생성 완료 — ' + n.toLocaleString() + '행 × ' + ids.length + '태그 (' + step + '초 간격). 아래 상자를 전체 선택해 복사하세요.');
+  }
+
+  function specCsv(){
+    var h = 'tag,description,unit,nominal,normal_lo,normal_hi,LL,L,H,HH,drift_level,noise_level,amb_temp_gain,amb_humid_gain,links';
+    var rows = [h];
+    Object.keys(state).forEach(function(id){
+      var d = state[id];
+      rows.push([id, d.desc, d.unit, d.nom, d.lo, d.hi, d.LL, d.L, d.H, d.HH, d.drift, d.noise, d.ambT, d.ambH, '"' + d.links + '"'].join(','));
+    });
+    show(rows.join('\n'));
+    msg('태그 마스터 CSV — ' + Object.keys(state).length + '행. 아래 상자를 복사해 엑셀에 붙여넣으세요.');
+  }
+
+  function show(text){
+    var o = $('dOut');
+    o.style.display = 'block';
+    o.value = text;
+    o.focus(); o.select();
+  }
+
+  /* ── 이벤트 ── */
+  buildTable();
+
+  $('dBody').addEventListener('input', onEdit);
+  $('dBody').addEventListener('change', onEdit);
+  $('dBody').addEventListener('click', function(e){
+    if (e.target.classList.contains('tg')) select(e.target.closest('tr').dataset.id);
+  });
+
+  $('dSave').onclick = function(){
+    try { localStorage.setItem(LSKEY, JSON.stringify(state)); msg('저장했습니다. 다음에 이 페이지를 열면 그대로 복원됩니다.'); }
+    catch(e){ msg('브라우저 저장이 막혀 있습니다. JSON 버튼으로 내용을 복사해 두세요.', false); }
+  };
+  $('dReset').onclick = function(){
+    if (!confirm('입력한 값을 모두 버리고 기본값으로 되돌립니다.')) return;
+    state = baseState();
+    try { localStorage.removeItem(LSKEY); } catch(e){}
+    buildTable(); sel = null;
+    $('pvTag').textContent = '태그를 선택하세요';
+    while ($('pvChart').firstChild) $('pvChart').removeChild($('pvChart').firstChild);
+    msg('기본값으로 되돌렸습니다.');
+  };
+  $('dGen').onclick = generate;
+  $('dSpec').onclick = specCsv;
+  $('dJson').onclick = function(){ show(JSON.stringify(state, null, 2)); msg('태그 마스터 JSON — 팀 저장소에 그대로 넣으면 됩니다.'); };
+
+  /* ══════════════════════════════════════════════════════════
+     시나리오 주입 — 근무(12시간) 단위 연속 생성
+     ══════════════════════════════════════════════════════════
+     버튼을 누를 때마다 다음 근무가 생성된다. 주간(06~18) → 야간(18~06)
+     → 다음날 주간 … 으로 app/config.py 의 교대 구간과 일치시킨다.
+
+     이상은 근무 경계를 넘어 이어질 수 있다. 앞 근무에서 시작된 드리프트가
+     다음 근무에서 알람에 도달하는 것이 ENGRA 가 해결하려는 문제 그 자체다. */
+  var STEP = 2, SHIFT_SEC = 12 * 3600, N = SHIFT_SEC / STEP;   // 근무 1개 = 21,600 스텝
+  var CACHE_MAX = 3;                          // CSV 재발급 가능한 최근 근무 수
+  // 시간 겹침을 금지하는 조합 — 같은 태그를 서로 다른 모양으로 덮어써 파형이 망가지는 짝
+  //  10×21  LIN 레벨을 한쪽은 상한으로 밀고 한쪽은 출하로 내린다
+  //   7×22  LOX 탱크 인입밸브 고착과 LOX 출하가 ZI-801·LI-802 를 동시에 잡는다
+  //  23×24  계획 정지와 Trip 이 동시에 일어날 수는 없다
+  var FORBID = [[2, 8], [1, 15], [10, 21], [7, 22], [23, 24]];
+
+  /* 물리 한계까지 남은 여유. 진동을 태우기 전에 확인한다.
+     외기·노이즈·연동이 나중에 더해지므로 정상범위 폭의 15% 를 그 몫으로 남긴다. */
+  function headroom(tag){
+    var d = state[tag], nom = +d.nom, R = Math.abs(+d.hi - +d.lo) || 1, rsv = R * 0.15;
+    var hi = (d.unit === '%') ? 100 : Infinity;
+    var lo = (d.unit === '℃') ? -Infinity : 0;
+    return { up: Math.max(0, hi - nom - rsv), dn: Math.max(0, nom - lo - rsv) };
+  }
+  function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+  /* ── 플랜트 정지 공용 (시나리오 23·24) ──────────────────────
+     정지하면 계통 대부분이 동시에 이탈한다. 태그를 하나하나 적지 않고
+     접두(F 유량 · J 전력 · S 회전수 · Z 개도 · P 압력 · PD 차압 · T 온도 ·
+     A 분석 · M 수분 · L 레벨)로 「정지 목표값」을 규칙화한다.
+
+     제외 — 외기(TI-101·MI-102)는 플랜트와 무관하고, 탱크 계통(800번대)은
+     정지해도 보압·레벨이 유지된다(출하만 못 한다).
+
+     STOP_LAG 은 유닛 앞자리별 지연(초)이고 이 순서가 곧 first-out 이다.
+     압축기(2)가 0초로 가장 먼저 — 정지의 시작점이다. */
+  // 압축기는 0초 — 정지의 시작점이다. ||60 으로 기본값을 주면 0 이 falsy 라 60 으로
+  // 바뀌어 first-out 이 압축기가 아니라 콜드박스로 나온다(실제로 겪었다). undefined 로만 판정한다.
+  var STOP_LAG = { '2':0, '1':10, '6':6, '5':12, '3':30, '7':60, '4':300, '9':600 };
+  function stopTargets(){
+    var out = [];
+    Object.keys(state).forEach(function(id){
+      if(id==='TI-101' || id==='MI-102') return;
+      var blk = id.split('-')[1][0];
+      if(blk === '8') return;
+      var d = state[id], nom = +d.nom, lo = +d.lo, hi = +d.hi, pre = id.split('-')[0], t;
+      if(pre==='FI'||pre==='JI'||pre==='SI') t = 0;
+      else if(pre==='ZI')  t = (id==='ZI-905') ? 100 : 0;    // 벤트만 열린다
+      else if(pre==='PDI') t = 0;                             // 유량이 없으면 차압도 없다
+      else if(pre==='PI')  t = lo*0.35;                       // 보압만 남는다
+      else if(pre==='TI')  t = 24;                            // 저온부는 승온, 고온부는 냉각
+      else if(pre==='AI')  t = (d.LL!=='' ? +d.LL-0.5 : lo*0.9);
+      else if(pre==='MI')  t = (d.HH!=='' ? +d.HH*1.6 : hi*2);
+      else if(pre==='LI')  t = (d.LL!=='' ? +d.LL*1.05 : lo*0.5);
+      else t = nom;
+      out.push([id, t, STOP_LAG[blk]===undefined?60:STOP_LAG[blk], nom]);
+    });
+    return out;
+  }
+  /* 목표값으로 f 만큼 끌고 간다. f=1 에서 목표값에 딱 고정하면 분산 0 인 평평한
+     구간이 생겨 엔진 통계를 왜곡하므로, 원래 편차의 6% 를 남겨 계기 노이즈를 흉내낸다. */
+  function stopApply(D, s, e, c, shape, lagScale){
+    var T = stopTargets();
+    for(var m=0;m<T.length;m++){
+      var id=T[m][0], tgt=T[m][1], lag=T[m][2]*(lagScale||1), nom=T[m][3], a=D[id];
+      for(var i=s;i<e;i++){
+        var f = shape(c.off+(i-s)*STEP, lag, c.tot);
+        if(f>0) a[i] = a[i]*(1-f) + (tgt + (a[i]-nom)*0.06)*f;
+      }
+    }
+  }
+
+  /* 각 시나리오의 pre/post 는 (D, s, e, c) 를 받는다.
+     c.off = 시나리오 시작부터 이 구간 첫 샘플까지 경과한 초. 근무를 넘어
+     이어질 때 c.off 가 채워지므로, 파형을 '경과초 x' 의 함수로만 쓰면
+     경계에서 끊기지 않는다. c.memo 는 근무를 넘겨 기억할 값. */
+  var SCEN = [
+   {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707','AI-803'], dur:1800,
+    desc:'평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['AI-707'][i] -= 0.42*Math.exp(-3*x/c.tot)*(1-Math.cos(2*Math.PI*x/180))/2; } }},
+
+   {id:2, nm:'토출온도 드리프트', tag:'TI-205', tags:['TI-205'], dur:86400, span:1,
+    desc:'시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['TI-205'][i] += 0.68*x/3600; } }},
+
+   {id:3, nm:'개도 반복변동 (진폭 증가)', tag:'ZI-601', tags:['ZI-601', 'FI-602', 'PI-604'], dur:14460,
+    desc:'±6% → ±9% → ±13% 로 회차마다 커지는 3회 변동',
+    pre:function(D,s,e,c){ var hr=headroom('ZI-601'), a=[6,9,13];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/7200), r=x-k*7200;
+        if(k>2||r>=60) continue;
+        var w=Math.sin(2*Math.PI*r/20);
+        D['ZI-601'][i] += w*(w>=0?Math.min(a[k],hr.up):Math.min(a[k],hr.dn)); } }},
+
+   {id:4, nm:'인입온도 임계 근접', tag:'TI-401', tags:['TI-401'], dur:2400,
+    desc:'상한(20℃)의 95%인 19℃ 부근에서 40분 체류',
+    pre:function(D,s,e){ for(var i=s;i<e;i++) D['TI-401'][i] = 19 + (D['TI-401'][i]-19)*0.25; }},
+
+   {id:5, nm:'공급유량 헌팅', tag:'FI-602', tags:['FI-602','PDI-702','TI-704','FI-710','LI-701'], dur:7200,
+    desc:'−5% 급강하 후 10초 내 원복 × 5회 — PDI-702·TI-704 동반 흔들림',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+      if(k<5 && r<10) D['FI-602'][i] -= 39800*0.05; } }},
+
+   {id:6, nm:'흡착탑 수분 파과', tag:'MI-302', tags:['MI-302','PDI-303','AI-703'], dur:5400,
+    desc:'차압 선행 상승 5분 뒤 후단 수분 0.8 → 3.4 ppm 지수 상승',
+    pre:function(D,s,e,c){ var E=Math.exp(3)-1;
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        D['MI-302'][i]  += 1.7*(Math.exp(3*clamp01(x/c.tot))-1)/E;
+        D['PDI-303'][i] += 0.08*(Math.exp(3*clamp01((x+300)/c.tot))-1)/E; } }},
+
+   {id:7, nm:'탱크 인입밸브 고착', tag:'ZI-801', tags:['ZI-801','LI-802'], dur:7200,
+    desc:'개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승',
+    pre:function(D,s,e,c){
+      if(c.memo.v===undefined) c.memo.v = D['ZI-801'][s];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        D['ZI-801'][i] = c.memo.v;
+        D['LI-802'][i] += 6*x/3600; } }},
+
+   {id:8, nm:'압축기 서지 전조', tag:'PI-203', tags:['PI-203','FI-204','JI-206','TI-205'], dur:1500,
+    desc:'토출압 +3% 상승과 유량 −6% 감소가 동시 진행',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['PI-203'][i] += 5.85*0.03*f; D['FI-204'][i] -= 42500*0.06*f; } }},
+
+   {id:9, nm:'Cold end 저온 이탈', tag:'TI-403', tags:['TI-403'], dur:10800,
+    desc:'시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['TI-403'][i] += 1.5*(c.off+(i-s)*STEP)/3600; }},
+
+   {id:10, nm:'LIN 탱크 레벨 임계 근접', tag:'LI-806', tags:['LI-806'], dur:7200,
+    desc:'87.3% 에서 체류하다 후반에 89.5% 로 상한(88%) 돌파',
+    pre:function(D,s,e,c){ if(c.memo.b===undefined) c.memo.b = D['LI-806'][s];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['LI-806'][i] = 87.3 + (D['LI-806'][i]-c.memo.b)*0.25 + 2.2*clamp01((x-c.tot*0.6)/(c.tot*0.2)); } }},
+
+   {id:11, nm:'개도–유량 상관 붕괴', tag:'FI-602', tags:['FI-602', 'ZI-601', 'PI-604'], dur:3600,
+    desc:'개도는 정상적으로 움직이는데 유량이 전혀 따라오지 않음',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++) D['ZI-601'][i] += 4*Math.sin(2*Math.PI*(c.off+(i-s)*STEP)/900); },
+    post:function(D,s,e,c){
+      if(c.memo.f===undefined) c.memo.f = D['FI-602'][s];
+      for(var i=s;i<e;i++) D['FI-602'][i] = c.memo.f; }},
+
+   {id:12, nm:'분석기 순간 이상값', tag:'MI-804', tags:['MI-804'], dur:7200,
+    desc:'0.5 → 999 ppm 순간 폭등 후 3초 내 원복 × 5회',
+    post:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+      if(k<5 && r<4) D['MI-804'][i] = 999; } }},
+
+   {id:13, nm:'GN2 공급압 반복 헌팅', tag:'ZI-904', tags:['ZI-904','PI-901','FI-902'], dur:7200,
+    desc:'±5% 진동 × 5회 — 매회 짧아 알람 미달, 벤트 손실 누적',
+    pre:function(D,s,e,c){ var hr=headroom('ZI-904');
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, k=Math.floor(x/1440), r=x-k*1440;
+        if(k>4||r>=180) continue;
+        var w=Math.sin(2*Math.PI*r/45);
+        D['ZI-904'][i] += w*(w>=0?Math.min(5,hr.up):Math.min(5,hr.dn)); } }},
+
+   {id:14, nm:'터빈 회전수 순간 강하', tag:'SI-507', tags:['SI-507'], dur:20,
+    desc:'−800 rpm 로 20초간 강하 후 즉시 복귀',
+    pre:function(D,s,e){ for(var i=s;i<e;i++) D['SI-507'][i] -= 800; }},
+
+   {id:15, nm:'순도 동반 저하', tag:'AI-707', tags:['AI-707','AI-803'], dur:7200,
+    desc:'LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['AI-707'][i] -= 0.3*clamp01((c.off+(i-s)*STEP)/c.tot); }},
+
+   /* ── 16~20 : 한계를 명확히 넘어 알람이 발생하는 단순 유형 (Issue #1) ── */
+   {id:16, nm:'흡착탑 과온', tag:'TI-301', tags:['TI-301'], dur:2400, alarm:'H 50℃',
+    desc:'32 → 55℃ 상승 후 유지 — 재생 히터 제어 실패, H(50℃) 초과',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['TI-301'][i] += 22.9*clamp01((c.off+(i-s)*STEP)/(c.tot*0.5)); }},
+
+   {id:17, nm:'GN2 공급압 저하', tag:'PI-901', tags:['PI-901'], dur:3600, alarm:'L 4.50 bar',
+    desc:'4.85 → 4.35 bar 하락 후 유지 — L(4.50 bar) 미만, 수요처 공급 차질',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['PI-901'][i] -= 0.50*clamp01((c.off+(i-s)*STEP)/(c.tot*0.4)); }},
+
+   {id:18, nm:'HP Column 고레벨', tag:'LI-701', tags:['LI-701'], dur:5400, alarm:'H 40%',
+    desc:'25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['LI-701'][i] += 18.6*clamp01((c.off+(i-s)*STEP)/(c.tot*0.6)); }},
+
+   {id:19, nm:'흡입 필터 차압 상승', tag:'PDI-103', tags:['PDI-103'], dur:10800, alarm:'H 0.030 bar',
+    desc:'0.012 → 0.033 bar 완만한 상승 — H(0.030 bar) 초과, 필터 막힘',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['PDI-103'][i] += 0.021*clamp01((c.off+(i-s)*STEP)/c.tot); }},
+
+   {id:20, nm:'압축기 전력 급증', tag:'JI-206', tags:['JI-206'], dur:900, alarm:'H 3,600 kW',
+    desc:'3,240 → 3,670 kW 급증 후 10분 유지, 이후 원복 — H(3,600 kW) 초과 후 알람 해제',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<120) f=x/120; else if(x<720) f=1; else f=Math.max(0,1-(x-720)/180);
+      D['JI-206'][i] += 430*f; } }},
+
+   /* 21·22 — 이상이 아니라 「계획된 정상 운전 작업」이다. 출하로 레벨이 20%p 이상 빠지면
+      엔진이 그것을 잡고, 근무자가 「출하 진행」으로 확인해 확정하면, 다음에 같은 패턴이
+      나올 때 사례 검색(태그 키)이 그 조치를 회수한다 — 쓸수록 쌓이는 순환의 실증 재료다.
+      op:true 는 정답지에 operation 으로 기록돼 이상과 구분된다.
+
+      구현: 출하 밸브 개도(ZI)만 pre 에서 사다리꼴로 올린다. 레벨 하강은 태그 마스터에
+      이미 있는 연동(ZI-805→LI-806, ZI-801→LI-802, gain -0.60, 지연 60초)이 만든다.
+      레벨을 직접 쓰지 않으므로 물리 관계가 어긋나지 않는다.
+      하강폭 = 0.60 × 개도상승 × (레벨R/개도R)
+        #21  0.60 × 29 × (50/35) = 24.9%p     #22  0.60 × 22 × (55/35) = 20.7%p
+      post 의 하한은 「L 알람에 닿기 전에 출하를 멈춘다」는 운전 상식을 반영한 것이다. */
+   {id:21, nm:'LIN 탱크 출하', tag:'LI-806', tags:['ZI-805','LI-806'], dur:10200, op:true,
+    desc:'LV-802 개도 38.5 → 67.5% 로 열어 2시간 출하 — LIN 레벨 약 25%p 하강 후 재충전',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<600) f=x/600; else if(x<7800) f=1; else f=Math.max(0,1-(x-7800)/2400);
+      D['ZI-805'][i] += 29*f; } },
+    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-806'][i]<40) D['LI-806'][i]=40+(D['LI-806'][i]-40)*0.15; }},
+
+   {id:22, nm:'LOX 탱크 출하', tag:'LI-802', tags:['ZI-801','LI-802'], dur:9000, op:true,
+    desc:'LV-801 개도 45 → 69% 로 열어 1.5시간 출하 — LOX 레벨 약 22%p 하강 후 재충전',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<600) f=x/600; else if(x<6000) f=1; else f=Math.max(0,1-(x-6000)/3000);
+      D['ZI-801'][i] += 24*f; } },
+    // 하한 30 = 정상범위 하단. 32 로 뒀더니 베이스라인이 낮은 시각(+7h)에서 하강폭이
+    // 19.6%p 로 잘려 「20%p 이상」 규칙에 미달했다. L(25)까지 여유 5%p 는 남긴다.
+    // 딱 잘라내면(v=30) 값이 정확히 30.000 으로 최대 11.6분 고정돼 노이즈가 0 인 평평한
+    // 구간이 생긴다 — 실제 계기 신호로는 부자연스럽고 엔진 통계에도 분산 0 구간을 준다.
+    // 그래서 초과분의 15% 만 남겨 파형 결을 유지한다 (최저 ≈ 29.5, L 25 여유 4.5).
+    post:function(D,s,e,c){ for(var i=s;i<e;i++) if(D['LI-802'][i]<30) D['LI-802'][i]=30+(D['LI-802'][i]-30)*0.15; }},
+
+   /* 23·24 — 플랜트 전체 정지. 다른 시나리오와 성격이 완전히 다르다.
+      태그 1~5점이 아니라 43점(외기 2점·탱크 8점 제외)이 동시에 이탈한다.
+
+      solo:true — 랜덤 선택 대상에서 뺀다. 정지가 섞이면 다른 시나리오의 파형이
+      정지에 묻혀 정답지가 「검출 가능」이라고 거짓 주장하게 된다. 「직접 선택」
+      으로만 넣는다.
+
+      first_out — 정답지에 최초 이탈 유닛을 명시한다. 정지 인수인계의 핵심은
+      「어느 Unit 이 먼저 나갔는가」이고, 초안이 그것을 맞혔는지 채점하려면
+      정답이 필요하다. 두 시나리오 모두 압축기(K-201)가 시작점이다. */
+   {id:23, nm:'플랜트 계획 정지', tag:'JI-206',
+    tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
+          'SI-507','PI-502','PI-504','LI-701','LI-705','AI-703','AI-707','AI-803','FI-710','PDI-702','TI-704','TI-403','PI-901','FI-902'],
+    dur:21600, op:true, solo:true, first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (계획 감부하)',
+    desc:'계획 정지 — 압축기 부하를 3시간에 걸쳐 단계적으로 내려 정지, 1시간 유지 후 2시간 재기동',
+    pre:function(D,s,e,c){
+      stopApply(D,s,e,c,function(x,lag,tot){
+        if(x<lag) return 0;
+        var y=x-lag;
+        if(y<10800) return clamp01(Math.floor(y/3600+1)/3)*clamp01(y/10800+0.15);  // 3단 감부하
+        if(y<14400) return 1;
+        return Math.max(0,1-(y-14400)/7200);                                        // 재기동
+      }, 20); }},
+
+   {id:24, nm:'플랜트 Trip (비상 정지)', tag:'JI-206',
+    tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
+          'SI-507','PI-502','PI-504','TI-501','TI-503','LI-701','LI-705','AI-703','AI-707','FI-710',
+          'PDI-702','PDI-706','TI-704','AI-803','TI-401','TI-403','AI-402','MI-302','MI-305','PDI-303','PDI-306',
+          'PI-901','FI-902','MI-903','ZI-905','FI-906'],
+    dur:21600, solo:true, alarm:'다수 (HH/LL 포함)',
+    first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (전력 상실, 0초)',
+    desc:'압축기 전력 상실로 Trip — 30초 안에 압축기 붕괴, 유닛별 지연으로 6초~10분에 걸쳐 43점 연쇄 이탈, 4시간 정지 후 2시간 재기동',
+    pre:function(D,s,e,c){
+      stopApply(D,s,e,c,function(x,lag,tot){
+        if(x<lag) return 0;
+        var y=x-lag;
+        if(y<30) return y/30;                          // 30초 안에 붕괴
+        if(y<tot-7200-lag) return 1;
+        return Math.max(0,1-(y-(tot-7200-lag))/7200);  // 마지막 2시간 재기동
+      }, 1); }}
+  ];
+
+  function scenById(id){ for(var i=0;i<SCEN.length;i++) if(SCEN[i].id===id) return SCEN[i]; return null; }
+  function forbidden(a,b){
+    for(var i=0;i<FORBID.length;i++){
+      if((FORBID[i][0]===a&&FORBID[i][1]===b)||(FORBID[i][0]===b&&FORBID[i][1]===a)) return true;
+    }
+    return false;
+  }
+
+  /* ── 진행 상태 ─────────────────────────────────────────── */
+  /* chSeed/chStartMs/chK 는 "체인" 상태다. 직전에 만든 근무의 바로 다음 근무를
+     만들면 같은 체인으로 이어져(chK+1) 근무를 넘는 이상과 베이스라인 파형이
+     경계에서 이어진다. 다른 날짜·근무를 고르면 새 체인 — seed 를 새로 뽑는다.
+     idx 는 총 생성 회차로, 이력·RTDB 가 항목을 찾는 고유 키다. */
+  var RKEY = 'engra_asu_shiftrun_v2';
+  var RUN = { chSeed:0, chStartMs:null, chK:0, idx:0, hist:[], active:[] };
+  var CACHE = [];                                   // {idx, ids, D, dec, shiftMs}
+  try {
+    var sv = localStorage.getItem(RKEY);
+    if (sv){ var o = JSON.parse(sv);
+      RUN.chSeed=o.chSeed||0; RUN.chStartMs=(o.chStartMs==null?null:o.chStartMs);
+      RUN.chK=o.chK||0; RUN.idx=o.idx||0;
+      RUN.hist=o.hist||[];
+      RUN.active=(o.active||[]).map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo||{}}; });
+    }
+  } catch(e){}
+  function saveRun(){
+    try { localStorage.setItem(RKEY, JSON.stringify({
+      chSeed:RUN.chSeed, chStartMs:RUN.chStartMs, chK:RUN.chK, idx:RUN.idx, hist:RUN.hist,
+      active:RUN.active.map(function(a){ return {id:a.id,g0:a.g0,g1:a.g1,memo:a.memo}; })
+    })); } catch(e){}
+  }
+
+  function buildScenList(){
+    var w=$('sList'); w.innerHTML='';
+    SCEN.forEach(function(S){
+      var l=document.createElement('label');
+      l.innerHTML='<input type="checkbox" value="'+S.id+'"><span><b>'+S.id+'. '+S.nm+'</b> · '+S.tag
+                 +(S.span?' <b style="color:#EA002C">근무 넘김</b>':'')+'<br>'+S.desc+'</span>';
+      w.appendChild(l);
+    });
+  }
+
+  function shiftLabel(ms){
+    var d=new Date(ms), h=d.getHours();
+    function p(x){ return x<10?'0'+x:''+x; }
+    var date=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+    return { date:date, kind:(h<12?'day':'night'), ko:(h<12?'주간':'야간'), id:date+'-'+(h<12?'day':'night') };
+  }
+  function fmtTs(ms){
+    var d=new Date(ms);
+    function p(x){ return x<10?'0'+x:''+x; }
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+  }
+  function hhmm(ms){ var d=new Date(ms); function p(x){return x<10?'0'+x:''+x;} return p(d.getHours())+':'+p(d.getMinutes()); }
+  /* 지속시간 표기. #14(20초)처럼 1분 미만인 시나리오가 「0분」으로 보였다.
+     정답지의 duration_sec·minutes 필드는 그대로 두고 화면 표기만 초 단위로 내린다. */
+  function durTxt(w){ var sec=w.duration_sec; return sec<60 ? sec+'초' : w.minutes+'분'; }
+
+  /* ── 근무 1개 생성 ─────────────────────────────────────── */
+  function nextShift(){
+    var dv=$('sDate').value, kindSel=$('sKind').value;
+    var shiftMs=new Date(dv+'T'+(kindSel==='day'?'06':'18')+':00:00').getTime();
+    if (!dv || isNaN(shiftMs)){ smsg('날짜를 확인해주세요.',false); return; }
+    // 직전 근무의 바로 다음 근무인가? 맞으면 체인 유지, 아니면 새 체인(새 랜덤 seed)
+    var isNext = RUN.chStartMs!==null && RUN.chK>0
+              && shiftMs===RUN.chStartMs+RUN.chK*SHIFT_SEC*1000;
+    if (!isNext){
+      RUN.chSeed=((Math.random()*0x7fffffff)|0)||1;
+      RUN.chStartMs=shiftMs; RUN.chK=0; RUN.active=[];
+    }
+    var k=RUN.chK, gStart=k*N, gEnd=gStart+N;
+    var lab=shiftLabel(shiftMs);
+    var baseHour=new Date(RUN.chStartMs).getHours();
+    var seed=(RUN.chSeed+k)|0;
+
+    smsg('생성 중… 12시간 × 53태그 = 약 114만 행', null);
+
+    setTimeout(function(){
+      // 1) 이번 근무에 새로 넣을 시나리오 선택
+      var rnd=rng(seed^0x5CE9), mode=$('sMode').value, picked;
+      if (mode==='manual'){
+        picked=[]; Array.prototype.forEach.call($('sList').querySelectorAll('input:checked'),function(c){
+          var S=scenById(+c.value); if(S) picked.push(S); });
+      } else {
+        // 앞 근무에서 이어지는 중인 시나리오는 새로 뽑지 않는다 — 같은 이상이 겹쳐 쌓이면
+        // 파형이 두 배로 커져 정답지와 어긋난다.
+        var busy={}, carried=0;
+        RUN.active.forEach(function(a){ busy[a.id]=1; if(a.g1>gStart) carried++; });
+        // 6~10건은 '이번 근무에 보이는 총 건수' 기준. 이어지는 것만큼 새로 뽑는 수를 줄인다.
+        var want=Math.max(1, 6+Math.floor(rnd()*5)-carried);
+        // solo(플랜트 정지)는 랜덤에서 뺀다 — 정지에 다른 시나리오가 묻혀 정답지가 거짓이 된다
+        var pool=SCEN.filter(function(S){ return !busy[S.id] && !S.solo; });
+        picked=[];
+        while(picked.length<want && pool.length) picked.push(pool.splice(Math.floor(rnd()*pool.length),1)[0]);
+      }
+
+      // 2) 배치 — 금지 조합만 시간 겹침 회피, 나머지는 겹침 허용
+      var placed=[];
+      picked.forEach(function(S){
+        var len=Math.round(S.dur/STEP);
+        for(var tryN=0;tryN<300;tryN++){
+          var g0=gStart+Math.floor(rnd()*N), g1=g0+len;
+          var bad=RUN.active.concat(placed).some(function(a){
+            return forbidden(a.id,S.id) && g0<a.g1 && a.g0<g1; });
+          if(bad) continue;
+          placed.push({id:S.id,g0:g0,g1:g1,memo:{}});
+          return;
+        }
+      });
+      RUN.active=RUN.active.concat(placed);
+
+      // 3) 데이터 생성 — 이번 근무 구간에 걸친 모든 이상을 적용
+      var ids=Object.keys(state), D={};
+      // 베이스라인은 기준 seed 하나로 생성한다. 근무마다 seed 를 바꾸면 드리프트
+      // 위상이 달라져 경계에서 값이 튄다. 전역 스텝 오프셋만 넘겨 이어붙인다.
+      ids.forEach(function(id){ D[id]=series(id,RUN.chSeed,STEP,N,baseHour,gStart); });
+
+      var segs=RUN.active.filter(function(a){ return a.g1>gStart && a.g0<gEnd; }).map(function(a){
+        var s=Math.max(a.g0,gStart)-gStart, e=Math.min(a.g1,gEnd)-gStart, S=scenById(a.id);
+        return { a:a, S:S, s:s, e:e,
+                 c:{ off:(Math.max(a.g0,gStart)-a.g0)*STEP, tot:S.dur, memo:a.memo },
+                 fromPrev:a.g0<gStart, toNext:a.g1>gEnd };
+      });
+
+      segs.forEach(function(w){ if(w.S.pre) w.S.pre(D,w.s,w.e,w.c); });
+      applyLinks(D,STEP,N);
+      applyAmbient(D,N);
+      segs.forEach(function(w){ if(w.S.post) w.S.post(D,w.s,w.e,w.c); });
+      clampPhysical(D,ids);
+
+      // 4) 알람 실측 + 겹침 검출
+      segs.forEach(function(w){
+        var fired=[];
+        w.S.tags.forEach(function(t){
+          var d=state[t], mn=Infinity, mx=-Infinity;
+          for(var i=w.s;i<w.e;i++){ var v=D[t][i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+          if(d.HH!==''&&mx>+d.HH) fired.push(t+' HH');
+          else if(d.H!==''&&mx>+d.H) fired.push(t+' H');
+          if(d.LL!==''&&mn<+d.LL) fired.push(t+' LL');
+          else if(d.L!==''&&mn<+d.L) fired.push(t+' L');
+        });
+        w.fired=fired;
+      });
+      var overlaps=[];
+      for(var i=0;i<segs.length;i++) for(var j=i+1;j<segs.length;j++){
+        var sh=segs[i].S.tags.filter(function(t){ return segs[j].S.tags.indexOf(t)>=0; });
+        if(sh.length && segs[i].s<segs[j].e && segs[j].s<segs[i].e){
+          var os=Math.max(segs[i].s,segs[j].s), oe=Math.min(segs[i].e,segs[j].e);
+          overlaps.push({ a:segs[i].S.id, b:segs[j].S.id, tags:sh,
+                          from:fmtTs(shiftMs+os*STEP*1000), to:fmtTs(shiftMs+oe*STEP*1000),
+                          minutes:Math.round((oe-os)*STEP/60) });
+        }
+      }
+
+      // 5) 답안지 + 이력
+      segs.sort(function(a,b){ return a.s-b.s; });
+      var entry={
+        idx:RUN.idx, shift_id:lab.id, kind:lab.kind, kind_ko:lab.ko,
+        from:fmtTs(shiftMs), to:fmtTs(shiftMs+SHIFT_SEC*1000),
+        base_seed:RUN.chSeed, placement_seed:seed, sampling_interval_sec:STEP, tag_count:ids.length,
+        injected:segs.map(function(w){
+          return { scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
+                   trigger_tag:w.S.tag, affected_tags:w.S.tags,
+                   start:fmtTs(shiftMs+w.s*STEP*1000), end:fmtTs(shiftMs+w.e*STEP*1000),
+                   duration_sec:(w.e-w.s)*STEP, minutes:Math.round((w.e-w.s)*STEP/60),
+                   carried_in:w.fromPrev, continues_next:w.toNext,
+                   operation:!!w.S.op,          // true = 이상이 아니라 계획된 정상 운전 작업(출하·계획정지)
+                   first_out:w.S.first_out||null,  // 정지 시나리오의 최초 이탈 유닛 — 초안이 맞혔는지 채점용
+                   dcs_alarm:w.fired.length?('발생 · '+w.fired.join(', ')):'미발생' };
+        }),
+        overlaps:overlaps
+      };
+      // 같은 근무를 다시 생성하면 이전 기록·데이터를 새것으로 대체한다
+      RUN.hist=RUN.hist.filter(function(e){ return e.shift_id!==lab.id; });
+      RUN.hist.push(entry);
+      RUN.active=RUN.active.filter(function(a){ return a.g1>gEnd; });
+      RUN.chK++; RUN.idx++;
+
+      var dec={}; ids.forEach(function(id){ dec[id]=decimals(id); });
+      CACHE=CACHE.filter(function(c){ return c.shiftMs!==shiftMs; });
+      CACHE.push({idx:entry.idx, ids:ids, D:D, dec:dec, shiftMs:shiftMs, entry:entry});
+      while(CACHE.length>CACHE_MAX) CACHE.shift();
+
+      saveRun();
+      renderShift(entry);
+      renderHist();
+      rtdbSync();
+      // 다음 근무를 미리 골라둔다 — 그대로 누르면 이어지는 근무가 생성된다
+      var nx=shiftLabel(shiftMs+SHIFT_SEC*1000);
+      $('sDate').value=nx.date; $('sKind').value=nx.kind;
+      smsg('완료 — '+lab.date+' '+lab.ko+' ('+entry.injected.length+'건 주입)'
+           +(overlaps.length?' · 동시 발생 '+overlaps.length+'건':''), true);
+    },30);
+  }
+
+  function smsg(t,ok){ var m=$('sMsg'); m.textContent=t;
+    m.style.color = ok===false ? '#b45309' : ok===true ? '#1a7f37' : '#6b7280'; }
+
+  /* ── Overview 화면에 발생 태그 표시 + 알림창 ─────────────
+     이벤트가 걸린 태그 박스를 연빨강으로 깜빡이게 하고, 좌측 상단에
+     이번 근무의 발생 이벤트를 알림창으로 띄운다. */
+  function tabBadge(n){
+    var el3 = $('tabOvw');
+    el3.textContent = n ? ('OVERVIEW PAGE  ▲' + n) : 'OVERVIEW PAGE';
+    el3.style.background = n ? '#ffd0cb' : '';
+    el3.style.borderColor = n ? '#c0392b' : '';
+  }
+
+  function paintOverview(E){
+    // 이전 표시 지우기
+    Array.prototype.forEach.call(document.querySelectorAll('svg.mimic g[data-tag]'), function(g){
+      g.classList.remove('alm'); g.classList.remove('almA');
+    });
+    var panel=$('alarmPanel');
+    while(panel.firstChild) panel.removeChild(panel.firstChild);
+    if(!E){ tabBadge(0); return; }
+
+    // 태그별 최고 심각도 — 알람 발생 시나리오에 걸린 태그가 우선
+    var lv={};
+    E.injected.forEach(function(w){
+      var a = w.dcs_alarm !== '미발생';
+      w.affected_tags.forEach(function(t){ if(a || !lv[t]) lv[t] = a ? 2 : 1; });
+    });
+    Object.keys(lv).forEach(function(t){
+      var g=document.querySelector('svg.mimic g[data-tag="'+t+'"]');
+      if(g) g.classList.add(lv[t]===2 ? 'almA' : 'alm');
+    });
+    tabBadge(E.injected.length);
+
+    // 알림창
+    var quiet=[], loud=[];
+    E.injected.forEach(function(w){
+      (w.dcs_alarm==='미발생' ? quiet : loud).push('#'+w.scenario_id);
+    });
+    function el2(n,at){ var e=document.createElementNS(NS,n); for(var k in at) e.setAttribute(k,at[k]); panel.appendChild(e); return e; }
+    function tx2(cls,x,y,s){ var e=document.createElementNS(NS,'text'); e.setAttribute('class',cls);
+      e.setAttribute('x',x); e.setAttribute('y',y); e.textContent=s; panel.appendChild(e); return e; }
+
+    var X=24, Y=14, W=452, rows=(loud.length?2:1), H=42+rows*19+8;
+    el2('rect',{'class':'apBox',x:X,y:Y,width:W,height:H,rx:4});
+    el2('rect',{'class':'apBar',x:X,y:Y,width:W,height:15,rx:4});
+    el2('rect',{'class':'apBar',x:X,y:Y+8,width:W,height:7});
+    tx2('apTtl',X+9,Y+11,'▲ ACTIVE EVENTS');
+    tx2('apTtl',X+W-9,Y+11,(E.idx+1)+'회차').setAttribute('text-anchor','end');
+    tx2('apSub',X+9,Y+30, E.from.slice(0,10)+'  ·  '+E.kind_ko+'  ·  '+E.from.slice(11,16)+'~'+E.to.slice(11,16));
+
+    var y=Y+48;
+    tx2('apLbl',X+9,y,'EVENT');
+    tx2('apEv',X+58,y+1, quiet.length?quiet.join('  '):'—');
+    if(loud.length){
+      y+=19;
+      tx2('apLbl',X+9,y,'ALARM');
+      tx2('apAl',X+58,y+1, loud.join('  '));
+    }
+  }
+
+  /* ── 현재 근무 표시 ────────────────────────────────────── */
+  function renderShift(E){
+    paintOverview(E);
+    $('sHead').textContent = E.shift_id+'  ·  '+E.kind_ko+' '+E.from.slice(11,16)+'~'+E.to.slice(11,16)
+                           + '  ·  '+(E.idx+1)+'회차';
+    // 타임테이블
+    var svg=$('sTl'); while(svg.firstChild) svg.removeChild(svg.firstChild);
+    var W=720,L=8,R=8,y0=26,rowH=15, rows=E.injected.length;
+    svg.setAttribute('viewBox','0 0 720 '+(y0+rows*rowH+16));
+    function add(t,a){ var el2=document.createElementNS(NS,t); for(var k in a) el2.setAttribute(k,a[k]); svg.appendChild(el2); return el2; }
+    function tx(x,y,s,c,sz,an){ var e=document.createElementNS(NS,'text');
+      e.setAttribute('x',x);e.setAttribute('y',y);e.setAttribute('font-size',sz||7.5);e.setAttribute('fill',c);
+      e.setAttribute('font-family','ui-monospace,Menlo,Consolas,monospace'); if(an)e.setAttribute('text-anchor',an);
+      e.textContent=s; svg.appendChild(e); }
+    var t0=new Date(E.from).getTime();
+    function px(ms){ return L+(W-L-R)*(ms-t0)/(SHIFT_SEC*1000); }
+
+    add('rect',{x:L,y:8,width:W-L-R,height:10,fill:'#dfe4ee'});
+    for(var h=0;h<=12;h+=2){
+      var ms=t0+h*3600*1000;
+      add('line',{x1:px(ms),y1:6,x2:px(ms),y2:y0-12,stroke:'#c8c9c4','stroke-width':.8});
+      tx(px(ms), y0-4, hhmm(ms), '#9a9b93', 7, h===0?'start':(h===12?'end':'middle'));
+    }
+    E.injected.forEach(function(w,k){
+      var y=y0+k*rowH;
+      add('rect',{x:L,y:y,width:W-L-R,height:10,fill:'#f4f4f1'});
+      var x1=px(new Date(w.start).getTime()), x2=Math.max(px(new Date(w.end).getTime()), x1+2.5);
+      var col = w.dcs_alarm==='미발생' ? '#1c3f8f' : '#EA002C';
+      add('rect',{x:x1,y:y,width:x2-x1,height:10,fill:col,opacity:.8,rx:1});
+      if(w.carried_in) tx(L+2,y+7.8,'◀','#EA002C',7);
+      if(w.continues_next) tx(W-R-6,y+7.8,'▶','#EA002C',7);
+      tx(L+12,y+7.8,'#'+w.scenario_id+' '+w.trigger_tag,'#3a3a3a',7);
+    });
+    // 표
+    var h2='<table class="st"><thead><tr><th>시각</th><th>#</th><th>시나리오</th><th>태그</th><th>지속</th><th>DCS 알람</th><th>비고</th></tr></thead><tbody>';
+    E.injected.forEach(function(w){
+      var note=[];
+      if(w.carried_in) note.push('앞 근무에서 이어짐');
+      if(w.continues_next) note.push('다음 근무로 이어짐');
+      var ov=E.overlaps.filter(function(o){ return o.a===w.scenario_id||o.b===w.scenario_id; });
+      if(ov.length) note.push('동시발생 #'+ov.map(function(o){ return o.a===w.scenario_id?o.b:o.a; }).join(',#'));
+      h2+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
+        + '<td>'+w.affected_tags.join(', ')+'</td><td>'+durTxt(w)+'</td>'
+        + '<td'+(w.dcs_alarm==='미발생'?'':' style="color:#EA002C;font-weight:700"')+'>'+w.dcs_alarm+'</td>'
+        + '<td class="nm" style="color:#6b7280">'+note.join(' · ')+'</td></tr>';
+    });
+    $('sTbl').innerHTML=h2+'</tbody></table>';
+    ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=false; });
+  }
+
+  /* ── 과거 기록 ─────────────────────────────────────────── */
+  function renderHist(){
+    $('sHistCnt').textContent = RUN.hist.length ? '('+RUN.hist.length+'근무)' : '';
+    if(!RUN.hist.length){ $('sHist').innerHTML='<p class="note">아직 없습니다.</p>'; return; }
+    var cached={}; CACHE.forEach(function(c){ cached[c.idx]=1; });
+    var h='<table class="st"><thead><tr><th>회차</th><th>날짜</th><th>근무</th><th>시각</th><th>발생 이벤트</th><th>동시</th><th></th></tr></thead><tbody>';
+    RUN.hist.slice().reverse().forEach(function(E){
+      h+='<tr><td>'+(E.idx+1)+'</td><td>'+E.from.slice(0,10)+'</td><td class="nm">'+E.kind_ko+'</td>'
+       + '<td>'+E.from.slice(11,16)+'~'+E.to.slice(11,16)+'</td>'
+       + '<td>#'+E.injected.map(function(w){ return w.scenario_id; }).join(' #')+'</td>'
+       + '<td>'+(E.overlaps.length||'')+'</td>'
+       + '<td><button class="dbtn" data-ans="'+E.idx+'" style="padding:1px 7px">답안지</button>'
+       + (cached[E.idx]?' <button class="dbtn" data-csv="'+E.idx+'" style="padding:1px 7px">CSV</button>':'')
+       + '</td></tr>';
+    });
+    $('sHist').innerHTML=h+'</tbody></table>';
+  }
+
+  /* ── 답안지 팝업 ───────────────────────────────────────── */
+  function openModal(E){
+    $('mTitle').textContent = E.shift_id+' '+E.kind_ko+' 답안지';
+    var h='<table class="st"><thead><tr><th>시각</th><th>#</th><th>시나리오</th><th>태그</th><th>지속</th><th>알람</th></tr></thead><tbody>';
+    E.injected.forEach(function(w){
+      h+='<tr><td>'+w.start.slice(11,16)+'</td><td>'+w.scenario_id+'</td><td class="nm">'+w.name+'</td>'
+       + '<td>'+w.affected_tags.join(', ')+'</td><td>'+durTxt(w)+'</td><td>'+w.dcs_alarm+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    if(E.overlaps.length){
+      h+='<h4 style="margin:10px 0 5px">동시 발생 '+E.overlaps.length+'건</h4><table class="st"><thead><tr><th>조합</th><th>태그</th><th>구간</th><th>지속</th></tr></thead><tbody>';
+      E.overlaps.forEach(function(o){
+        h+='<tr><td>#'+o.a+' × #'+o.b+'</td><td>'+o.tags.join(', ')+'</td>'
+         + '<td>'+o.from.slice(11,16)+'~'+o.to.slice(11,16)+'</td><td>'+o.minutes+'분</td></tr>'; });
+      h+='</tbody></table>';
+    }
+    $('mBody').innerHTML=h;
+    $('sModal').hidden=false;
+  }
+
+  /* ── 내보내기 ──────────────────────────────────────────── */
+  /* 형식이 어긋난 값 — 실제 히스토리언에서 나오는 형태들 */
+  var BADV = ['N/A','NaN','---','ERR','#VALUE!','null','1.2.3',''];
+
+  /* CSV 만들기. defect 를 주면 값 일부를 비우거나 깨뜨린다.
+     「03. 검증 환경」이 요구하는 '형식이 어긋난 값'·'값이 비어 있을 때' 조건을
+     만들기 위한 것. 위치는 seed 로 정해지므로 몇 번 뽑아도 같은 파일이 나온다. */
+  function csvBlob(c, defect, ratePct){
+    var chunks=[], buf='timestamp,tag,value\n', cnt=0, hit=0;
+    var rate=(ratePct||0)/100, sd=(c.entry.base_seed^0x0DEF)|0;
+    for(var i=0;i<N;i++){
+      var ts=fmtTs(c.shiftMs+i*STEP*1000);
+      for(var k=0;k<c.ids.length;k++){
+        var id=c.ids[k], v=c.D[id][i].toFixed(c.dec[id]);
+        if(defect && rate>0){
+          var r=hrnd(sd, k*7919+13, i);
+          if(r<rate){
+            var pick = (defect==='empty') ? ''
+                     : (defect==='bad')   ? BADV[Math.floor(hrnd(sd,k+91,i)*7)]
+                     : (r < rate/2 ? '' : BADV[Math.floor(hrnd(sd,k+91,i)*7)]);
+            v=pick; hit++;
+          }
+        }
+        buf += ts+','+id+','+v+'\n';
+      }
+      if(++cnt%2000===0){ chunks.push(buf); buf=''; }
+    }
+    if(buf) chunks.push(buf);
+    return { blob:new Blob(chunks,{type:'text/csv;charset=utf-8'}), rows:N*c.ids.length, hit:hit };
+  }
+  function save(blob,name){
+    try{
+      var u=URL.createObjectURL(blob), a=document.createElement('a');
+      a.href=u; a.download=name; document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); },1500);
+      smsg(name+' 저장을 시작했습니다.',true);
+    }catch(e){ smsg('이 화면에서는 파일 저장이 차단됩니다. GitHub Pages 주소에서 열어주세요.',false); }
+  }
+  function csvName(E,defect){ return 'water_'+E.shift_id.replace(/-/g,'')+'_12h'+(defect?'_'+defect:'')+'.csv'; }
+  function mergedAnswer(){
+    var cov={}; RUN.hist.forEach(function(E){ E.injected.forEach(function(w){ cov[w.scenario_id]=1; }); });
+    return {
+      generated_at:new Date().toISOString(),
+      sampling_interval_sec:STEP, shift_hours:12, shifts:RUN.hist.length,
+      scenario_coverage:{ covered:Object.keys(cov).map(Number).sort(function(a,b){return a-b;}),
+                          missing:SCEN.map(function(S){return S.id;}).filter(function(i){return !cov[i];}),
+                          rate:Object.keys(cov).length+'/'+SCEN.length },
+      shift_list:RUN.hist.slice().sort(function(a,b){ return a.from<b.from?-1:a.from>b.from?1:0; })
+    };
+  }
+
+  /* ── 이벤트 연결 ───────────────────────────────────────── */
+  // 상단 배지는 실제 개수로 채운다 — 하드코딩해 두었더니 시나리오가 20→24종이 되도록
+  // 15종에 머물러 있었다(2026-08-29 발견). 화면이 스스로 세게 한다.
+  (function(){ var p=$('pillScen'); if(p) p.textContent='시나리오 주입 '+SCEN.length+'종'; })();
+
+  buildScenList(); renderHist();
+  if(RUN.chStartMs!==null && RUN.hist.length){
+    // 날짜 선택을 마지막 근무의 다음 근무로 맞춰둔다 — 그대로 누르면 이어진다
+    var nx0=shiftLabel(RUN.chStartMs+RUN.chK*SHIFT_SEC*1000);
+    $('sDate').value=nx0.date; $('sKind').value=nx0.kind;
+    smsg('이전 진행 상태를 불러왔습니다 — '+RUN.hist.length+'근무 생성됨.',null);
+    renderShift(RUN.hist[RUN.hist.length-1]);
+  }
+
+  $('sRun').onclick = nextShift;
+  $('sReset').onclick = function(){
+    if(!confirm('진행 상태와 과거 기록을 모두 지우고 처음부터 시작합니다.')) return;
+    RUN={chSeed:0,chStartMs:null,chK:0,idx:0,hist:[],active:[]}; CACHE=[];
+    try{ localStorage.removeItem(RKEY); }catch(e){}
+    $('sHead').textContent='아직 생성하지 않았습니다';
+    $('sTbl').innerHTML=''; var sv=$('sTl'); while(sv.firstChild) sv.removeChild(sv.firstChild);
+    ['sCsv','sAns','sAll'].forEach(function(b){ $(b).disabled=true; });
+    paintOverview(null);
+    renderHist(); rtdbSync(); smsg('초기화했습니다.',true);
+  };
+  function dumpCsv(c){
+    var defect=$('sDef').value, rate=parseFloat($('sDefR').value)||0;
+    var r=csvBlob(c, defect, rate);
+    save(r.blob, csvName(c.entry, defect));
+    if(defect) smsg(csvName(c.entry,defect)+' 저장 — 전체 '+r.rows.toLocaleString()+'셀 중 '
+      +r.hit.toLocaleString()+'셀에 '+(defect==='empty'?'빈 값':defect==='bad'?'깨진 값':'빈 값·깨진 값')+' 주입', true);
+  }
+  $('sCsv').onclick = function(){ var c=CACHE[CACHE.length-1]; if(!c)return; dumpCsv(c); };
+  $('sAns').onclick = function(){ var E=RUN.hist[RUN.hist.length-1]; if(!E)return;
+    save(new Blob([JSON.stringify(E,null,2)],{type:'application/json'}),'asu_answer_'+E.shift_id+'.json'); };
+  $('sAll').onclick = function(){ if(!RUN.hist.length)return;
+    save(new Blob([JSON.stringify(mergedAnswer(),null,2)],{type:'application/json'}),'asu_answer_all.json'); };
+  $('sHist').addEventListener('click',function(ev){
+    var a=ev.target.getAttribute('data-ans'), c=ev.target.getAttribute('data-csv');
+    if(a!==null&&a!==undefined){ var E=RUN.hist.filter(function(x){return x.idx===+a;})[0]; if(E) openModal(E); }
+    if(c!==null&&c!==undefined){ var cc=CACHE.filter(function(x){return x.idx===+c;})[0]; if(cc) dumpCsv(cc); }
+  });
+  $('mClose').onclick=function(){ $('sModal').hidden=true; };
+  $('sModal').onclick=function(ev){ if(ev.target===$('sModal')) $('sModal').hidden=true; };
+
+  /* ══════════════════════════════════════════════════════════
+     RTDB — 방금 생성한 근무 데이터의 시간평균 조회
+     ══════════════════════════════════════════════════════════
+     CACHE(최근 3근무)의 원시 데이터를 시간별 평균으로 접어 태그×시각
+     표로 보여준다. 가로축은 00~24시 고정이라 주간은 06~17시 칸에,
+     야간은 18~23·00~05시 칸에 값이 찬다. 원시 데이터가 브라우저
+     메모리에만 있으므로 새로고침 후에는 근무를 다시 생성해야 한다. */
+  var rSel = null, rTag = null, rCache = {};
+
+  function rp2(x){ return x < 10 ? '0' + x : '' + x; }
+
+  function rtdbBuild(c){
+    // 셀에는 시간 평균을 쓰되, 색 판정은 그 시간의 최대·최소로 한다.
+    // 40분짜리 과온 같은 짧은 이벤트는 평균으로 접으면 한계 아래로 희석되어
+    // 색이 사라진다 — "그 시각에 한계를 넘는 순간이 있었는가" 가 근무자의 질문이다.
+    var per = Math.round(3600 / STEP), avg = {}, hmax = {}, hmin = {};
+    c.ids.forEach(function(id){
+      var a = c.D[id], oA = new Array(12), oX = new Array(12), oN = new Array(12);
+      for (var h = 0; h < 12; h++){
+        var s = h * per, sum = 0, mx = -Infinity, mn = Infinity;
+        for (var i = s; i < s + per; i++){
+          var v = a[i]; sum += v;
+          if (v > mx) mx = v;
+          if (v < mn) mn = v;
+        }
+        oA[h] = sum / per; oX[h] = mx; oN[h] = mn;
+      }
+      avg[id] = oA; hmax[id] = oX; hmin[id] = oN;
+    });
+    return { startH: new Date(c.shiftMs).getHours(), avg: avg, hmax: hmax, hmin: hmin, c: c };
+  }
+  function rtdbGet(idx){
+    if (rCache[idx] === undefined){
+      var c = CACHE.filter(function(x){ return x.idx === idx; })[0];
+      rCache[idx] = c ? rtdbBuild(c) : null;
+    }
+    return rCache[idx];
+  }
+
+  function rtFmt(v, id){
+    var dc = decimals(id);
+    if (Math.abs(v) >= 1000) dc = 0;
+    return v.toFixed(dc);
+  }
+  function rtCls(id, mx, mn){
+    var d = state[id];
+    if (d.HH !== '' && mx > +d.HH) return 'cHH';
+    if (d.LL !== '' && mn < +d.LL) return 'cHH';
+    if (d.H  !== '' && mx > +d.H)  return 'cH';
+    if (d.L  !== '' && mn < +d.L)  return 'cH';
+    return '';
+  }
+
+  function rtdbRender(){
+    // 근무 선택 버튼
+    var sh = '';
+    CACHE.forEach(function(c){
+      sh += '<button class="rbtn' + (c.idx === rSel ? ' on' : '') + '" data-rsel="' + c.idx + '">'
+          + c.entry.from.slice(5, 10) + ' ' + c.entry.kind_ko + '</button> ';
+    });
+    $('rShifts').innerHTML = sh || '<span style="color:#b45309">아직 없습니다</span>';
+
+    var R = (rSel !== null) ? rtdbGet(rSel) : null;
+    if (!R){
+      $('rTbl').innerHTML = '<p class="note" style="padding:12px">SCENARIO INJECT 탭에서 근무를 생성하면 여기에 표시됩니다.'
+        + (RUN.hist.length ? '<br>과거 기록은 있지만 원시 데이터는 브라우저 메모리에만 있어, 새로고침 후에는 다시 생성해야 합니다.' : '') + '</p>';
+      $('rTag').textContent = '태그를 선택하세요';
+      var cv = $('rChart'); while (cv.firstChild) cv.removeChild(cv.firstChild);
+      return;
+    }
+
+    var h = '<table class="rt"><thead><tr><th class="tg0">태그</th>';
+    for (var col = 0; col < 24; col++) h += '<th>' + rp2(col) + '시</th>';
+    h += '</tr></thead><tbody>';
+    DEFAULTS.forEach(function(r){
+      if (r[0].charAt(0) === '#'){ h += '<tr class="grp"><td colspan="25">' + r[1] + '</td></tr>'; return; }
+      var id = r[0], a = R.avg[id];
+      if (!a) return;
+      h += '<tr data-rt="' + id + '"' + (id === rTag ? ' class="sel"' : '') + '>'
+         + '<td class="tg0"><b>' + id + '</b> <span>' + state[id].unit + '</span></td>';
+      for (var c2 = 0; c2 < 24; c2++){
+        var k = (c2 - R.startH + 24) % 24;          // 이 시각 칸에 놓일 근무 시간 인덱스
+        if (k < 12){
+          h += '<td class="' + rtCls(id, R.hmax[id][k], R.hmin[id][k]) + '">' + rtFmt(a[k], id) + '</td>';
+        } else {
+          h += '<td class="mt">·</td>';
+        }
+      }
+      h += '</tr>';
+    });
+    $('rTbl').innerHTML = h + '</tbody></table>';
+    if (rTag) rtdbTrend(rTag);
+  }
+
+  function rtdbTrend(id){
+    rTag = id;
+    Array.prototype.forEach.call($('rTbl').querySelectorAll('tr[data-rt]'), function(tr){
+      tr.classList.toggle('sel', tr.getAttribute('data-rt') === id);
+    });
+    var R = rtdbGet(rSel); if (!R) return;
+    var d = state[id];
+    $('rTag').textContent = id + '  ·  ' + d.desc + '  (' + d.unit + ')  ·  ' + R.c.entry.shift_id;
+
+    // 1분 평균 720점으로 접기
+    var per = Math.round(60 / STEP), n = Math.floor(N / per), a = R.c.D[id];
+    var y = new Array(n);
+    for (var m = 0; m < n; m++){
+      var s = m * per, sum = 0;
+      for (var i = s; i < s + per; i++) sum += a[i];
+      y[m] = sum / per;
+    }
+
+    var svg = $('rChart'); while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var mn = Math.min.apply(null, y), mx = Math.max.apply(null, y);
+    var lo = +d.lo, hi = +d.hi;
+    if (!isNaN(lo)) mn = Math.min(mn, lo);
+    if (!isNaN(hi)) mx = Math.max(mx, hi);
+    var pad = (mx - mn) * 0.12 || 1; mn -= pad; mx += pad;
+
+    var W = 300, H = 150, L = 42, Rm = 6, T = 8, B = 16;
+    function px(i){ return L + (W - L - Rm) * i / (n - 1); }
+    function py(v){ return T + (H - T - B) * (1 - (v - mn) / (mx - mn)); }
+    function add(t2, at){ var e = document.createElementNS(NS, t2); for (var k2 in at) e.setAttribute(k2, at[k2]); svg.appendChild(e); return e; }
+    function lb(x, yy, s2, col2, an){ var e = document.createElementNS(NS, 'text');
+      e.setAttribute('x', x); e.setAttribute('y', yy); e.setAttribute('font-size', '7');
+      e.setAttribute('fill', col2); e.setAttribute('font-family', 'ui-monospace,Menlo,Consolas,monospace');
+      if (an) e.setAttribute('text-anchor', an); e.textContent = s2; svg.appendChild(e); }
+
+    if (!isNaN(lo) && !isNaN(hi)){
+      add('rect', {x:L, y:py(hi), width:W-L-Rm, height:Math.abs(py(lo)-py(hi)), fill:'#e8f0e6'});
+      add('line', {x1:L, y1:py(hi), x2:W-Rm, y2:py(hi), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      add('line', {x1:L, y1:py(lo), x2:W-Rm, y2:py(lo), stroke:'#8ab08a', 'stroke-width':.7, 'stroke-dasharray':'3 2'});
+      lb(L-3, py(hi)+2.5, rtFmt(hi, id), '#5f7f5f', 'end');
+      lb(L-3, py(lo)+2.5, rtFmt(lo, id), '#5f7f5f', 'end');
+    }
+    [['H','#b45309'],['HH','#EA002C'],['L','#b45309'],['LL','#EA002C']].forEach(function(al){
+      var v = parseFloat(d[al[0]]);
+      if (isNaN(v) || v < mn || v > mx) return;
+      add('line', {x1:L, y1:py(v), x2:W-Rm, y2:py(v), stroke:al[1], 'stroke-width':.7, 'stroke-dasharray':'1 2'});
+      lb(W-Rm, py(v)-2, al[0], al[1], 'end');
+    });
+    var pth = '';
+    for (var i2 = 0; i2 < n; i2++) pth += (i2 ? 'L' : 'M') + px(i2).toFixed(1) + ',' + py(y[i2]).toFixed(1);
+    add('path', {d:pth, fill:'none', stroke:'#0b3d91', 'stroke-width':1.1});
+    add('line', {x1:L, y1:H-B, x2:W-Rm, y2:H-B, stroke:'#c8c9c4', 'stroke-width':.8});
+    var h0 = R.startH;
+    lb(L, H-5, rp2(h0)+':00', '#8a8a84');
+    lb((L+W-Rm)/2, H-5, rp2((h0+6)%24)+':00', '#8a8a84', 'middle');
+    lb(W-Rm, H-5, rp2((h0+12)%24)+':00', '#8a8a84', 'end');
+
+    var mn2 = Math.min.apply(null, y), mx2 = Math.max.apply(null, y);
+    $('rNote').innerHTML = '이 근무 범위 <b>' + rtFmt(mn2, id) + ' ~ ' + rtFmt(mx2, id) + '</b> ' + d.unit
+      + ' · 1분 평균 ' + n + '점<br>초록 밴드가 정상 범위, 점선이 알람 한계입니다.';
+  }
+
+  /* 생성·초기화 뒤 호출 — 캐시에서 밀려난 근무를 정리하고 최신을 선택 */
+  function rtdbSync(){
+    var alive = {}; CACHE.forEach(function(c){ alive[c.idx] = 1; });
+    Object.keys(rCache).forEach(function(k){ if (!alive[k]) delete rCache[k]; });
+    if (rSel === null || !alive[rSel]){
+      rSel = CACHE.length ? CACHE[CACHE.length - 1].idx : null;
+      rTag = null;
+    }
+    if (!$('viewRtdb').hidden) rtdbRender();
+  }
+
+  $('rShifts').addEventListener('click', function(ev){
+    var b = ev.target.getAttribute('data-rsel');
+    if (b === null || b === undefined) return;
+    rSel = +b; rtdbRender();
+  });
+  $('rTbl').addEventListener('click', function(ev){
+    var tr = ev.target.closest ? ev.target.closest('tr[data-rt]') : null;
+    if (tr) rtdbTrend(tr.getAttribute('data-rt'));
+  });
+
+  /* ── 페이지 탭 ── */
+  function tab(which){
+    $('viewOverview').hidden = which!=='ovw';
+    $('viewData').hidden     = which!=='data';
+    $('viewScen').hidden     = which!=='scen';
+    $('viewRtdb').hidden     = which!=='rtdb';
+    $('tabOvw').classList.toggle('off',  which!=='ovw');
+    $('tabData').classList.toggle('off', which!=='data');
+    $('tabScen').classList.toggle('off', which!=='scen');
+    $('tabRtdb').classList.toggle('off', which!=='rtdb');
+    if (which==='data' && !sel) select('TI-101');
+    if (which==='rtdb'){ rtdbSync(); rtdbRender(); }
+  }
+  $('tabOvw').onclick  = function(){ tab('ovw'); };
+  $('tabData').onclick = function(){ tab('data'); };
+  $('tabScen').onclick = function(){ tab('scen'); };
+  $('tabRtdb').onclick = function(){ tab('rtdb'); };
+  // 배포 앱의 iframe 딥링크용 — 기존 #ovw/#data/#scen 은 서버 스크립트가 처리하므로 #rtdb 만 여기서
+  if ((location.hash || '') === '#rtdb') tab('rtdb');
+  window.addEventListener('hashchange', function(){ if ((location.hash || '') === '#rtdb') tab('rtdb'); });
+})();
+</script>
+</body>
+</html>
