@@ -729,6 +729,20 @@ class PollSafety(unittest.TestCase):
         self.assertNotIn("__h_ready", j["order"], "마감되면 무리 머리는 걷는다")
         self.assertIn("감지", j["summary"], "요약도 마감 화면의 것")
 
+    def test_only_a_typed_field_freezes_the_order(self):
+        """경모님 지적(2026-09-15) — 「중간부터 관찰 중이 위로 안 올라오고 계속 밑으로 간다」.
+        카드를 한 번 누르면 체크 상자에 초점이 남고, 초점이 목록 안이면 자리 옮기기를 통째로 건너뛰던 규칙 때문에
+        그 뒤로 영영 순서가 안 맞았다. 막는 조건은 「글을 쓰고 있는 칸」 하나로 좁힌다."""
+        import server
+        js = server._POLL_JS
+        self.assertNotIn("!busy(box)", js, "목록 안 아무 초점으로 순서를 멈추지 않는다")
+        self.assertIn("TEXTAREA", js, "글 쓰는 칸만 자리를 지킨다")
+        head = js[:js.index("function tick")]
+        self.assertIn("writing", head, "쓰는 중인 칸을 찾는 함수가 있다")
+        self.assertIn("lastKey", head, "초점만 남은 칸은 붙잡지 않는다 — 실제 타자 시각으로 가른다(codex 반증)")
+        self.assertIn("keydown", head, "타자를 듣는다")
+        self.assertIn("setSelectionRange", js, "잠깐 멈춘 사이 갈아 끼워도 커서 자리를 돌려 놓는다")
+
     def test_cards_slide_to_their_new_place(self):
         """자리를 옮기는 것이 보여야 관측 → AI → 초안 흐름이 읽힌다(경모님). 동작 줄이기 설정이면 즉시 놓는다."""
         import server
@@ -737,7 +751,7 @@ class PollSafety(unittest.TestCase):
         self.assertIn("transform .25s", js, "200~300ms 전환")
         self.assertIn("prefers-reduced-motion", js, "동작 줄이기면 전환 없음")
         flip = js[js.index("var b=was["):]
-        self.assertIn("busy(e)", js[js.index("if(!still)"):js.index("var b=was[")],
+        self.assertIn("e===hold", js[js.index("if(!still)"):js.index("var b=was[")],
                       "쓰고 있는 칸은 미끄러뜨리지 않는다 — 커서 아래에서 움직인다(codex 반증)")
         self.assertTrue(flip, "전환 자리가 있다")
         self.assertIn("window.scrollBy", js, "쓰고 있는 칸은 화면에서 제자리에 둔다 — 위 카드가 늘면 커서 밑에서 밀린다")

@@ -1475,9 +1475,25 @@ def live_cards(shift_id):
 _POLL_JS = """<script>(function(){
 var box=document.getElementById('items'); var sid=(box&&box.dataset.shift)||'';
 function busy(el){return el.contains(document.activeElement)&&document.activeElement!==document.body}
+/* 자리 옮기기를 막는 것은 「지금 글을 쓰고 있는 칸」 하나뿐이다.
+   초점이 목록 안이기만 하면 막았더니, 카드를 한 번 누른 뒤로 순서가 영영 안 맞았다(경모님 지적 2026-09-15) —
+   체크 상자를 누르면 초점이 거기 남고, 사람이 다른 곳을 눌러도 초점은 빠지지 않는다. */
+var lastKey=0;                                   /* 마지막 타자 시각 — 초점만 남은 칸은 붙잡지 않는다 */
+if(box){box.addEventListener('keydown',function(){lastKey=Date.now()},true);
+        box.addEventListener('input',function(){lastKey=Date.now()},true);}
+function writing(){
+ var a=document.activeElement; if(!a||!box||!box.contains(a)) return null;
+ var t=(a.tagName||'').toUpperCase();
+ if(!(t==='TEXTAREA'||(t==='INPUT'&&/^(text|search|number|email|url|tel|password)$/i.test(a.type||'text')))) return null;
+ /* 글 쓰던 손이 멈추면(3초) 그 카드도 다시 차례를 맞춘다 — 글자·초점·커서 자리는 되돌려 놓는다.
+    초점이 남아 있다는 이유만으로 붙잡았더니 그 카드 하나가 끝내 제자리를 못 찾았다(codex 반증). */
+ return (Date.now()-lastKey < 3000) ? a.closest('[data-key]') : null;
+}
 var still=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;   /* 즉시 이동 */
-function keep(el){          /* 근무자가 넣은 것 — 갈아 끼운 뒤 그대로 되돌린다 */
- var o={cb:[],rd:null,ta:{},dt:[]};
+function keep(el){          /* 근무자가 넣은 것 — 갈아 끼운 뒤 그대로 되돌린다(초점까지) */
+ var a=document.activeElement;
+ var o={cb:[],rd:null,ta:{},dt:[],
+        fc:(a&&a.name&&el.contains(a))?{n:a.name,v:a.value,s:a.selectionStart,e:a.selectionEnd}:null};
  el.querySelectorAll('input[type=checkbox]').forEach(function(x){o.cb.push([x.value,x.checked])});
  var r=el.querySelector('input[type=radio]:checked'); if(r) o.rd=r.value;
  el.querySelectorAll('textarea').forEach(function(x){o.ta[x.name]=x.value});
@@ -1492,6 +1508,11 @@ function put(el,o){
  if(o.rd) el.querySelectorAll('input[type=radio]').forEach(function(x){x.checked=(x.value===o.rd)});
  el.querySelectorAll('textarea').forEach(function(x){if(o.ta[x.name]!==undefined) x.value=o.ta[x.name]});
  el.querySelectorAll('details').forEach(function(x,i){if(o.dt[i]!==undefined) x.open=o.dt[i]});
+ if(o.fc){        /* 누르던 칸에 초점을 돌려 놓는다 — 이름이 같은 라디오는 값으로 가른다 */
+  var f=el.querySelector('[name="'+o.fc.n+'"][value="'+o.fc.v+'"]')||el.querySelector('[name="'+o.fc.n+'"]');
+  if(f&&f.focus){f.focus({preventScroll:true});
+   if(o.fc.s!=null&&f.setSelectionRange){try{f.setSelectionRange(o.fc.s,o.fc.e)}catch(_){}}}
+ }
 }
 /* 재생 시계 — 폴링은 2초에 한 번이라, 그 사이는 배속만큼 이어 돌리고 새 값이 오면 맞춘다.
    멈춘 재생은 시계도 멈춘다(그 사실이 화면에 그대로 드러나야 한다). */
@@ -1515,6 +1536,11 @@ function tick(){
      확정본·없는 근무면 응답에 목록이 없으니 화면을 그대로 둔다. */
   var listed=(j.draft==='live'||j.draft==='pending');
   if(box&&box.dataset.live&&listed){
+   var hold=writing();                            /* 지금 글을 쓰고 있는 카드 하나 — 이것만 그대로 둔다 */
+   /* 누르고 있던 칸 — 카드를 갈아 끼우거나 자리를 옮기면 초점이 떨어진다(마디를 옮기면 브라우저가 blur 시킨다).
+      다 그린 뒤 제자리에 돌려 놓는다. 그 사이 근무자가 다른 곳을 눌렀으면 건드리지 않는다. */
+   var af=document.activeElement;
+   var back=(af&&af.name&&box.contains(af))?{n:af.name,v:af.value}:null;
    /* 쓰고 있는 칸은 화면에서 제자리에 둔다 — 위쪽 카드가 늘거나 줄면 커서 밑에서 칸이 밀린다(codex 반증) */
    var foc=(document.activeElement&&document.activeElement!==document.body&&box.contains(document.activeElement))
            ?document.activeElement.closest('[data-key]'):null;
@@ -1528,7 +1554,7 @@ function tick(){
    var seen={};
    (j.cards||[]).forEach(function(c){ seen[c.key]=1;
     var el=box.querySelector('[data-key="'+c.key+'"]');
-    if(el&&busy(el)) return;                      /* 지금 쓰고 있는 카드는 건드리지 않는다 */
+    if(el&&el===hold) return;                     /* 글을 쓰는 중인 카드만 건드리지 않는다 */
     var was=el?((el.querySelector('.why')||{}).textContent||''):'';
     var st=el?keep(el):null;
     if(el){el.outerHTML=c.html;} else {box.insertAdjacentHTML('beforeend',c.html);}
@@ -1539,13 +1565,16 @@ function tick(){
     else if(was&&((now.querySelector('.why')||{}).textContent||'')!==was) now.classList.add('flash');
    });
    Array.prototype.forEach.call(box.querySelectorAll('[data-key]'),function(e){
-    if(!seen[e.getAttribute('data-key')]&&!busy(e)) e.remove();   /* 사라진 카드 · 마감돼 걷힌 무리 머리 */
+    if(!seen[e.getAttribute('data-key')]&&e!==hold) e.remove();   /* 사라진 카드 · 마감돼 걷힌 무리 머리 */
    });
-   if((j.order||[]).length&&!busy(box)){
+   /* 차례 맞추기 — 쓰고 있는 카드 하나만 제자리에 두고 나머지는 매 번 맞춘다.
+      한 번 막히면 영영 안 맞던 구조를 없앴다: 쓰기를 멈추면 바로 다음 폴링이 따라잡는다. */
+   if((j.order||[]).length){
     var prev=null;
     j.order.forEach(function(k){
-     var e=box.querySelector('[data-key="'+k+'"]'); if(!e) return;
+     var e=box.querySelector('[data-key="'+k+'"]'); if(!e||e===hold) return;
      var want=prev?prev.nextElementSibling:box.firstElementChild;
+     while(want===hold) want=want.nextElementSibling;   /* 쓰는 중인 카드의 자리는 건너뛴다 */
      if(e!==want) box.insertBefore(e,want);
      prev=e;
     });
@@ -1555,13 +1584,17 @@ function tick(){
     if(Math.abs(dy)>1) window.scrollBy(0,dy);
    }
    if(!still) Array.prototype.forEach.call(box.querySelectorAll('[data-key]'),function(e){
-    if(busy(e)) return;                          /* 쓰고 있는 칸은 미끄러뜨리지 않는다 — 커서 아래에서 움직인다 */
+    if(e===hold) return;                         /* 쓰고 있는 칸은 미끄러뜨리지 않는다 — 커서 아래에서 움직인다 */
     var b=was[e.getAttribute('data-key')]; if(b===undefined) return;
     var d=b-(e.getBoundingClientRect().top+window.scrollY);
     if(Math.abs(d)<2) return;                    /* 안 움직였으면 그대로 */
     e.style.transition='none'; e.style.transform='translateY('+d+'px)';
     requestAnimationFrame(function(){e.style.transition='transform .25s ease';e.style.transform=''});
    });
+   if(back&&document.activeElement===document.body){
+    var f=box.querySelector('[name="'+back.n+'"][value="'+back.v+'"]')||box.querySelector('[name="'+back.n+'"]');
+    if(f&&f.focus) f.focus({preventScroll:true});
+   }
   }
   var sm=document.getElementById('summary'); if(sm&&j.summary) sm.innerHTML=j.summary;
   var tot=document.getElementById('tot'); if(tot&&j.total) tot.textContent=j.total;
