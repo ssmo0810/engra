@@ -33,7 +33,7 @@ def _fresh_db():
     os.environ["ENGRA_DB"] = path
     os.environ["ENGRA_LLM"] = "off"
     # server 도 갈아야 한다 — 남겨 두면 server.db 가 이전 시험의 DB 파일을 계속 가리켜 화면 시험이 빈 DB 를 본다 (상태 스위치 시험에서 실측)
-    for m in ("db", "collect", "pipeline", "approve", "jobs", "ports", "config", "llm", "server"):
+    for m in ("db", "collect", "pipeline", "approve", "jobs", "ports", "config", "llm", "server", "live"):
         sys.modules.pop(m, None)
     import db
     db.init()
@@ -391,7 +391,7 @@ class PrecedentDisplay(unittest.TestCase):
         import inspect
         _fresh_db()
         import server
-        src = inspect.getsource(server._view_pending)
+        src = inspect.getsource(server._item_card)      # 카드 한 장을 그리는 자리(초안 화면과 실시간 폴링이 함께 쓴다)
         self.assertIn("원문 보기", src, "원문은 접어서 열게 해야 한다")
         self.assertIn("<details", src)
         self.assertIn("[:60]", src, "미리보기는 짧게 자른다")
@@ -1398,14 +1398,15 @@ class TwoScreens(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertTrue('class="side"' in body and 'class="detail"' in body, "왼쪽 목록 + 오른쪽 내용")
         self.assertTrue('onsubmit="return chk(this)"' in body, "빈 화면을 만들지 않는다 — 가장 최근 근무를 펴 둔다")
-        self.assertTrue(f'class="nrow on" href="/shift/{self.NIGHT[0]}"' in body, "고른 근무는 목록에서 표시한다")
+        self.assertTrue(f'class="nrow on" data-shift="{self.NIGHT[0]}" href="/shift/{self.NIGHT[0]}"' in body, "고른 근무는 목록에서 표시한다")
         self.assertEqual(body.count('class="nrow on"'), 1, "표시는 한 줄만")
         self.assertEqual(body, self._get(f"/shift/{self.NIGHT[0]}")[1], "주소만 다르고 같은 한 화면이다")
 
         # 쌓이는 중인 근무가 있으면 그것부터
         self._add("2026-08-26-day", "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
         _, body, _ = self._get("/draft")
-        self.assertTrue('class="nrow on" href="/shift/2026-08-26-day"' in body, "재생 중이면 그 근무를 연다")
+        self.assertTrue('class="nrow live on" data-shift="2026-08-26-day" href="/shift/2026-08-26-day"' in body,
+                        "재생 중이면 그 근무를 연다")
 
     def test_one_page_with_no_shifts_shows_the_empty_state(self):
         """근무가 하나도 없으면 오른쪽에 안내를 둔다 — 왼쪽만 비고 오른쪽이 빈 화면이 되면 안 된다.
@@ -1439,27 +1440,29 @@ class TwoScreens(unittest.TestCase):
         self.assertTrue(".pickbox{position:absolute" in mobile, "모바일에서는 초점을 받도록 되살린다")
         self.assertFalse(".pickbox{position:absolute" in base, "PC 에 보이지 않는 초점 자리를 남기지 않는다")
 
-    def test_live_shift_is_read_only(self):
-        """아직 쌓이는 중인 근무(status='live')를 누르면 승인 폼이 그대로 떴다(반증 워커) — view_shift 가
-        확정 일지 유무로만 갈라 live 를 pending 과 똑같이 다뤘다. 끝나지 않은 근무를 확정하면 뒤에 들어온
-        감지가 일지에 없는 채로 남는다. 화면에서 폼을 빼고, 폼을 우회한 제출도 승인에서 막는다."""
+    def test_live_shift_locks_approval_but_keeps_the_form(self):
+        """쌓이는 중인 근무(status='live')는 **승인만** 잠근다. 처음에는 화면 전체를 읽기 전용으로 뒀는데(조각 1),
+        실시간 누적이 붙으면서 경모님 결정대로 바꿨다 — 관찰 중은 회색이라 못 건드리고, AI 가 다 쓴 항목은 미리 고르고
+        코멘트를 달 수 있고, 잠기는 것은 승인 버튼과 그 이유 문구다. 폼을 우회한 제출은 approve.decide 가 막는다."""
         _fresh_db()
         import approve
-        live = "2026-08-26-day"
-        iid = self._add(live, "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
-        code, body, _ = self._get(f"/shift/{live}")
+        live_sid = "2026-08-26-day"
+        iid = self._add(live_sid, "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
+        code, body, _ = self._get(f"/shift/{live_sid}")
         self.assertEqual(code, 200)
-        self.assertFalse('action="/approve"' in body, "쌓이는 중인 근무에 승인 폼이 뜨면 안 된다")
-        self.assertFalse("승인하고 확정" in body, "승인 버튼도 없다")
-        self.assertTrue("근무가 끝나면 검토할 수 있습니다" in body, "왜 지금은 못 누르는지 한 줄 적는다")
-        self.assertTrue("TI-403" in body, "쌓인 항목은 읽을 수 있어야 한다 — 감추는 게 아니라 읽기 전용")
+        self.assertTrue('action="/approve"' in body, "고르기·코멘트는 미리 할 수 있다")
+        self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled', "승인 버튼은 잠긴다")
+        self.assertRegex(body, r'id="approvelock"[^>]*>[^<]+<', "왜 못 누르는지 문구가 있다")
+        self.assertTrue("쌓이고 있습니다" in body, "쌓이는 중이라는 안내")
+        self.assertTrue("TI-403" in body, "쌓인 항목은 읽을 수 있다")
         with self.assertRaises(ValueError):     # 폼을 우회한 POST
-            approve.decide(live, {iid: {"adopted": True, "status": "완료"}})
+            approve.decide(live_sid, {iid: {"adopted": True, "status": "완료"}})
 
-        # 대조군 — 끝난 근무는 그대로 승인할 수 있어야 한다(위 검사가 공허하지 않음을 보인다)
+        # 대조군 — 끝난 근무는 잠기지 않는다(위 검사가 공허하지 않음을 보인다)
         done = self._add(*self.NIGHT)
         _, body2, _ = self._get(f"/shift/{self.NIGHT[0]}")
         self.assertTrue('action="/approve"' in body2, "끝난 근무의 승인 폼까지 사라지면 안 된다")
+        self.assertNotRegex(body2, r'<button[^>]*id="approve"[^>]*disabled', "끝난 근무의 승인 버튼은 열려 있다")
         approve.decide(self.NIGHT[0], {done: {"adopted": True, "status": "완료"}})
 
     def test_admin_has_one_pipeline_card(self):
@@ -2178,7 +2181,8 @@ class SnapshotLinks(unittest.TestCase):
         out = snapshot.to_static(server._one_page(day), "handover.html")
         self.assertFalse("/shift/" in out, "서버 주소가 남으면 정적본에서 죽은 링크다")
         self.assertFalse('href="/draft"' in out, "/draft 도 남으면 안 된다")
-        self.assertTrue(f'class="nrow on" href="handover.html"' in out, "고른 근무 줄은 제 파일을 가리킨다")
+        import re as _re
+        self.assertTrue(_re.search(r'class="nrow on"[^>]*href="handover\.html"', out), "고른 근무 줄은 제 파일을 가리킨다")
         self.assertTrue('href="index.html"' in out, "야간 초안 줄은 index.html 로 간다")
 
 

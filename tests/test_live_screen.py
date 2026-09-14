@@ -121,5 +121,132 @@ class ReplayControls(unittest.TestCase):
         self.assertEqual((st["phase"], st["chain"]), ("idle", []))
 
 
+def _card(body, key):
+    """그 표식이 붙은 항목 카드 한 장만 잘라 낸다 — <div> 짝을 세어 카드 끝에서 멈춘다.
+    다음 카드까지로 자르면 마지막 카드일 때 화면 바닥(승인 바·스크립트)까지 딸려 와 검사가 헛돈다."""
+    i = body.index(f'data-key="{key}"')
+    start = body.rindex('<div class="item', 0, i)
+    depth, j = 0, start
+    while True:
+        opened, closed = body.find("<div", j), body.find("</div>", j)
+        if closed < 0:
+            return body[start:]
+        if 0 <= opened < closed:
+            depth, j = depth + 1, opened + 4
+        else:
+            depth, j = depth - 1, closed + 6
+            if depth == 0:
+                return body[start:j]
+
+
+class LiveDraftScreen(unittest.TestCase):
+    """쌓이는 중인 근무 화면 — 관찰 중은 회색으로 못 건드리고, AI 가 다 쓴 항목은 고를 수 있고, 승인은 잠긴다."""
+
+    LOCK = "18:00 마감과 AI 서술이 끝나면 승인할 수 있습니다"
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            did = db.open_live_draft(conn, H.SID, "live")
+            self.item_id = db.add_live_item(
+                conn, did,
+                {"origin": "detected", "tag": "TI-101", "title": "TI-101 드리프트", "body": "문장",
+                 "evidence": "TI-101 드리프트 근거", "severity": "중", "live": {"key": "p1"}},
+                [H.ev("TI-101", "드리프트", 0, 30, 1)], "engine")
+            self.event_id = conn.execute("SELECT event_id FROM draft_item WHERE id = ?", (self.item_id,)).fetchone()[0]
+
+    def _fake_live(self, lock=LOCK):
+        """live.items·approve_lock 을 계약 모양으로 바꿔 끼운다 — 화면이 그 값을 어떻게 그리는지만 본다.
+        실제 추적기에서 나오는 값은 tests/test_live.py 와 실제 재생이 본다."""
+        import live
+        ready = {"key": "p1", "state": "ready", "origin": "detected", "confirm": "ended", "ongoing": False,
+                 "not_in_close": False, "recurrence_of": None, "tag": "TI-101", "kind": "드리프트",
+                 "title": "TI-101 드리프트", "severity": "중", "evidence": "TI-101 드리프트 근거", "score": 1.0,
+                 "score_max": 1.0, "start": H.iso(H.T(0)), "end": H.iso(H.T(30)), "members": [["TI-101", "드리프트"]],
+                 "related_tags": [], "recurrences": [], "stop": None, "first_seen": H.iso(H.T(5)),
+                 "confirmed": H.iso(H.T(35)), "ai_sec": 3.0, "draft_item_id": self.item_id, "error": None}
+        obs = dict(ready, key="p2", state="observing", tag="PI-201", kind="헌팅", title="PI-201 헌팅",
+                   evidence="PI-201 헌팅 근거 — 지금 크기", confirm=None, confirmed=None, ai_sec=None,
+                   draft_item_id=None, first_seen=H.iso(H.T(40)))
+        live.items = lambda shift_id=None: [ready, obs]
+        live.approve_lock = lambda shift_id: lock
+        return ready, obs
+
+    def test_observing_is_gray_and_cannot_be_chosen(self):
+        self._fake_live()
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn('data-state="observing"', body, "관찰 중 카드가 있어야 한다")
+        card = _card(body, "p2")
+        self.assertIn('data-tag="PI-201"', card)
+        self.assertIn("지금 크기", card, "무엇이 얼마나 움직이는지 보여야 한다")
+        self.assertNotIn("<input", card, "관찰 중은 고르지 못한다")
+        self.assertNotIn("<textarea", card)
+
+    def test_written_item_is_selectable_and_carries_ids(self):
+        self._fake_live()
+        import server
+        body = server.view_shift(H.SID)
+        card = _card(body, "p1")
+        self.assertIn('data-state="ready"', card)
+        self.assertIn(f'data-item="{self.item_id}"', card)
+        self.assertIn('data-tag="TI-101"', card)
+        self.assertIn(f'data-event="{self.event_id}"', card, "녹화 스크립트가 태그·이벤트로 고른다")
+        self.assertIn(f'name="item" value="{self.item_id}"', card)
+        self.assertIn(f'name="status_{self.item_id}"', card)
+
+    def test_approve_is_locked_while_the_shift_is_still_filling(self):
+        self._fake_live()
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn(self.LOCK, body, "왜 못 누르는지 문구로 보인다")
+        self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled')
+
+    def test_after_the_shift_closes_the_button_opens(self):
+        import db
+        import live
+        with db.connect() as conn:
+            conn.execute("UPDATE draft SET status = 'pending' WHERE shift_id = ?", (H.SID,))
+        live.approve_lock = lambda shift_id: None
+        live.items = lambda shift_id=None: []
+        import server
+        body = server.view_shift(H.SID)
+        self.assertNotIn(self.LOCK, body)
+        self.assertNotIn('data-state="observing"', body, "닫힌 근무에 회색 카드를 그리지 않는다")
+        self.assertRegex(body, r'<button[^>]*id="approve"(?![^>]*disabled)')
+
+    def test_api_live_cards_feeds_the_polling(self):
+        self._fake_live()
+        code, body = _get(f"/api/live/cards?shift={H.SID}")
+        self.assertEqual(code, 200)
+        j = json.loads(body)
+        self.assertEqual(j["draft"], "live")
+        self.assertEqual(j["lock"], self.LOCK)
+        got = {c["key"]: c for c in j["cards"]}
+        self.assertEqual(sorted(got), ["p1", "p2"])
+        self.assertEqual((got["p1"]["state"], got["p2"]["state"]), ("ready", "observing"))
+        self.assertIn(f'name="status_{self.item_id}"', got["p1"]["html"])
+        self.assertIn('data-state="observing"', got["p2"]["html"])
+
+
+class BatchCardMarkers(unittest.TestCase):
+    """일괄 초안 카드에도 같은 표식 — 녹화 스크립트가 위치가 아니라 태그로 고른다(반증 지적)."""
+
+    def setUp(self):
+        H._fresh_db()
+
+    def test_batch_draft_cards_carry_tag_and_item_ids(self):
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            (iid,) = H._pending_draft(conn, H.SID)
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn(f'data-item="{iid}"', body)
+        self.assertIn('data-tag="TI-101"', body)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

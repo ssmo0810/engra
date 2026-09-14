@@ -746,19 +746,29 @@ def _one_page(sel):
 
     # 'live' = 실시간으로 쌓이는 중(조각 2 의 재생이 만든다). 맨 위에 따로 세운다.
     only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed", "live")]
-    live = [r for r in rows if r["draft_status"] == "live"]
+    live_rows = [r for r in rows if r["draft_status"] == "live"]   # 이름이 live 면 실시간 모듈(import live)을 가린다
     rest = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다"
-    listed = live + rest
+    listed = live_rows + rest
     if sel is None and listed:
         sel = listed[0]["id"]      # 쌓이는 중이면 그것, 아니면 가장 최근 근무 (빈 화면을 만들지 않는다)
 
-    def row(r, state):
+    def row(r, state, cls=""):
         date, kind = r["id"].rsplit("-", 1)
-        return (f'<a class="nrow{" on" if r["id"] == sel else ""}" href="/shift/{esc(r["id"])}">'
+        return (f'<a class="nrow{cls}{" on" if r["id"] == sel else ""}" data-shift="{esc(r["id"])}" href="/shift/{esc(r["id"])}">'
                 f'<span class="date">{esc(date)}</span>'
                 f'<span class="kind">{"주간" if kind == "day" else "야간"}</span>{state}</a>')
 
-    nav = [row(r, '<span class="pill live">LIVE · 쌓이는 중</span>') for r in live]
+    st = live.status() if live_rows else {}
+
+    def live_state(r):
+        """LIVE 줄 — 근무 시계와 지금 개수. 폴링이 같은 자리를 글자만 바꾼다."""
+        c = (st.get("counts") or {}) if st.get("shift_id") == r["id"] else {}
+        clock = (st.get("clock") or "")[11:16] if st.get("shift_id") == r["id"] else ""
+        txt = ((clock + " · ") if clock else "") + f"관찰 중 {c.get('observing', 0)} · 초안 {c.get('ready', 0)}"
+        return ('<span class="pill live">LIVE · 쌓이는 중</span>'
+                f'<span class="livecnt muted" style="font-size:11.5px">{esc(txt)}</span>')
+
+    nav = [row(r, live_state(r), " live") for r in live_rows]
     nav += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
                 if r["draft_status"] == "confirmed" else '<span class="pill amber">초안</span>') for r in rest]
 
@@ -1103,9 +1113,157 @@ def _prev_ex_note(pe):
             + rep + tail + '</div>')
 
 
+def _item_on(it):
+    """이 항목이 기본으로 채택인가 — 근무자가 정한 것이 우선이고, 미결정이면 앞 근무자의 제외 결정을 이어받아 꺼 둔다."""
+    pe = it.get("prev_excluded") if hasattr(it, "keys") else None
+    return it.get("adopted") == 1 or (it.get("adopted") is None and not pe)
+
+
+def _item_card(it, wf, wm, full, key=None):
+    """항목 카드 한 장 — 초안 화면과 실시간 폴링 조각이 같은 것을 그린다.
+
+    data-* 표식(항목 id · 태그 · 이벤트 id)은 폴링과 시연 녹화가 **위치가 아니라 항목으로** 고르게 한다.
+    녹화가 첫 칸·끝 칸으로 고르다가 화면 순서가 바뀌자 엉뚱한 항목에 코멘트가 들어갔다(반증 워커).
+    """
+    judged = ""
+    if it.get("handover_worthy") in (0, False):
+        judged = '<div class="note" style="margin:6px 0 4px"><span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span></div>'
+    rel = it.get("related_tags_ai") if hasattr(it, "keys") else None
+    if rel:
+        judged += (f'<div class="note" style="margin:4px 0"><b>함께 봐야 할 항목</b> — '
+                   f'{", ".join(esc(t) for t in rel)}'
+                   + (f' <span class="muted">— {esc(it.get("related_note") or "")}</span>' if it.get("related_note") else "")
+                   + '</div>')
+    sug = ""
+    pre = it.get("precedents") or []
+    pall = it.get("precedents_all") or []
+    pnote = it.get("precedent_note") if hasattr(it, "keys") else None
+    if pre:
+        # 과거 조치 = 같은 태그의 확정 일지에서 AI 가 이번 현상에 맞다고 판정한 것. 원문은 접어 둔다 —
+        # 앞 근무자의 문장은 판단이 아니라 자료라, AI 판정을 먼저 읽게 한다(QA 6차).
+        def _prec_li(pp):
+            txt = str(pp.get("text") or "")
+            head = txt.strip().replace("\n", " ")[:60]
+            more = "…" if len(txt.strip()) > 60 else ""
+            btn = (f'<button type="button" onclick="use(this,'
+                   f'{html.escape(json.dumps(txt, ensure_ascii=False), quote=True)})">코멘트로 사용</button>')
+            return ('<li>' + esc(str(pp.get("shift_id") or "")) + ' '
+                    + esc(str(pp.get("confirmed_at") or "")[:10]) + ' — ' + esc(head + more)
+                    + ' ' + btn
+                    + '<details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">'
+                    + '원문 보기 — 앞 근무자가 직접 쓴 문장</summary>'
+                    + f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">{esc(txt)}</pre>'
+                    + '</details></li>')
+        rows_ = "".join(_prec_li(pp) for pp in pre[:3])
+        sug = (f'<div class="sug"><span class="lb">과거 조치 — 확정 일지 {len(pre)}건'
+               + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중 맞는 것)</span>' if len(pall) > len(pre) else '')
+               + (f' <span class="muted">— {esc(pnote)}</span>' if pnote else '')
+               + f'</span><ul style="margin:4px 0 0 16px;font-size:12px">{rows_}</ul></div>')
+    elif pall:
+        sug = (f'<div class="sug muted" style="font-size:12px"><span class="lb">과거 조치 없음</span>같은 태그 확정 일지 {len(pall)}건이 '
+               '있었지만 이 현상에 맞지 않다고 판단' + (f' — {esc(pnote)}' if pnote else '') + '</div>')
+    pe = it.get("prev_excluded") if hasattr(it, "keys") else None
+    if pe:
+        judged += _prev_ex_note(pe)
+    on = _item_on(it)
+    # 설명은 사람이 읽는 문장만, 수치는 「감지 근거」 칸에만 — 엔진 body 가 문장 + 태그별 근거 줄이라 두 자리에 같은 숫자가 나왔다.
+    lines = [ln.strip() for ln in (it["body"] or "").split("\n") if ln.strip()]
+    say = " ".join(ln for ln in lines if not ln.startswith("·"))
+    ev = (it["evidence"] or "").strip()
+    nums = [x for x in (ln.lstrip("·").strip() for ln in lines if ln.startswith("·")) if x and x != ev]
+    why = ('<div class="why"><b>감지 근거</b> — ' + esc(ev)
+           + "".join(f'<div style="margin-top:5px">{esc(x)}</div>' for x in nums) + '</div>')
+    mark = f' data-key="{esc(key)}"' if key else ""
+    return f"""<div class="item{"" if on else " off"}" data-state="ready" data-item="{it['id']}" data-tag="{esc(it['tag'] or '')}" data-event="{it.get('event_id') or ''}"{mark}>
+<div class="row1"><input type="checkbox" name="item" value="{it['id']}"{" checked" if on else ""} onchange="tg(this)">
+<div class="ttl">{esc(it['title'])}</div></div>
+<div class="meta">{esc(it['tag'])}{(" · " + esc(say)) if say else ""}</div>
+<div class="body">
+{_spark(wf, wm, unit=(wm or {}).get("unit", ""), full=full)}{why}
+{judged}{sug}
+{_status_radios(f"status_{it['id']}", it.get("status"))}<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
+</div></div>"""
+
+
+_LIVE_STATE = {"observing": "관찰 중", "writing": "AI 서술 중", "ai_failed": "AI 서술 실패"}
+
+
+def _live_gray_card(v):
+    """아직 고를 수 없는 카드 — 관찰 중·서술 중·AI 서술 실패. 입력 요소를 두지 않는다(못 건드린다, 경모님 결정 §0)."""
+    when = (v.get("first_seen") or "")[11:16]
+    err = (f'<div class="note" style="margin:6px 0 0;color:var(--accent)">{esc(v.get("error") or "")}</div>'
+           if v.get("state") == "ai_failed" else "")
+    return (f'<div class="item obs off" data-state="{esc(v["state"])}" data-key="{esc(v["key"])}" data-tag="{esc(v.get("tag") or "")}">'
+            f'<div class="row1"><span class="pill">{esc(_LIVE_STATE.get(v["state"], v["state"]))}</span>'
+            f'<div class="ttl">{esc(v.get("title") or "")}</div></div>'
+            f'<div class="meta">{esc(v.get("tag") or "")}{f" · {when} 부터" if when else ""}</div>'
+            f'<div class="body"><div class="why"><b>지금까지</b> — {esc(v.get("evidence") or "")}</div>{err}</div></div>')
+
+
+def live_cards(shift_id, have=()):
+    """폴링용 — 그 근무의 카드와 승인 잠금 문구. 화면과 같은 함수로 그리므로 모양이 갈라지지 않는다.
+
+    have = 화면이 이미 그린 선택 가능 카드의 표식. 그 카드는 다시 그리지 않는다 — 근무자가 고른 체크·상태·코멘트가 날아가고,
+    항목마다 곡선을 다시 읽느라 폴링이 무거워진다.
+    """
+    with db.connect() as conn:
+        draft = db.load_draft(conn, shift_id)
+    st = live.status()
+    out = {"draft": (draft or {}).get("status"), "lock": live.approve_lock(shift_id),
+           "counts": st.get("counts") or {}, "clock": st.get("clock") if st.get("shift_id") == shift_id else None,
+           "cards": []}
+    if draft is None or draft.get("status") != "live":
+        return out
+    views = live.items(shift_id)
+    keyed = {v["draft_item_id"]: v for v in views if v.get("draft_item_id")}
+    waves = _waves(shift_id)
+    for it in _by_time([x for x in draft["items"] if x["origin"] != "carried"], _starts(shift_id)):
+        key = (keyed.get(it["id"]) or {}).get("key") or f"i{it['id']}"
+        if key in have:
+            continue
+        wf, wm = waves.get(it.get("event_id")) or (None, {})
+        out["cards"].append({"key": key, "state": "ready",
+                             "html": _item_card(it, wf, wm, it.get("curve") or _shift_curve(shift_id, it["tag"]), key=key)})
+    for v in sorted((x for x in views if x["state"] in _LIVE_STATE), key=lambda x: x.get("first_seen") or ""):
+        out["cards"].append({"key": v["key"], "state": v["state"], "html": _live_gray_card(v)})
+    return out
+
+
+# 새로고침 없이 카드를 갱신한다 — 새로고침은 근무자가 고른 체크·상태·코멘트를 지운다.
+# 이미 그린 선택 가능 카드는 다시 그리지 않고(입력 유지), 회색 카드만 갈아 끼운다.
+_LIVE_CARDS_JS = """<script>(function(){
+var box=document.getElementById('items'); if(!box||!box.dataset.live) return; var sid=box.dataset.shift;
+function keys(sel){return Array.prototype.map.call(box.querySelectorAll(sel),function(e){return e.getAttribute('data-key')})}
+function tick(){
+ fetch('/api/live/cards?shift='+encodeURIComponent(sid)+'&have='+encodeURIComponent(keys('.item[data-state="ready"][data-key]').join(',')))
+ .then(function(r){return r.json()}).then(function(j){
+  var seen={};
+  (j.cards||[]).forEach(function(c){ seen[c.key]=1;
+   var el=box.querySelector('.item[data-key="'+c.key+'"]');
+   if(el&&el.getAttribute('data-state')==='ready') return;
+   if(el){el.outerHTML=c.html;} else {box.insertAdjacentHTML('beforeend',c.html);}
+  });
+  Array.prototype.forEach.call(box.querySelectorAll('.item[data-key]'),function(e){
+   var k=e.getAttribute('data-key');
+   if(!seen[k]&&e.getAttribute('data-state')!=='ready') e.remove();   /* 관찰 후 사라진 카드 */
+  });
+  var lk=document.getElementById('approvelock'), btn=document.getElementById('approve');
+  if(lk) lk.textContent=j.lock||'';
+  if(btn) btn.disabled=!!j.lock;
+  var cntEl=document.querySelector('.nrow.live .livecnt');
+  if(cntEl&&j.counts) cntEl.textContent=(j.clock?j.clock.slice(11,16)+' · ':'')+'관찰 중 '+(j.counts.observing||0)+' · 초안 '+(j.counts.ready||0);
+  if(window.cnt) window.cnt();      /* 채택 수를 다시 센다 */
+  if(j.draft==='live') setTimeout(tick,2000);
+ }).catch(function(){setTimeout(tick,5000);});
+}
+setTimeout(tick,2000);})();</script>"""
+
+
 def _view_pending(shift_id, draft):
     waves = _waves(shift_id)
     curves = {}
+    live_mode = draft.get("status") == "live"
+    lives = live.items(shift_id) if live_mode else []      # 관찰 중·서술 중 회색 카드 — 초안 표에는 아직 없다(메모리)
 
     def curve(tag):
         """근무 구간 전체 곡선 — 같은 태그를 여러 항목이 쓰면 한 번만 읽는다."""
@@ -1126,77 +1284,18 @@ def _view_pending(shift_id, draft):
     if qs:
         qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — ' + esc(qs[0]) + ' · ' + esc(qs[1]) + '</div>')
     own = _by_time([it for it in draft["items"] if it["origin"] != "carried"], _starts(shift_id))   # 이월 판단 행은 승인 때 다시 쓴다
+    keys = {v["draft_item_id"]: v["key"] for v in lives if v.get("draft_item_id")}
     for it in own:
-        sug = ""
-        # 중요도 판단 줄은 뺐다(경모님 2026-09-14 — 중요도는 화면에서 없앤다). AI 가 매긴 값·이유는 DB 에 기록으로 남는다.
-        # 「전달 가치 낮음」 은 중요도가 아니라 넘길지에 대한 AI 판단이라 따로 남긴다.
-        judged = ""
-        if it.get("handover_worthy") in (0, False):
-            judged = '<div class="note" style="margin:6px 0 4px"><span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span></div>'
-        rel = it.get("related_tags_ai") if hasattr(it, "keys") else None
-        if rel:
-            judged += (f'<div class="note" style="margin:4px 0"><b>함께 봐야 할 항목</b> — '
-                       f'{", ".join(esc(t) for t in rel)}'
-                       + (f' <span class="muted">— {esc(it.get("related_note") or "")}</span>' if it.get("related_note") else "")
-                       + '</div>')
-        pre = it.get("precedents") or []
-        pall = it.get("precedents_all") or []
-        pnote = it.get("precedent_note") if hasattr(it, "keys") else None
-        if pre:
-            # 과거 조치 = 같은 태그의 확정 일지에서 찾아 AI 가 이번 현상에 맞다고 판정한 것. 문장 그대로, 출처와 함께. AI 가 조치를 짓지 않는다 (경모님 2026-08-27).
-            # 원문은 접어 둔다. 앞 근무자가 쓴 문장은 **판단이 아니라 자료**다 — 그 안에
-            # "이 센서 원래 유동 심함, 무시 가능" 같은 선의의 오판이 섞이면 다음 근무자가
-            # 그것만 보고 넘어간다(침묵 사고, QA 6차 2026-08-29 실측). AI 판정을 앞에 세우고
-            # 원문은 「원문 보기」로 열게 해, 읽더라도 판정을 먼저 읽게 한다.
-            def _prec_li(p):
-                txt = str(p.get("text") or "")
-                head = txt.strip().replace("\n", " ")[:60]
-                more = "…" if len(txt.strip()) > 60 else ""
-                btn = (f'<button type="button" onclick="use(this,'
-                       f'{html.escape(json.dumps(txt, ensure_ascii=False), quote=True)})">코멘트로 사용</button>')
-                return ('<li>' + esc(str(p.get("shift_id") or "")) + ' '
-                        + esc(str(p.get("confirmed_at") or "")[:10]) + ' — ' + esc(head + more)
-                        + ' ' + btn
-                        + '<details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">'
-                        + '원문 보기 — 앞 근무자가 직접 쓴 문장</summary>'
-                        + f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">{esc(txt)}</pre>'
-                        + '</details></li>')
-            rows_ = "".join(_prec_li(p) for p in pre[:3])
-            sug = (f'<div class="sug"><span class="lb">과거 조치 — 확정 일지 {len(pre)}건' + (f' <span class="muted">(같은 태그 사례 {len(pall)}건 중 맞는 것)</span>' if len(pall) > len(pre) else '')
-                   + (f' <span class="muted">— {esc(pnote)}</span>' if pnote else '') + f'</span><ul style="margin:4px 0 0 16px;font-size:12px">{rows_}</ul></div>')
-        elif pall:
-            sug = f'<div class="sug muted" style="font-size:12px"><span class="lb">과거 조치 없음</span>같은 태그 확정 일지 {len(pall)}건이 있었지만 이 현상에 맞지 않다고 판단' + (f' — {esc(pnote)}' if pnote else '') + '</div>'
-        # 지난 근무에서 제외한 것과 같은 (태그·종류) 는 최하단 칸으로 내린다.
-        # 숨기지 않는다 — 한 번의 제외가 영구 삭제가 되면 안 된다 (#30, 경모님 결정 2026-08-30).
-        # 승격 조건·만료 시간 규칙은 넣지 않는다(마감 앞 판정 규칙을 하나 덜기로 함).
         pe = it.get("prev_excluded") if hasattr(it, "keys") else None
-        if pe:
-            judged += _prev_ex_note(pe)
-        # 근무자가 이미 정한 것이 있으면 그 값이 우선한다. 미결정이면 앞 근무자의
-        # 제외 결정을 이어받아 꺼진 채로 둔다 — 보이되 기본으로 일지에 들어가진 않는다.
-        on = it.get("adopted") == 1 or (it.get("adopted") is None and not pe)
-        if on:
+        # 지난 근무에서 제외한 것과 같은 (태그·종류) 는 최하단 칸으로 내린다. 숨기지 않는다 — 한 번의 제외가 영구 삭제가 되면 안 된다 (#30).
+        if _item_on(it):
             on_n += 1
-        # 설명은 사람이 읽는 문장만, 수치는 「감지 근거」 칸에만 — 엔진이 만든 body 가 문장 + 태그별 근거 줄이라
-        # 두 자리에 같은 숫자가 나왔다(경모님 2026-09-14). AI 가 서술을 다시 쓰면 body 는 문장뿐이라 그대로 보인다.
-        lines = [ln.strip() for ln in (it["body"] or "").split("\n") if ln.strip()]
-        say = " ".join(ln for ln in lines if not ln.startswith("·"))
-        ev = (it["evidence"] or "").strip()
-        nums = [n for n in (ln.lstrip("·").strip() for ln in lines if ln.startswith("·")) if n and n != ev]
-        why = ('<div class="why"><b>감지 근거</b> — ' + esc(ev)
-               + "".join(f'<div style="margin-top:5px">{esc(n)}</div>' for n in nums) + '</div>')
         wf, wm = waves.get(it.get("event_id")) or (None, {})
-        (low if pe else items).append(f"""<div class="item{"" if on else " off"}">
-<div class="row1"><input type="checkbox" name="item" value="{it['id']}"{" checked" if on else ""} onchange="tg(this)">
-<div class="ttl">{esc(it['title'])}</div></div>
-<div class="meta">{esc(it['tag'])}{(" · " + esc(say)) if say else ""}</div>
-<div class="body">
-{_spark(wf, wm, unit=(wm or {}).get("unit", ""), full=it.get("curve") or curve(it["tag"]))}{why}
-{judged}{sug}
-{_status_radios(f"status_{it['id']}", it.get("status"))}<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
-</div></div>""")
+        (low if pe else items).append(_item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=keys.get(it["id"])))
+    gray = [_live_gray_card(v) for v in sorted((v for v in lives if v["state"] in _LIVE_STATE),
+                                               key=lambda v: v.get("first_seen") or "")]
 
-    if not items and not low:
+    if not items and not low and not gray:
         items.append('<div class="card"><div class="empty">감지된 항목이 없습니다. '
                      '아래에서 직접 추가할 수 있습니다.</div></div>')
 
@@ -1224,24 +1323,24 @@ def _view_pending(shift_id, draft):
     date, kind = shift_id.rsplit("-", 1)
     n = len(own)
 
-    # 아직 쌓이는 중인 근무(status='live')는 읽기 전용이다. 끝나지 않은 근무를 확정하면 그 뒤에 들어온
-    # 감지가 일지에 없는 채로 남는다 — 여기서 폼을 빼고, 폼을 우회한 제출은 approve.decide 가 막는다.
-    # <fieldset disabled> 는 안의 입력을 전부 잠근다(JS 없이). 제출 경로 자체가 없다.
-    live = draft.get("status") == "live"
-    head = ('<fieldset disabled style="border:0;padding:0;margin:0">' if live else
-            '<form method="post" action="/approve" onsubmit="return chk(this)">'
+    # 쌓이는 중(status='live')이어도 AI 가 다 쓴 항목은 고를 수 있다 — 관찰 중·서술 중은 회색이라 입력이 없고,
+    # 잠그는 것은 승인 버튼뿐이다(경모님 결정 §0). 폼을 우회한 제출은 approve.decide 가 막는다.
+    # 잠금 문구는 live.approve_lock 이 정한다(쌓이는 중 · AI 서술 실패 남음 · 앞 근무가 아직 승인 대기 등).
+    lock = live.approve_lock(shift_id)
+    head = ('<form method="post" action="/approve" onsubmit="return chk(this)">'
             f'<input type="hidden" name="shift_id" value="{esc(shift_id)}">')
-    tail = ('</fieldset>' if live else
-            '<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;'
+    tail = ('<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;'
             'gap:12px;flex-wrap:wrap;align-items:center">'
             '<span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다. '
             '여러 건을 넣을 수 있습니다.</span>'
             '<button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>'
             f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건'
             '<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> '
-            '<span id="need" class="need"></span></div>'
-            '<button type="submit" class="btn">승인하고 확정</button></div></form>')
-    lead = ('감지가 지금도 쌓이고 있습니다. <b style="color:var(--ink)">근무가 끝나면 검토할 수 있습니다.</b>' if live else
+            '<span id="need" class="need"></span>'
+            f'<span id="approvelock" class="need">{esc(lock or "")}</span></div>'
+            f'<button type="submit" id="approve" class="btn"{" disabled" if lock else ""}>승인하고 확정</button></div></form>')
+    lead = ('감지가 지금도 쌓이고 있습니다. <b style="color:var(--ink)">회색은 관찰 중이라 고를 수 없고, '
+            'AI 가 다 쓴 항목부터 고를 수 있습니다.</b>' if live_mode else
             '감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다. '
             '적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. '
             '진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.')
@@ -1251,18 +1350,23 @@ def _view_pending(shift_id, draft):
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
-인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live else ""}</h2>
+인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2>
 <p class="note" style="margin:0">{lead}</p></div>
 <div class="muted" style="font-size:13px">감지
 <b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)
-{f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}</div>
+{f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}
+{f'<br><span style="font-size:11.5px">관찰 중 {len(gray)}건은 회색</span>' if gray else ""}
+</div>
 </div>
 {head}
 {_carry_box(opened, choices, editable=True)}
-{"".join(items)}
+<div id="items" data-shift="{esc(shift_id)}"{' data-live="1"' if live_mode else ""}>
+{"".join(items)}{"".join(gray)}
+</div>
 {lowbox}
 <div id="mans"></div>
-{tail}"""
+{tail}{_LIVE_CARDS_JS if live_mode else ""}"""
+
 
 
 def view_shift(shift_id):
@@ -1326,6 +1430,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/live":
                 st = live.status()
                 self._json({"status": st, "line": _live_line(st)})
+            elif path == "/api/live/cards":
+                q = parse_qs(urlparse(self.path).query)
+                have = {k for k in (q.get("have", [""])[0] or "").split(",") if k}
+                self._json(live_cards(q.get("shift", [""])[0], have))
             elif path == "/dcs":
                 self._send(200, view_dcs())
             elif path == "/asu":
