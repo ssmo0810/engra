@@ -715,6 +715,24 @@ _LIVE_POLL_JS = ("<script>(function(){var el=document.getElementById('livestate'
                  ".catch(function(){setTimeout(tick,5000);});}setTimeout(tick,2000);})();</script>")
 
 
+def _live_failed_html(locked):
+    """AI 서술이 끝내 실패한 항목 — 조용히 넘기지 않는다. 초안에 넣지 않고 여기에 드러내며, 남아 있는 동안 승인이 잠긴다.
+    다시 시도는 그 항목 하나만 다시 쓴다(app/live.py retry)."""
+    failed = [v for v in (live.items() or []) if v.get("state") == "ai_failed"]
+    if not failed:
+        return ""
+    lock = ' disabled title="열쇠 필요"' if locked else ""
+    rows = "".join(
+        '<form method="post" action="/live/retry" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 0">'
+        f'<input type="hidden" name="key" value="{esc(v["key"])}">'
+        f'<span class="mono" style="font-size:12px">{esc(v.get("tag") or "")} · {esc(v.get("title") or "")}</span>'
+        f'<span class="muted" style="font-size:12px">{esc(v.get("error") or "")}</span>'
+        f'<button class="btn" style="background:var(--sub);padding:5px 10px;font-size:12px"{lock}>다시 시도</button></form>'
+        for v in failed)
+    return ('<div class="note" style="margin:0 0 8px;border-left:3px solid var(--accent);padding-left:10px">'
+            f'<b>AI 서술 실패 {len(failed)}건</b> — 초안에 들어가지 않았고 그동안 승인이 잠긴다.{rows}</div>')
+
+
 def _live_card(locked):
     """실시간 재생 — 올린 근무 CSV 를 근무 시계로 흘려 초안을 쌓는다(app/live.py). 시작·정지만 두고 배속은 100 이다.
 
@@ -749,7 +767,8 @@ def _live_card(locked):
             '<p class="note muted" style="margin:0 0 8px;font-size:12px">여러 근무를 고르면 정지할 때까지 시각순으로 이어서 재생한다. '
             f'배속은 100~200 을 권한다 — 틱 한 번이 1초 남짓이라 그보다 높이면 밀린다(상한 {LIVE_MAX_SPEED}).</p>'
             '<form method="post" action="/live/stop" style="margin:0 0 8px">' + button("정지", not running, ' style="background:var(--sub)"') + '</form>'
-            f'<div id="livestate" class="mono" style="font-size:12px;color:var(--sub)">{esc(_live_line(st))}</div>'
+            + _live_failed_html(locked)
+            + f'<div id="livestate" class="mono" style="font-size:12px;color:var(--sub)">{esc(_live_line(st))}</div>'
             + _LIVE_POLL_JS + '</div>')
 
 
@@ -1641,7 +1660,7 @@ class Handler(BaseHTTPRequestHandler):
                     secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""   # Caddy 뒤에서만 — 로컬 http 시험은 그대로
                     self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200{secure}")
                 self.end_headers(); return
-            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset", "/live/start", "/live/stop") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
+            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset", "/live/start", "/live/stop", "/live/retry") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
                 if not _admin_ok(self):
                     self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>')); return
             if path == "/admin/ai_check":
@@ -1688,7 +1707,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
                 return
-            if path in ("/live/start", "/live/stop"):
+            if path in ("/live/start", "/live/stop", "/live/retry"):
                 try:
                     if path == "/live/start":
                         csvs = [x.strip() for x in form.get("csv", []) if x.strip()]      # 고른 순서 = 이어 재생 순서
@@ -1702,8 +1721,10 @@ class Handler(BaseHTTPRequestHandler):
                         live.start(csvs, speed=speed,
                                    prev_csv_name=(form.get("prev", [""])[0] or "").strip() or None,
                                    replace_unconfirmed=form.get("replace", ["0"])[0] == "1")
-                    else:
+                    elif path == "/live/stop":
                         live.stop()
+                    else:
+                        live.retry((form.get("key", [""])[0] or "").strip())
                 except ValueError as exc:      # 사용자 잘못(이름·순서·재생 중 아님 등) — live 의 문장을 그대로 보인다
                     self._send(400, page("재생", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return

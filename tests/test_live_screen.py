@@ -400,5 +400,68 @@ class StaleLiveDraftScreen(unittest.TestCase):
         self.assertEqual((j["counts"], j["clock"]), ({}, None), "다른 근무의 개수를 이 줄에 넣지 않는다")
 
 
+class AiFailureRetry(unittest.TestCase):
+    """AI 서술이 끝내 실패한 항목 — 조용히 넘기지 않는다. 화면에 남고 승인이 잠기며, 관리에서 다시 시도한다."""
+
+    def setUp(self):
+        H._fresh_db()
+        os.environ.pop("ENGRA_ADMIN_KEY", None)
+
+    def _failed(self):
+        import live
+        v = {"key": "p4", "state": "ai_failed", "origin": "detected", "confirm": "ended", "ongoing": False,
+             "not_in_close": False, "recurrence_of": None, "tag": "MI-804", "kind": "이탈", "title": "MI-804 이탈",
+             "severity": "상", "evidence": "근거", "score": 1.0, "score_max": 1.0, "start": H.iso(H.T(0)),
+             "end": H.iso(H.T(20)), "members": [], "related_tags": [], "recurrences": [], "stop": None,
+             "first_seen": H.iso(H.T(5)), "confirmed": H.iso(H.T(25)), "ai_sec": None, "draft_item_id": None,
+             "error": "AI 호출 실패 — 시험용"}
+        live.items = lambda shift_id=None: [v]
+        live.approve_lock = lambda shift_id: "AI 서술 실패 1건 — 다시 시도한 뒤 승인"
+        return v
+
+    def test_admin_lists_failed_items_with_a_retry_button(self):
+        self._failed()
+        import server
+        body = server.view_admin()
+        self.assertIn('action="/live/retry"', body, "관리에서 다시 시도할 수 있어야 한다")
+        self.assertIn('value="p4"', body, "어느 항목인지 표식으로 보낸다")
+        self.assertIn("MI-804", body)
+        self.assertIn("AI 호출 실패 — 시험용", body, "왜 실패했는지 보인다")
+
+    def test_retry_calls_live_and_refusals_are_shown(self):
+        self._failed()
+        import live
+        got = []
+        live.retry = lambda key: (got.append(key), live.status())[1]
+        code, _ = _post("/live/retry", [("key", "p4")])
+        self.assertEqual(code, 303)
+        self.assertEqual(got, ["p4"])
+
+        def refuse(key):
+            raise ValueError(f"항목 {key} 가 없습니다.")
+        live.retry = refuse
+        code, body = _post("/live/retry", [("key", "없는키")])
+        self.assertEqual(code, 400)
+        self.assertIn("없는키", body)
+
+    def test_retry_needs_the_admin_key(self):
+        self._failed()
+        os.environ["ENGRA_ADMIN_KEY"] = "열쇠"
+        code, _ = _post("/live/retry", [("key", "p4")])
+        self.assertEqual(code, 403)
+
+    def test_failed_card_is_visible_on_the_draft_screen(self):
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            db.open_live_draft(conn, H.SID, "live")
+        self._failed()
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn('data-state="ai_failed"', body, "실패한 항목이 화면에서 사라지면 안 된다")
+        self.assertIn("AI 호출 실패 — 시험용", body)
+        self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled', "실패가 남아 있으면 승인은 잠긴다")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
