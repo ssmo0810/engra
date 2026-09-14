@@ -1639,6 +1639,9 @@ def _view_pending(shift_id, draft):
     date, kind = shift_id.rsplit("-", 1)
     n = len(own)
 
+    # 마감된 초안 화면도 폴링이 갱신한다(data-live 는 「이 목록은 서버가 관리한다」는 표식이다).
+    # 안 하면 화면을 열어 둔 사이 cli.py run 이 초안을 다시 만들어도 옛 목록이 남고, 승인하는 순간
+    # 폼에 없던 새 항목이 전부 제외로 닫힌다(approve.decide 의 adopted IS NULL → 0 — codex 홀리스틱 반증).
     # 쌓이는 중(status='live')이어도 AI 가 다 쓴 항목은 고를 수 있다 — 관찰 중·서술 중은 회색이라 입력이 없고,
     # 잠그는 것은 승인 버튼뿐이다(경모님 결정 §0). 폼을 우회한 제출은 approve.decide 가 막는다.
     # 잠금 문구는 live.approve_lock 이 정한다(쌓이는 중 · AI 서술 실패 남음 · 앞 근무가 아직 승인 대기 등).
@@ -1674,7 +1677,7 @@ def _view_pending(shift_id, draft):
 </div>
 {head}
 {_carry_box(opened, choices, editable=True)}
-<div id="items" data-shift="{esc(shift_id)}"{' data-live="1"' if live_mode else ""}>
+<div id="items" data-shift="{esc(shift_id)}" data-live="1">
 {"".join(items)}
 </div>
 {lowbox}

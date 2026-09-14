@@ -742,6 +742,22 @@ class PollSafety(unittest.TestCase):
         self.assertTrue(flip, "전환 자리가 있다")
         self.assertIn("window.scrollBy", js, "쓰고 있는 칸은 화면에서 제자리에 둔다 — 위 카드가 늘면 커서 밑에서 밀린다")
 
+    def test_a_closed_draft_screen_keeps_itself_up_to_date(self):
+        """마감된 초안 화면도 스스로 갱신한다. 안 하면 그 화면을 열어 둔 사이 초안이 다시 만들어져도 옛 목록이 남고,
+        승인하는 순간 새 항목이 전부 「제외」로 확정된다(approve.decide 는 폼에 없는 항목을 adopted=0 으로 닫는다 — codex 홀리스틱).
+        """
+        import db
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn('data-live="1"', body, "마감된 초안도 폴링이 카드를 갱신한다")
+        with db.connect() as conn:      # 화면을 열어 둔 사이 초안이 다시 만들어져 항목이 하나 늘었다
+            did = conn.execute("SELECT id FROM draft WHERE shift_id = ?", (H.SID,)).fetchone()[0]
+            conn.execute("INSERT INTO draft_item (draft_id, seq, origin, tag, title, body, severity) "
+                         "VALUES (?,?,'detected','ZZ-999','ZZ-999 드리프트','문장','중')", (did, 9))
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertIn("ZZ-999", "".join(c["html"] for c in j["cards"]), "새 항목이 화면으로 내려간다")
+        self.assertEqual(j["total"], 2, "채택 분모도 따라 는다")
+
     def test_left_list_and_full_page_do_not_collide(self):
         """화면 요청과 폴링이 동시에 들어온다(ThreadingHTTPServer). 목록 조각을 만드는 길이
         전체 화면 함수와 상태를 나눠 쓰면 둘이 섞여 반쪽 화면이 나간다(codex 반증)."""
