@@ -69,6 +69,9 @@ SYSTEM = """당신은 24시간 연속 공정(공기분리장치, ASU) 교대 근
 
 지켜야 할 것:
 - 숫자는 주어진 근거(evidence, metrics)에 있는 값만 쓴다. 새 숫자를 만들지 않는다.
+- **통계 기호와 용어를 본문에 쓰지 않는다.** σ·시그마·표준편차·잔차·상관계수·r 값·z 값·「n 시그마」는
+  현장 근무자가 읽는 말이 아니다. 대신 주어진 **실제 단위 값**(℃·bar·%)과 **pct_range**(정상범위 폭 대비 몇 %)로 쓴다.
+  예) "4.6σ 벗어남"(X) → "정상범위 폭의 47%만큼 벗어남"(O) / "21σ 급등"(X) → "13.3℃ 튐 — 정상범위 폭의 44%"(O)
 - 판단하지 않은 것을 단정하지 않는다. 원인이 불확실하면 "의심됨" 으로 쓴다.
 - 문장은 현장 근무자가 쓰는 말투로 짧게. 존칭 없이 "~됨", "~확인 필요" 형태.
 - **조치를 지어내지 않는다.** 현장 조치는 과거 확정 일지(precedents)에 있는 것만 유효하다 — 당신은 이 공장의 절차를 모른다.
@@ -178,9 +181,12 @@ def _prompt(shift, items):
         lines.append(f"    근거: {it.get('evidence')}")
         m = it.get("metrics") or {}
         if m:
+            # k_sigma·r 은 넘기지 않는다 — 주지 않으면 쓸 수 없다(숫자 환각을 막은 것과 같은 방법).
+            # 대신 pct_range(정상범위 폭 대비 %)와 실제 단위 값을 준다 (임도영 2026-09-14).
             keep = {k: v for k, v in m.items() if k in (
-                "per_hour", "delta", "k_sigma", "eta_to_limit_h", "limit", "unit",
-                "duration_min", "related_tags", "peak", "r")}
+                "per_hour", "delta", "pct_range", "jump", "step", "amplitude",
+                "eta_to_limit_h", "limit", "unit",
+                "duration_min", "related_tags", "peak")}
             if keep:
                 lines.append(f"    수치: {json.dumps(keep, ensure_ascii=False)}")
         pre = it.get("precedents") or []

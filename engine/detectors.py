@@ -18,7 +18,7 @@ import math
 from statistics import StatisticsError
 
 from engine.core import (BLOCK_SEC, MAD_TO_SIGMA, label, mad, median, mod_z,
-                         ols, pearson, sigma, unit_of)
+                         ols, pearson, sigma, spec_of, unit_of)
 
 # --- 문턱값 한 곳 -----------------------------------------------------
 # engine/README.md "채워야 할 것" 표의 확정값.
@@ -54,6 +54,44 @@ PARAMS = {
 }
 
 SEV_HIGH, SEV_MID, SEV_LOW = "상", "중", "하"
+
+
+def _pct_span(tag, amount):
+    """변화량을 그 태그 **정상범위 폭 대비 %** 로 환산한다.
+
+    근무자가 읽는 것은 σ 나 배수가 아니라 "정상범위를 얼마나 먹었는가" 다
+    (임도영 2026-09-14). 정상범위가 태그 마스터에 없으면 None — 그때는 % 를 적지 않는다.
+    판정은 그대로 평소 산포 대비로 하고, **표시만** 바꾼다.
+    """
+    if amount is None:
+        return None
+    span = spec_of(tag).get("span")
+    if not span:
+        return None
+    return abs(amount) / span * 100.0
+
+
+def _round_pct(tag, amount):
+    """metrics 에 실을 값. AI 프롬프트가 이것만 받고 σ 는 못 본다."""
+    p = _pct_span(tag, amount)
+    return None if p is None else round(p)
+
+
+def _pct_txt(tag, amount, lead="정상범위 폭의"):
+    """정상범위 폭 대비 표기. 1,000% 를 넘으면 배수로 — 분석기 순간 이상값처럼
+    정상값의 2,000배가 튀는 태그에서 「71,323%」 가 나와 읽을 수 없었다(실측 2026-09-14)."""
+    p = _pct_span(tag, amount)
+    if p is None:
+        return None
+    if p >= 1000:
+        return f"{lead} {p / 100:,.0f}배"
+    return f"{lead} {p:.0f}%"
+
+
+def _paren(*parts):
+    """None 을 걸러 ' (a, b)' 로. 남는 것이 없으면 빈 문자열."""
+    keep = [p for p in parts if p]
+    return f" ({', '.join(keep)})" if keep else ""
 
 
 def _fmt(v, unit=""):
@@ -259,11 +297,12 @@ def drift(view):
     return [_event(
         view, ri, rj, "드리프트", sev, k,
         {"delta": round(delta, 4), "per_hour": round(per_hour, 4), "r": round(r, 3),
-         "k_sigma": round(k, 2), "eta_to_limit_h": eta, "limit": limit, "unit": unit,
+         "k_sigma": round(k, 2), "pct_range": _round_pct(view.tag, delta),
+         "eta_to_limit_h": eta, "limit": limit, "unit": unit,
          **extra},
         f"{label(view.tag)} {'상승' if up else '하강'} 추세 — "
-        f"{_fmt(abs(per_hour), unit)}/시간, 구간 변화 {_fmt(delta, unit)} "
-        f"(평소 산포의 {k:.1f}배){hint}{amb_note}",
+        f"{_fmt(abs(per_hour), unit)}/시간, 구간 변화 {_fmt(delta, unit)}"
+        f"{_paren(_pct_txt(view.tag, delta), f'평소 흔들림의 {k:.1f}배')}{hint}{amb_note}",
     )]
 
 
@@ -299,9 +338,10 @@ def level_shift(view):
         view, max(0, c - w), min(n, c + 4 * w), "레벨시프트", _sev_by_z(k),
         k,
         {"before": round(a, 4), "after": round(b, 4), "step": round(b - a, 4),
-         "k_sigma": round(k, 2), "unit": unit},
-        f"{label(view.tag)} 단계 변화 — {_fmt(a, unit)} → {_fmt(b, unit)} "
-        f"({_fmt(b - a, unit)}, 평소 산포의 {k:.1f}배) 이후 그 수준 유지",
+         "k_sigma": round(k, 2), "pct_range": _round_pct(view.tag, b - a), "unit": unit},
+        f"{label(view.tag)} 단계 변화 — {_fmt(a, unit)} → {_fmt(b, unit)}"
+        f"{_paren(f'{_fmt(b - a, unit)} 이동', _pct_txt(view.tag, b - a), f'평소 흔들림의 {k:.1f}배')}"
+        f" 이후 그 수준 유지",
     )]
 
 
@@ -342,9 +382,10 @@ def hunting(view):
         view, i, j, "헌팅", sev, top,
         {"ratio": round(top, 2), "episodes": len(runs),
          "episode_peaks": [round(p, 2) for p in peaks],
-         "growing": growing, "amplitude": round(amp, 4), "unit": unit},
-        f"{label(view.tag)} 변동폭 확대 — 평소의 {top:.1f}배 "
-        f"(진폭 약 {_fmt(amp, unit)}){note}",
+         "growing": growing, "amplitude": round(amp, 4),
+         "pct_range": _round_pct(view.tag, amp), "unit": unit},
+        f"{label(view.tag)} 변동폭 확대 — 흔들리는 폭이 평소의 {top:.1f}배"
+        f"{_paren(f'진폭 약 {_fmt(amp, unit)}', _pct_txt(view.tag, amp))}{note}",
     )]
 
 
@@ -398,9 +439,11 @@ def spike(view):
     return [_event(
         view, i, j, "이탈", _sev_by_z(z, high=20, mid=10), z,
         {"z": round(z, 1), "value": round(value, 4), "local_median": round(c, 4),
+         "jump": round(value - c, 4), "pct_range": _round_pct(view.tag, value - c),
          "episodes": times, "unit": unit},
-        f"{label(view.tag)} 순간 이탈 — {_fmt(c, unit)} 에서 {_fmt(value, unit)} 로 "
-        f"({z:.0f}σ){f' · 근무 중 {times}회' if times > 1 else ''}, "
+        f"{label(view.tag)} 순간 이탈 — {_fmt(c, unit)} 에서 {_fmt(value, unit)} 로 튐"
+        f"{_paren(_pct_txt(view.tag, value - c))}"
+        f"{f' · 근무 중 {times}회' if times > 1 else ''}, "
         f"알람 지속시간 미달로 미발생",
     )]
 
@@ -537,7 +580,7 @@ def residual(src, tgt, gain, lag_sec):
         {"pair": [src.tag, tgt.tag], "gain": gain, "lag_sec": lag_sec,
          "z": round(z, 1), "baseline_r": round(pearson(xs, ys), 2)},
         f"{label(src.tag)} 와 {label(tgt.tag)} 의 평소 연동이 끊김 — "
-        f"잔차 {z:.1f}σ. 단일 태그로는 보이지 않는 이상",
+        f"두 값의 어긋남이 평소의 {z:.1f}배. 단일 태그로는 보이지 않는 이상",
     )]
 
 
