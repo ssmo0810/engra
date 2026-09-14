@@ -102,6 +102,20 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                    if it["adopted"] == 1 and it["status"] not in db.ITEM_STATUSES]
         if missing:
             raise StatusMissing(missing)
+
+        # 뒤 근무가 이미 이어받은 항목을 여기서 바꾸면 뒤 근무의 판단이 근거를 잃는다 — 뒤 근무 기록은
+        # 「다음 근무로」 인데 안 뜨거나, 확정 화면에서 사라지고 본문·색인에만 남는다(codex 반증).
+        # 조용히 어긋나게 두지 않고 거부한다. 뒤 근무를 재검토로 되돌린 뒤 바꾸면 된다.
+        own = {it["id"]: it for it in final["items"] if it["origin"] != "carried"}
+        for rid, sid in db.carried_later(conn, shift_id, [*own, *carried]).items():
+            if carried.get(rid, {}).get("status") == "완료":
+                raise ValueError(f"뒤 근무 {sid} 가 이미 이월 항목 #{rid} 를 이어받아 판단했습니다 — "
+                                 f"그 근무를 재검토로 되돌린 뒤 완료로 닫으세요.")
+            it = own.get(rid)
+            if it is not None and not (it["adopted"] == 1 and it["status"] == "진행중"):
+                raise ValueError(f"뒤 근무 {sid} 가 #{rid} {it['title'] or ''} 를 진행중으로 이어받았습니다 — "
+                                 f"상태를 바꾸려면 그 근무를 먼저 재검토로 되돌리세요.")
+
         adopted = [it for it in final["items"] if it["adopted"] == 1 and it["origin"] != "carried"]
         excluded = [it for it in final["items"] if it["adopted"] == 0]
         carried_rows = [it for it in final["items"] if it["origin"] == "carried"]
@@ -115,7 +129,9 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         if db.load_handover(conn, shift_id) is not None:
             round_no = db.reopen_handover(conn, shift_id, reason=f"재승인 — {confirmed_by}")
         db.confirm_handover(conn, shift_id, confirmed_by, body, len(adopted), len(excluded))
-        db.index_handover(conn, shift_id, adopted + carried_rows)
+        # 색인에는 닫은 이월 판단(완료)만 넣는다. 계속 진행중까지 넣으면 같은 원 항목 복제본이 태그 검색 상위(limit 3)를
+        # 독점해 다른 과거 사례가 밀려난다(codex 반증). 조치가 끝난 기록이 다음 초안의 과거 조치가 된다.
+        db.index_handover(conn, shift_id, adopted + [it for it in carried_rows if it["status"] == "완료"])
 
     return {
         "shift_id": shift_id,

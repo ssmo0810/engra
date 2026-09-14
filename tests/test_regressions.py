@@ -957,6 +957,81 @@ class StatusSwitchAndCarry(unittest.TestCase):
                               ("carry_abc", "완료")])
         self.assertEqual(code, 400, "숫자가 아닌 이월 항목 번호는 요청 잘못이다")
 
+    # --- 이월 계보가 뒤 근무 기록과 어긋나지 않게 (codex 반증 2라운드) ---------------
+
+    def test_closing_under_a_later_confirmed_decision_is_refused(self):
+        """순서를 거슬러 승인: 뒤 근무가 먼저 「계속 진행중」 으로 확정한 항목을 앞 근무가 뒤늦게 완료로 닫으면
+        뒤 근무 기록은 「다음 근무로」 인데 그 다음 근무에는 안 뜬다. 조용히 어긋나게 두지 않고 거부한다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+            xids = self._draft(conn, self.NEXT[0], ("주간 항목",))
+        approve.decide(self.NEXT[0], {xids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})   # 뒤 근무를 먼저
+        with self.assertRaises(ValueError) as cm:
+            approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료"}})
+        self.assertIn(self.NEXT[0], str(cm.exception), "어느 뒤 근무 때문인지 짚어야 한다")
+        with db.connect() as conn:
+            self.assertIsNone(db.load_handover(conn, self.NIGHT[0]), "거부됐으면 확정되면 안 된다")
+        # 이어 가는 판단(진행중)은 뒤 근무 기록과 어긋나지 않는다
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})
+
+    def test_reapproving_root_shift_cannot_drop_a_carried_item(self):
+        """원 근무를 재검토 뒤 재승인하며 뒤 근무가 이어받은 항목을 완료·제외로 바꾸면 뒤 근무의 판단이
+        확정 화면에서 사라지고 본문·색인에만 남는다. 뒤 근무를 먼저 되돌리라고 거부한다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})
+        with db.connect() as conn:
+            db.reopen_handover(conn, self.DAY[0], "고침")
+        for dec in ({"adopted": True, "status": "완료"}, {"adopted": False}):
+            with self.assertRaises(ValueError) as cm:
+                approve.decide(self.DAY[0], {ids[0]: dec, ids[1]: {"adopted": False}})
+            self.assertIn(self.NIGHT[0], str(cm.exception))
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            self.assertEqual([o["id"] for o in db.open_items(conn, self.NEXT[0])], [ids[0]])
+
+    def test_regenerating_items_a_later_shift_carried_is_refused(self):
+        """원 근무 초안을 다시 만들면 항목 id 가 바뀌어 뒤 근무의 판단이 가리킬 곳을 잃고, 닫힌 항목이 다시 열렸다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료"}})
+        with db.connect() as conn:
+            with self.assertRaises(ValueError) as cm:
+                db.clear_outputs(conn, self.DAY[0], include_handover=True)
+            self.assertIn(self.NIGHT[0], str(cm.exception))
+            with self.assertRaises(ValueError):
+                db.save_draft(conn, self.DAY[0], [], "test")
+            self.assertIsNotNone(db.load_handover(conn, self.DAY[0]), "거부됐으면 지우면 안 된다")
+            db.reopen_handover(conn, self.NIGHT[0], "다시 만들기 전")
+            db.clear_outputs(conn, self.DAY[0], include_handover=True)     # 뒤 근무를 되돌리면 다시 만들 수 있다
+
+    def test_carry_rows_do_not_crowd_precedent_search(self):
+        """같은 원 항목을 여러 근무 「계속 진행중」 으로 넘기면 그 복제본이 태그 검색 상위(limit 3)를 독점해
+        다른 과거 사례가 밀려났다. 색인에는 닫은 판단(완료)만 — 조치가 끝난 기록이 과거 조치가 된다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+            xids = self._draft(conn, self.NEXT[0], ("주간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중", "comment": "교체 대기"}})
+        approve.decide(self.NEXT[0], {xids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료", "comment": "밸브 교체 끝"}})
+        with db.connect() as conn:
+            night = conn.execute("SELECT COUNT(*) FROM handover_fts WHERE shift_id = ?", (self.NIGHT[0],)).fetchone()[0]
+            nxt = [r[0] for r in conn.execute("SELECT text FROM handover_fts WHERE shift_id = ?", (self.NEXT[0],))]
+        self.assertEqual(night, 0, "계속 진행중 이월 행은 색인에 넣지 않는다")
+        self.assertEqual(len(nxt), 1)
+        self.assertIn("밸브 교체 끝", nxt[0], "닫은 판단의 코멘트가 과거 조치로 검색돼야 한다")
+
 
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):

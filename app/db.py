@@ -470,12 +470,52 @@ def load_baselines(conn):
 
 # --- 이벤트 -----------------------------------------------------------
 
+def carried_later(conn, after_shift, root_ids):
+    """root_ids 중 after_shift **뒤**의 확정된 근무가 이월로 이어받아 판단한 것 {원 항목 id: 그 근무 id(가장 이른 것)}.
+
+    앞 근무에서 그 항목을 닫거나(순서를 거슬러 승인) 원 항목의 진행중을 풀거나(원 근무 재승인)
+    원 항목을 지우면(초안 재생성) 뒤 근무의 판단이 근거를 잃고 화면·본문·색인이 서로 어긋난다(codex 반증).
+    그런 쓰기는 이것으로 확인하고 거부한다 — 뒤 근무를 재검토로 되돌린 뒤 하면 된다.
+    """
+    ids = sorted(set(root_ids))
+    row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (after_shift,)).fetchone()
+    if not ids or row is None or row["window_start"] is None:
+        return {}
+    marks = ",".join("?" * len(ids))
+    out = {}
+    for r in conn.execute(
+        f"""SELECT c.carried_from, cd.shift_id
+              FROM draft_item c
+              JOIN draft cd    ON cd.id = c.draft_id
+              JOIN shift cs    ON cs.id = cd.shift_id
+              JOIN handover ch ON ch.shift_id = cd.shift_id
+             WHERE c.carried_from IN ({marks}) AND cs.window_start > ?
+             ORDER BY cs.window_start""",
+        (*ids, row["window_start"]),
+    ):
+        out.setdefault(r["carried_from"], r["shift_id"])
+    return out
+
+
+def _refuse_if_carried_later(conn, shift_id):
+    """이 근무의 항목을 뒤 근무가 이어받아 확정했으면 지우지 않는다(carried_later)."""
+    own = [r[0] for r in conn.execute(
+        "SELECT di.id FROM draft_item di JOIN draft d ON d.id = di.draft_id "
+        "WHERE d.shift_id = ? AND di.origin != 'carried'", (shift_id,))]
+    later = carried_later(conn, shift_id, own)
+    if later:
+        rid, sid = next(iter(later.items()))
+        raise ValueError(f"뒤 근무 {sid} 가 이 근무의 항목 #{rid} 를 이월로 이어받았습니다 — "
+                         f"그 근무를 재검토로 되돌린 뒤 다시 만드세요. 지우면 그 판단이 가리킬 항목이 사라집니다.")
+
+
 def clear_outputs(conn, shift_id, include_handover=False):
     """한 근무의 산출물을 지운다. 참조 순서를 지켜야 외래키가 깨지지 않는다.
 
     이벤트가 바뀌면 그 이벤트로 만든 초안도 더는 유효하지 않다. 그래서
     이벤트를 다시 쓸 때 초안을 함께 비운다.
     """
+    _refuse_if_carried_later(conn, shift_id)
     if include_handover:
         conn.execute("DELETE FROM handover_fts WHERE shift_id = ?", (shift_id,))
         conn.execute("DELETE FROM handover WHERE shift_id = ?", (shift_id,))
@@ -523,6 +563,7 @@ def load_events(conn, shift_id):
 
 def save_draft(conn, shift_id, items, generator, model=None):
     # 이벤트는 건드리지 않는다. 이미 저장된 이벤트를 항목이 가리키고 있다.
+    _refuse_if_carried_later(conn, shift_id)
     conn.execute("DELETE FROM draft_item WHERE draft_id IN "
                  "(SELECT id FROM draft WHERE shift_id = ?)", (shift_id,))
     conn.execute("DELETE FROM draft WHERE shift_id = ?", (shift_id,))
