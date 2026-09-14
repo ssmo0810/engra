@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENGRA 투자 피치덱</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#E9ECEF; --paper:#FFFFFF; --dark:#0A0D12;
+  --ink:#0A0D12; --body:#4A515C; --muted:#99A0AB; --faint:#C6CBD2;
+  --hair:#EDEFF2;
+  --sk:#EA002C; --sk-deep:#B00021;
+  --term-bg:#0B0E13; --term-fg:#E9EDF2; --term-dim:#6E7681;
+  --term-ok:#4AC77E; --term-warn:#E0A62F;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --ground:#141821; } }
+:root[data-theme="dark"]{ --ground:#141821; }
+*{box-sizing:border-box}
+body{background:var(--ground); color:var(--body);
+  font-family:"IBM Plex Sans KR",-apple-system,"Malgun Gothic",sans-serif;
+  word-break:keep-all; padding-block:26px; padding-left:16px; padding-right:16px;
+  -webkit-font-smoothing:antialiased}
+.deck{max-width:1140px; margin:0 auto; display:flex; flex-direction:column; gap:20px}
+
+.slide{background:var(--paper); aspect-ratio:16/9; width:100%; container-type:inline-size;
+  overflow:hidden; padding:6cqw 7cqw 5cqw; display:flex; flex-direction:column;
+  position:relative; scroll-margin-top:16px; box-shadow:0 1px 2px rgba(10,13,18,.06)}
+.mid{justify-content:center}
+.slide.dk{background:var(--dark)}
+.slide.dk .eyebrow{color:#565D69}
+.slide.dk h2.at,.slide.dk .break p,.slide.dk.break p{color:#F2F5F8}
+.slide.dk.break .after{color:#8C94A0}
+.slide.dk.break p b{color:var(--sk)}
+.slide.dk .body,.slide.dk .kick{color:#AEB6C1}
+.slide.dk b,.slide.dk strong{color:#fff}
+.slide.dk .pg,.slide.dk .src{color:#565D69}
+.slide.dk td{border-bottom-color:#1D222B}
+.slide.dk th{color:#6E7681; border-bottom-color:#2A313B}
+
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:1cqw; letter-spacing:.2em;
+  color:var(--faint); text-transform:uppercase; margin-bottom:2.4cqw}
+h2.at{margin:0; font-size:3.3cqw; line-height:1.3; font-weight:600; color:var(--ink);
+  letter-spacing:-.028em; text-wrap:balance; max-width:86%}
+h2.at b{color:var(--sk); font-weight:700}
+.body{margin-top:3.2cqw; display:flex; flex-direction:column; gap:2.3cqw; font-size:1.45cqw; line-height:1.7}
+.pg{position:absolute; right:7cqw; bottom:3.4cqw; font-family:"IBM Plex Mono",monospace;
+  font-size:.92cqw; color:var(--faint); font-variant-numeric:tabular-nums}
+.src{position:absolute; left:7cqw; bottom:3.4cqw; font-family:"IBM Plex Mono",monospace;
+  font-size:.92cqw; color:var(--faint)}
+b,strong{color:var(--ink); font-weight:600}
+.hl{color:var(--sk); font-weight:600}
+.mono{font-family:"IBM Plex Mono",monospace}
+td .small{font-size:.95cqw; display:block; margin-top:.15cqw}
+
+.cover{justify-content:center}
+.cover .brand{font-size:7cqw; font-weight:600; color:#F2F5F8; letter-spacing:-.05em; line-height:1}
+.cover .big{font-size:5.2cqw; font-weight:600; color:#fff; letter-spacing:-.04em; line-height:1.24; margin-top:2.6cqw}
+.cover .big b{color:var(--sk); font-weight:700}
+.cover .sub{font-size:1.6cqw; color:#8C94A0; margin-top:2.4cqw; line-height:1.7}
+.cover .meta{position:absolute; left:7cqw; bottom:5cqw; font-family:"IBM Plex Mono",monospace;
+  font-size:1.02cqw; color:#565D69; letter-spacing:.12em}
+
+.break{justify-content:center; align-items:flex-start}
+.break p{margin:0; font-size:4cqw; line-height:1.42; font-weight:600; color:var(--ink);
+  letter-spacing:-.032em; max-width:92%; text-wrap:balance}
+.break p b{color:var(--sk); font-weight:700}
+.break .after{margin-top:2.6cqw; font-size:1.35cqw; color:var(--muted); font-weight:400; letter-spacing:0; line-height:1.75}
+
+/* 인수인계 일지 두 장 */
+.logs{display:grid; grid-template-columns:1fr 1fr; gap:2.4cqw}
+.log{border-top:.2cqw solid var(--hair); padding-top:1.3cqw; display:flex; flex-direction:column; gap:.7cqw}
+.log .w{font-family:"IBM Plex Mono",monospace; font-size:1cqw; letter-spacing:.14em; color:var(--muted)}
+.log .q{font-size:1.85cqw; line-height:1.5; color:var(--ink); font-weight:500; letter-spacing:-.018em}
+.log .q b{color:var(--sk); font-weight:600}
+.verdict{font-size:1.55cqw; line-height:1.6; color:var(--ink); font-weight:500}
+.verdict b{color:var(--sk)}
+.ghost{position:absolute; right:5cqw; top:4cqw; font-size:11cqw; font-weight:700; color:#F5F6F8;
+  letter-spacing:-.05em; line-height:1; z-index:0; pointer-events:none}
+.slide > *{position:relative; z-index:1}
+
+.figs{display:grid; grid-template-columns:repeat(4,1fr); gap:3cqw; margin-top:.6cqw}
+.figs.c3{grid-template-columns:repeat(3,1fr)}
+.fig .v{font-size:6cqw; font-weight:600; color:var(--ink); line-height:1; letter-spacing:-.045em;
+  font-variant-numeric:tabular-nums}
+.fig .v em{font-size:1.9cqw; font-style:normal; font-weight:500; color:var(--muted); letter-spacing:-.01em}
+.fig.red .v{color:var(--sk)}
+.fig .k{margin-top:1cqw; font-family:"IBM Plex Mono",monospace; font-size:.98cqw; letter-spacing:.12em;
+  color:var(--muted); text-transform:uppercase}
+.fig .d{margin-top:.5cqw; font-size:1.12cqw; line-height:1.55; color:var(--body)}
+.slide.dk .fig .v{color:#fff} .slide.dk .fig.red .v{color:var(--sk)}
+.slide.dk .fig .d{color:#AEB6C1}
+
+.pts{display:grid; grid-template-columns:repeat(3,1fr); gap:3.2cqw}
+.pts.c2{grid-template-columns:1fr 1fr}
+.pts > div{display:flex; flex-direction:column; gap:.8cqw}
+.pts .n{font-family:"IBM Plex Mono",monospace; font-size:.95cqw; letter-spacing:.14em; color:var(--sk)}
+.pts h4{margin:0; font-size:1.6cqw; font-weight:600; color:var(--ink); letter-spacing:-.015em; line-height:1.35}
+.pts p{margin:0; font-size:1.2cqw; line-height:1.68; color:var(--body)}
+.slide.dk .pts h4{color:#fff} .slide.dk .pts p{color:#AEB6C1}
+
+table{width:100%; border-collapse:collapse; font-size:1.3cqw}
+th{text-align:left; font-weight:500; color:var(--muted); padding:0 1.2cqw 1cqw 0;
+  font-family:"IBM Plex Mono",monospace; font-size:.95cqw; letter-spacing:.1em; text-transform:uppercase;
+  border-bottom:1px solid var(--hair); white-space:nowrap}
+td{padding:1.1cqw 1.2cqw 1.1cqw 0; border-bottom:1px solid var(--hair); vertical-align:top; line-height:1.6}
+tr:last-child td{border-bottom:none}
+td.r,th.r{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; padding-right:0}
+tr.em td{color:var(--ink)} tr.em td b{color:var(--sk)}
+
+.flow{display:flex; align-items:center; gap:1.4cqw}
+.flow .st{flex:1; display:flex; flex-direction:column; gap:.5cqw}
+.flow .st .t{font-size:1.45cqw; font-weight:600; color:var(--ink); letter-spacing:-.012em}
+.flow .st.ai .t{color:var(--sk)}
+.flow .st .s{font-size:1.02cqw; color:var(--muted); line-height:1.5}
+.flow .ar{color:var(--faint); font-size:1.4cqw; flex:none}
+.loop{margin-top:2cqw; padding-top:1.5cqw; border-top:1px solid var(--hair); font-size:1.3cqw; color:var(--body)}
+.loop b{color:var(--sk)}
+
+.term{background:var(--term-bg); padding:2.3cqw 2.7cqw; color:var(--term-fg);
+  font-family:"IBM Plex Mono",monospace; font-size:1.1cqw; line-height:1.8; white-space:pre; overflow:hidden}
+.term .p{color:var(--term-ok)} .term .d{color:var(--term-dim)}
+.term .w{color:var(--term-warn)} .term .b{color:#fff; font-weight:500}
+
+/* 시장 — Airbnb 동심원 */
+.mkt{display:flex; align-items:center; justify-content:center; gap:4cqw; margin-top:-.5cqw}
+.mkt svg{width:36cqw; height:auto; flex:none}
+.mkt .side{display:flex; flex-direction:column; gap:1.9cqw; flex:1; max-width:30cqw}
+.mkt .sd{display:flex; flex-direction:column; gap:.4cqw; padding-left:1.5cqw; border-left:.18cqw solid var(--hair)}
+.mkt .sd.now{border-left-color:var(--sk)}
+.mkt .sd .l{font-family:"IBM Plex Mono",monospace; font-size:.92cqw; letter-spacing:.15em; color:var(--muted)}
+.mkt .sd .t{font-size:1.35cqw; font-weight:600; color:var(--ink); line-height:1.4}
+.mkt .sd .d{font-size:1.05cqw; line-height:1.6; color:var(--body)}
+
+.three{display:grid; grid-template-columns:repeat(3,1fr); gap:3.6cqw; margin-top:1.6cqw}
+.three > div{display:flex; flex-direction:column; gap:1.2cqw}
+.three h3{margin:0; font-size:2.8cqw; font-weight:700; color:var(--ink); letter-spacing:-.032em; line-height:1.2}
+.three h3 b{color:var(--sk)}
+.three p{margin:0; font-size:1.18cqw; line-height:1.7; color:var(--body)}
+.three .ev{font-family:"IBM Plex Mono",monospace; font-size:.96cqw; color:var(--sk)}
+
+.kick{font-size:1.48cqw; color:var(--body); line-height:1.72; max-width:82%}
+.kick b{color:var(--ink)}
+
+/* 운전원 인용 */
+.quotes{display:grid; grid-template-columns:repeat(3,1fr); gap:1.8cqw 2.4cqw}
+.qt{display:flex; flex-direction:column; gap:.5cqw; border-top:1px solid var(--hair); padding-top:1.1cqw}
+.qt .l{font-family:"IBM Plex Mono",monospace; font-size:.9cqw; letter-spacing:.15em; color:var(--sk)}
+.qt p{margin:0; font-size:1.1cqw; line-height:1.66; color:var(--body)}
+.qt p b{color:var(--ink); font-weight:600}
+
+/* 확정 일지 마무리 */
+.hand{border:.16cqw solid #2A313B; padding:1.7cqw 2.3cqw; display:flex; flex-direction:column; gap:.85cqw}
+.hand .hd{display:flex; justify-content:space-between; align-items:baseline;
+  border-bottom:1px solid #2A313B; padding-bottom:1.2cqw}
+.hand .hd .t{font-size:1.55cqw; font-weight:600; color:#fff; letter-spacing:-.02em}
+.hand .hd .st{font-family:"IBM Plex Mono",monospace; font-size:1cqw; letter-spacing:.14em; color:var(--sk)}
+.hand .rw{display:grid; grid-template-columns:7.6cqw 1fr; gap:1.1cqw; font-size:1.05cqw; line-height:1.55}
+.hand .rw .k{font-family:"IBM Plex Mono",monospace; font-size:.95cqw; letter-spacing:.1em; color:#6E7681; padding-top:.25cqw}
+.hand .rw .v{color:#D7DDE4}
+.hand .rw .v b{color:#fff}
+.hand ul{margin:0; padding-left:1.4cqw; display:flex; flex-direction:column; gap:.35cqw}
+
+.tag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.78cqw; letter-spacing:.06em;
+  padding:.08cqw .42cqw; margin-left:.35cqw; border:1px solid var(--faint); color:var(--muted); vertical-align:middle}
+.tag.on{border-color:var(--sk); color:var(--sk)}
+.ess{display:grid; grid-template-columns:1fr 1fr; gap:3cqw; margin-top:3cqw; width:100%}
+.ess > div{display:flex; flex-direction:column; gap:.6cqw; border-top:1px solid #2A313B; padding-top:1.2cqw}
+.ess .l{font-family:"IBM Plex Mono",monospace; font-size:1cqw; letter-spacing:.14em; color:var(--sk)}
+.ess .v{font-size:1.32cqw; line-height:1.6; color:#AEB6C1}
+.demo{margin-top:2.6cqw; display:flex; flex-direction:column; gap:1.4cqw; width:100%}
+.demo .url{font-family:"IBM Plex Mono",monospace; font-size:2cqw; color:var(--sk); letter-spacing:-.01em}
+.demo ol{margin:0; padding-left:1.8cqw; display:flex; flex-direction:column; gap:.55cqw; font-size:1.3cqw; line-height:1.6; color:#AEB6C1}
+.demo ol b{color:#fff}
+.final{justify-content:center}
+.final .fwm{font-size:2.4cqw; font-weight:600; color:#8C94A0; letter-spacing:-.04em; line-height:1}
+.final .fwm i{color:var(--sk); font-style:normal}
+.final .fslogan{font-size:8.2cqw; font-weight:600; color:#fff; letter-spacing:-.05em; line-height:1.02; margin-top:2.2cqw}
+.final .fslogan i{color:var(--sk); font-style:normal}
+.final .fko{font-size:1.7cqw; color:#8C94A0; margin-top:2.6cqw; letter-spacing:-.01em}
+.final .meta{position:absolute; left:7cqw; bottom:5cqw; font-family:"IBM Plex Mono",monospace;
+  font-size:1cqw; color:#565D69; letter-spacing:.12em}
+.slide.dk td .tag{border-color:#2A313B; color:#8C94A0}
+
+.lead{font-size:1.75cqw; line-height:1.55; color:var(--ink); font-weight:500; letter-spacing:-.015em}
+.lead b{color:var(--sk)}
+.ans{display:flex; flex-direction:column; gap:1.6cqw}
+.ans .abrand{font-size:2.6cqw; font-weight:600; color:#8C94A0; letter-spacing:-.04em; line-height:1}
+.ans .ah{font-size:3.6cqw; font-weight:600; color:#fff; letter-spacing:-.035em; line-height:1.3}
+.ans .ah b{color:var(--sk); font-weight:700}
+.ans .as{font-size:2cqw; color:#AEB6C1; letter-spacing:-.015em}
+.ans .as b{color:#fff}
+.slide.dk .flow .st .t{color:#fff}
+.slide.dk .flow .st.ai .t{color:var(--sk)}
+.slide.dk .flow .st .s{color:#6E7681}
+.slide.dk .flow .ar{color:#3A424D}
+.live{display:inline-flex; align-items:center; gap:.45cqw; vertical-align:middle; margin-left:.7cqw;
+  font-family:"IBM Plex Mono",monospace; font-size:.82cqw; font-weight:600; letter-spacing:.14em;
+  color:#fff; background:var(--sk); padding:.22cqw .7cqw .22cqw .55cqw; border-radius:.3cqw;
+  animation:livepulse 1.6s ease-in-out infinite}
+.live i{width:.55cqw; height:.55cqw; border-radius:50%; background:#fff; display:inline-block;
+  animation:livedot 1.6s ease-in-out infinite}
+@keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(234,0,44,.55)} 50%{box-shadow:0 0 0 .55cqw rgba(234,0,44,0)}}
+@keyframes livedot{0%,100%{opacity:1} 50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){ .live,.live i{animation:none} }
+.vid{flex:1; min-height:0; margin-top:1cqw; border:.14cqw dashed var(--faint); display:flex; align-items:center; justify-content:center}
+.vid span{font-family:"IBM Plex Mono",monospace; font-size:1cqw; letter-spacing:.2em; color:var(--faint); text-transform:uppercase}
+.slide:not(.dk) .demo ol{color:var(--body)}
+.slide:not(.dk) .demo ol b{color:var(--ink)}
+.slide:not(.dk).break .after{color:var(--muted)}
+.ans.compact{gap:.7cqw}
+.ans.compact .ah{font-size:2.7cqw; line-height:1.3}
+.ans.compact .as{font-size:1.5cqw}
+.slide:not(.dk) .ans .ah{color:var(--ink)}
+.slide:not(.dk) .ans .as{color:var(--body)}
+.slide:not(.dk) .ans .as b{color:var(--ink)}
+.slide:not(.dk) .vid{margin-top:2cqw}
+.flow.boxed{gap:1cqw}
+.flow.boxed .st{border:.14cqw solid var(--ink); padding:1.1cqw .8cqw; align-items:center; text-align:center; justify-content:center; min-height:6.2cqw}
+.flow.boxed .st .t,.flow.boxed .st .s{text-align:center}
+.flow.boxed .st.ai{border-color:var(--sk)}
+.flow.boxed .ar{color:var(--ink)}
+.figs.sm{gap:2.4cqw; margin-top:3cqw; width:100%; max-width:78%}
+.figs.sm .fig .v{font-size:3.4cqw}
+.figs.sm .fig .v em{font-size:1.2cqw}
+.figs.sm .fig .k{font-size:.88cqw; margin-top:.6cqw}
+.figs.sm .fig .d{font-size:.98cqw; margin-top:.3cqw}
+.final .figs.sm .fig .d{color:#8C94A0}
+.final .fko{margin-top:2.4cqw}
+.nav{position:fixed; right:14px; bottom:14px; background:var(--paper); border:1px solid var(--hair);
+  padding:6px 11px; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+  box-shadow:0 1px 4px rgba(10,13,18,.1)}
+
+@media print{
+  @page{size:297mm 167mm; margin:0}
+  body{background:#fff; padding:0}
+  .deck{max-width:none; gap:0}
+  .slide{box-shadow:none; break-after:page; page-break-after:always}
+  .nav{display:none}
+}
+@media (max-width:700px){ body{padding-left:8px; padding-right:8px} }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+<!-- ═══ 1 · 훅 (2분) ═══ -->
+
+<!-- 01 -->
+<section class="slide dk cover">
+  <div class="brand">engra</div>
+  <div class="big">교대 인수인계를,<br>데이터가 <b>먼저</b> 쓴다.</div>
+  <div class="sub">12시간치 운전 데이터를 AI가 읽고 인수인계 초안을 씁니다.<br>사람은 쓰지 않습니다. <b style="color:#fff">고르기만 합니다.</b></div>
+  <div class="meta">팀 앙그라쥬 — 박경모 배선·AI·화면 <span style="color:#8C94A0">(SK에어플러스 현장 운전원)</span> · 정기영 검출 엔진 · 임도영 시나리오·검증<br>SK AI HACKATHON 2026 · FINAL</div>
+  <span class="pg">01</span>
+</section>
+
+
+<!-- 03 -->
+<section class="slide mid">
+  <div class="ghost">100</div>
+  <div class="eyebrow">1 · 실생활로 말하면</div>
+  <h2 class="at">카톡 알림 <b>100개</b>가 한 번에 왔습니다.</h2>
+  <div class="body" style="gap:1.8cqw">
+    <div class="lead">다 읽습니다. 그런데 12시간 뒤 <b>"아까 중요한 거 뭐였어?"</b> — 기억으로 답합니다.</div>
+    <div class="lead" style="font-weight:400">제조업 근무가 그렇습니다. 알람 수십 개, 태그 53점, 값 114만 개 — <b>인계는 12시간 뒤 기억</b>입니다.</div>
+    <div class="lead" style="font-weight:400">더 위험한 건 <b>알림이 안 온 것</b>입니다. 한계값(H/L)을 넘지 않은 변화는 <b>알람에도, 기억에도 없습니다.</b></div>
+  </div>
+  <span class="pg">02</span>
+</section>
+
+<!-- ═══ 2 · 제조업의 피해 (2분) ═══ -->
+
+<!-- 04 -->
+<section class="slide mid">
+  <div class="eyebrow">2 · 제조업의 피해 — 인수인계 불확실성의 비용</div>
+  <h2 class="at">저희가 직접 겪은 <b>4건, 약 44억.</b></h2>
+  <div class="body">
+    <div class="figs c3" style="gap:4.5cqw; margin-top:1.2cqw">
+      <div class="fig"><div class="v">15<em>일</em></div><div class="k">정지</div><div class="d">산업가스 2건 · 석유화학 2건</div></div>
+      <div class="fig red"><div class="v">44<em>억</em></div><div class="k">손실금액</div><div class="d">설비 고장이 아니라 <b>인계에서 끊긴 것</b></div></div>
+      <div class="fig"><div class="v">8<em>/133</em></div><div class="k">미국 CSB 완료 조사</div><div class="d">인수인계가 기록된 사고 — <b>6.0%</b>. 저희만의 일이 아닙니다</div></div>
+    </div>
+  </div>
+  <span class="pg">03</span>
+</section>
+
+<!-- 05 · THE ANSWER + 시연 영상 -->
+<section class="slide">
+  <div class="eyebrow">3 · THE ANSWER</div>
+  <div class="ans compact">
+    <div class="ah">12시간치 운전 데이터를 읽고 <b>인수인계 초안을 대신 쓰는</b> 서비스.</div>
+    <div class="as">사람은 쓰지 않습니다. <b>고르기만 합니다.</b></div>
+  </div>
+  <div class="vid"><span>시연 영상</span></div>
+  <div class="flow boxed" style="margin-top:1.8cqw">
+    <div class="st"><span class="t">운전 데이터</span><span class="s">24시간</span></div>
+    <span class="ar">→</span>
+    <div class="st"><span class="t">검출</span><span class="s">통계</span></div>
+    <span class="ar">→</span>
+    <div class="st ai"><span class="t">AI 초안 <span class="live"><i></i>LIVE</span></span><span class="s">실시간 데이터 트래킹</span></div>
+    <span class="ar">→</span>
+    <div class="st"><span class="t">운전원 승인</span><span class="s">고르기만</span></div>
+    <span class="ar">↻</span>
+    <div class="st"><span class="t">DB 학습</span><span class="s">다음 근무의 「과거 조치」로</span></div>
+  </div>
+  <span class="pg">04</span>
+</section>
+
+<!-- ═══ 3 · ENGRA + 시연 (2분) ═══ -->
+
+
+
+
+<!-- ═══ 4 · 확장성 · 투자성 (2분) ═══ -->
+
+
+<!-- 10 -->
+<section class="slide mid">
+  <div class="eyebrow">4 · 투자성 — 제조업 시장 · TAM / SAM / SOM</div>
+  <h2 class="at">24시간 돌아가는 곳이면, <b>어디든.</b></h2>
+  <div class="body">
+    <div class="mkt">
+      <svg viewBox="0 0 440 440" role="img" aria-label="시장 규모 동심원">
+        <circle cx="220" cy="220" r="216" fill="none" stroke="#0A0D12" stroke-opacity="0.14" stroke-width="1.4"/>
+        <circle cx="220" cy="220" r="139" fill="none" stroke="#0A0D12" stroke-opacity="0.26" stroke-width="1.4"/>
+        <circle cx="220" cy="220" r="74" fill="#EA002C"/>
+        <text x="220" y="42" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">TAM</text>
+        <text x="220" y="82" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="40" font-weight="600" fill="#0A0D12" letter-spacing="-1.6">400개</text>
+        <text x="220" y="103" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12.5" fill="#4A515C">국내 연속공정 교대운전 사업장</text>
+        <text x="220" y="124" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">SAM</text>
+        <text x="220" y="162" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="37" font-weight="600" fill="#0A0D12" letter-spacing="-1.5">30개</text>
+        <text x="220" y="182" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12.5" fill="#4A515C">SK그룹 장치산업</text>
+        <text x="220" y="207" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="2.6" fill="#FFFFFF" fill-opacity="0.7">SOM · 1차 적용 대상</text>
+        <text x="220" y="245" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="36" font-weight="700" fill="#FFFFFF" letter-spacing="-1.4">4거점</text>
+        <text x="220" y="264" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="11.5" fill="#FFFFFF" fill-opacity="0.8">데모 서버 가동 중 · 현장 적용 전</text>
+      </svg>
+      <div class="side">
+        <div class="sd"><span class="l">TAM</span><span class="t">PSM 대상 2,000개 중<br>24시간 교대 · 연속공정만 400개</span>
+          <span class="d">석유화학 175 · 발전 70 · 산업가스 45 · 시멘트·제지 45 · 철강 20 · 반도체 15 · 정유 7</span></div>
+        <div class="sd"><span class="l">SAM</span><span class="t">SK그룹 장치산업 30개</span>
+          <span class="d">에너지 · 지오센트릭 · 인천석유화학 · 멀티유틸리티 · 에어플러스 · 에어코어 · 하이닉스 유틸리티</span></div>
+        <div class="sd now"><span class="l">SOM · 1차 적용 대상</span><span class="t">에어플러스 + 에어코어 4거점</span>
+          <span class="d"><b>데모 서버 가동 중 · 현장 적용 전</b> · 거점당 <b>연 1.49억</b> <span class="tag">가정</span> — 전력비·재기동비 기준, 파일럿 전−후로 교체<br>공통점은 하나 — <b>DCS 기반 · 3~4조 교대 · 24시간 연속.</b></span></div>
+      </div>
+    </div>
+    <div class="kick" style="font-size:1.05cqw; max-width:100%; text-align:left">효율 저하 폭 1.5%·분기 1회·2년 1회 정지를 가정한 값이라 <b>「가정」으로 표시</b>했습니다.<br>PSM 수도권 614개 공개 수치에서 외삽 · 부문별 사업장 수는 자체 추정 · 4거점 연 5.95억 = 이천 전력비 363억(공시 역산) 기준</div>
+  </div>
+  <span class="pg">05</span>
+</section>
+
+<!-- 11 -->
+<section class="slide mid">
+  <div class="eyebrow">4 · 투자성 — 왜 지금</div>
+  <div class="three">
+    <div>
+      <h3>시장이<br><b>커지고</b></h3>
+      <p>24시간 돌아가는 설비가 계속 늘어납니다. 반도체·이차전지 증설이 그대로 <b>교대 운전 현장의 증가</b>입니다.</p>
+    </div>
+    <div>
+      <h3>문제가<br><b>심해지고</b></h3>
+      <p>베테랑 운전원이 은퇴하고 있습니다. <b>"이 값이 이렇게 움직이면 위험하다"는 감은 기록에 없고, 그 사람과 함께 퇴사합니다.</b> 남은 사람은 같은 화면에서 위험을 읽지 못합니다.</p>
+    </div>
+    <div>
+      <h3>붙일 곳이<br><b>늘어납니다</b></h3>
+      <p>신규 플랜트는 <b>베이스라인도 경험칙도 없습니다.</b> 가장 필요한 시점이 지금 열립니다. <b>제조업도 변해야만 미래를 도모할 수 있습니다.</b></p>
+    </div>
+  </div>
+  <span class="pg">06</span>
+</section>
+
+
+
+<!-- 14 · Q&A -->
+<section class="slide break">
+  <p style="font-size:9cqw; letter-spacing:-.04em">Q&amp;A<b>.</b></p>
+  <span class="pg">07</span>
+</section>
+
+</div>
+<div class="nav">← → 슬라이드 · Ctrl+P → PDF</div>
+
+<script>
+(function(){
+  var s = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  function cur(){ var b=0,bd=Infinity; s.forEach(function(el,i){
+    var d=Math.abs(el.getBoundingClientRect().top); if(d<bd){bd=d;b=i;} }); return b; }
+  document.addEventListener('keydown', function(e){
+    var k=e.key, n=null;
+    if(k==='ArrowRight'||k==='ArrowDown'||k==='PageDown') n=cur()+1;
+    else if(k==='ArrowLeft'||k==='ArrowUp'||k==='PageUp') n=cur()-1;
+    else if(k==='Home') n=0; else if(k==='End') n=s.length-1;
+    if(n===null) return; e.preventDefault();
+    n=Math.max(0,Math.min(s.length-1,n));
+    s[n].scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+  });
+})();
+</script>
+
+</body>
+</html>
