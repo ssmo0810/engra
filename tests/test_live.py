@@ -812,7 +812,50 @@ class FoldingAndEvents(unittest.TestCase):
             return []
         return Script(events)
 
-    def test_same_problem_recurrence_folds_and_merges_severity_and_score(self):
+    def test_recurrence_sync_writes_the_newest_snapshot_last(self):
+        """겹친 두 _sync_recurrences 의 쓰기 순서가 스냅샷 순서와 뒤집히지 않는다(codex 반증).
+
+        A 가 쓰기 잠금을 잡기 직전에 멈춘 사이 재발이 하나 더 접히고 B 가 먼저 쓰는 순서를 강제한다.
+        스냅샷을 잠금 밖에서 뜨던 코드는 A 의 「재발 1회」가 마지막에 써져 「재발 2회」를 덮었다."""
+        from contextlib import contextmanager
+        import db
+        import live
+        r = _replay(_csv(), self._same_problem_script())
+        sec = r.sections[0]
+        root = next(tr for tr in sec.tracks.all if tr.recurrences)
+        self.assertEqual((r.phase, len(root.recurrences), bool(root.draft_item_id)), ("ended", 1, True), r.error)
+
+        real_writing, a_waiting, a_go = r.writing, threading.Event(), threading.Event()
+        self.addCleanup(a_go.set)                   # 단언이 먼저 깨져도 A 가 매달려 남지 않게
+
+        @contextmanager
+        def writing():
+            if threading.current_thread().name == "A":
+                a_waiting.set()
+                a_go.wait()                         # 시간 제한을 두면 A 가 스스로 풀려 순서를 강제하지 못한다(codex)
+            with real_writing():
+                yield
+        r.writing = writing
+        with live._lock:
+            root.saved_recur = 0                    # 두 호출 모두 위쪽 빠른 가드를 지나게 한다
+        a = threading.Thread(target=r._sync_recurrences, args=(sec, root), name="A", daemon=True)
+        a.start()
+        self.assertTrue(a_waiting.wait(5), "A 가 쓰기 잠금 앞에 서야 순서를 강제할 수 있다")
+        with live._lock:
+            root.recurrences.append(root.recurrences[0])    # 그 사이 재발이 하나 더 접힌다
+        b = threading.Thread(target=r._sync_recurrences, args=(sec, root), name="B", daemon=True)
+        b.start()
+        b.join(5)
+        self.assertFalse(b.is_alive(), "B 가 다 쓴 뒤에만 A 를 푼다 — 남아 있으면 교착이다")
+        a_go.set()
+        a.join(5)
+        self.assertFalse(a.is_alive(), "A 도 끝나야 한다 — 남아 있으면 교착이다")
+        with db.connect() as conn:
+            evidence = conn.execute("SELECT evidence FROM draft_item WHERE id = ?", (root.draft_item_id,)).fetchone()[0]
+        self.assertIn("재발 2회", evidence, "마지막에 써진 근거 줄이 최신 재발 수여야 한다")
+        self.assertEqual(root.saved_recur, 2)
+
+    def test_same_problem_recurrence_folds_keeps_ai_severity_and_merges_score(self):
         import db
         import live
         calls = self._count_ai()
