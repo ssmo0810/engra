@@ -26,22 +26,25 @@ OUT = ROOT / "sample"
 # 고정 날짜를 쓰면 원본 보관 기간(RAW_RETENTION_DAYS)을 지나 run 이 깨진다.
 # smoke.sh 에서 같은 병을 두 번 겪었다. 항상 보관 기간 안에 있는 오늘을 쓴다.
 DAY = _dt.date.today().isoformat()
+# 왼쪽 목록 + 오른쪽 내용이 한 화면이라 /draft 가 곧 초안 검토 화면이다 — 따로 뜨던 draft.html 은 없앴다.
 PAGES = {
-    "index.html": "/draft",   # 목록. / 는 /draft 로 303 이고, 상세 화면의 「‹ 일지 목록」도 /draft 를 가리킨다(이동줄은 없앴다)
-    "draft.html": f"/shift/{DAY}-night",
-    "handover.html": f"/shift/{DAY}-day",
+    "index.html": "/draft",                   # / 도 여기로 303. 가장 최근 근무(야간 초안)가 펴져 있다
+    "handover.html": f"/shift/{DAY}-day",     # 확정 일지
+}
+# 정적본에서 링크가 갈 곳. 야간 줄은 index.html 이 이미 그 화면이라 제자리로 돌아온다.
+LINKS = {
+    "/draft": "index.html",
+    f"/shift/{DAY}-night": "index.html",
+    f"/shift/{DAY}-day": "handover.html",
 }
 NOTES = {
     "index.html": (
-        "<b>여기는 일지 목록입니다.</b> 근무 이름을 누르면 화면이 열립니다 — "
-        f"<b>{DAY}-night</b> 는 아직 승인 전인 <b>초안 검토</b> 화면이고, "
-        f"<b>{DAY}-day</b> 는 이미 승인된 <b>확정 일지</b> 입니다."
-    ),
-    "draft.html": (
-        "<b>여기가 근무자가 실제로 쓰는 화면입니다.</b> 감지된 항목을 전부 보여주고, "
-        "적을 것을 고르고 코멘트를 답니다. 각 항목의 초록 칸(<b>과거 조치</b>)을 보세요 — "
-        "이건 우리가 넣어 둔 문구가 아니라, <b>앞 근무자가 승인하면서 직접 쓴 코멘트</b>가 "
-        "저장됐다가 돌아온 것입니다. 이 순환이 ENGRA 의 핵심입니다."
+        "<b>여기가 근무자가 보는 한 화면입니다.</b> 왼쪽에서 근무를 고르면 오른쪽에 그 근무가 열립니다 — "
+        f"지금 열려 있는 <b>{DAY}-night</b> 는 아직 승인 전인 <b>초안 검토</b> 이고, 왼쪽의 "
+        f"<b>{DAY}-day</b> 줄을 누르면 이미 승인된 <b>확정 일지</b> 입니다. "
+        "각 항목의 초록 칸(<b>과거 조치</b>)을 보세요 — 이건 우리가 넣어 둔 문구가 아니라, "
+        "<b>앞 근무자가 승인하면서 직접 쓴 코멘트</b>가 저장됐다가 돌아온 것입니다. "
+        "이 순환이 ENGRA 의 핵심입니다."
     ),
     "handover.html": (
         "<b>승인이 끝나면 이렇게 확정됩니다.</b> 여기 적힌 코멘트가 곧 다음 근무 초안의 "
@@ -117,7 +120,7 @@ def fetch(base, path):
 
 
 def to_static(html, name):
-    for src, dst in {v: k for k, v in PAGES.items()}.items():
+    for src, dst in LINKS.items():
         for q in ('"', "'"):
             html = html.replace(f"href={q}{src}{q}", f"href={q}{dst}{q}")
 

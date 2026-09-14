@@ -1091,12 +1091,13 @@ class StatusSwitchAndCarry(unittest.TestCase):
         with db.connect() as conn:
             draft = db.load_draft(conn, self.DAY[0])
         snap = self._snapshot_tool()
-        out = snap.to_static(server._view_pending(self.DAY[0], draft), "draft.html")
+        # 상세는 한 화면의 오른쪽 조각이라 page() 로 감싸야 실제로 뜨는 HTML 이 된다
+        out = snap.to_static(server.page("근무 일지", server._view_pending(self.DAY[0], draft)), "index.html")
         self.assertNotIn('action="/approve"', out)
         self.assertIn('<form onsubmit="return false">', out)
         with self.assertRaises(SystemExit):     # 치환이 못 잡는 POST 제출이 남으면 멈춘다
             snap.to_static('<main class="wrap"><div class="card"><button formmethod="post" formaction="/reopen">x'
-                           '</button></div>', "draft.html")
+                           '</button></div>', "index.html")
 
     def test_snapshot_neutralizes_every_post_form(self):
         """확정 화면의 재검토 폼(POST /reopen)이 정적 handover.html 에 살아 남았다 — 승인 폼만 치환·검사했다(반증 워커)."""
@@ -1106,7 +1107,8 @@ class StatusSwitchAndCarry(unittest.TestCase):
         with db.connect() as conn:
             draft = db.load_draft(conn, self.DAY[0])
             h = db.load_handover(conn, self.DAY[0])
-        out = self._snapshot_tool().to_static(server._view_confirmed(self.DAY[0], draft, h), "handover.html")
+        out = self._snapshot_tool().to_static(
+            server.page("근무 일지", server._view_confirmed(self.DAY[0], draft, h)), "handover.html")
         self.assertNotIn('method="post"', out)
 
     def test_snapshot_neutralizes_post_form_spelling_variants(self):
@@ -1344,14 +1346,16 @@ class TwoScreens(unittest.TestCase):
         for sid in (self.DAY[0], self.NIGHT[0]):
             self.assertIn(f'href="/shift/{sid}"', body, "목록에 확정·대기 근무가 다 있어야 한다")
         self.assertNotIn('href="/admin"', body, "공개 화면에 관리 링크가 새면 안 된다")
-        # 확정 일지 · 승인 대기 초안 — 목록으로 링크가 두 갈래에 따로 있다
+        # 확정 일지 · 승인 대기 초안 — 같은 한 화면의 오른쪽에 편다
         for sid, mark in ((self.DAY[0], "인수인계서"), (self.NIGHT[0], 'onsubmit="return chk(this)"')):
             code, body, _ = self._get(f"/shift/{sid}")
             self.assertEqual(code, 200, sid)
-            self.assertIn(mark, body, sid)
-            self.assertIn('<a class="back" href="/draft">‹ 일지 목록</a>', body, sid)
-            self.assertNotIn('href="/admin"', body, sid)
-            self.assertNotIn('class="nav"', body, "상세에도 이동줄은 없다")
+            self.assertTrue(mark in body, sid)
+            self.assertFalse('<a class="back" href="/draft">' in body,
+                             "목록이 늘 왼쪽에 있으니 되돌아가기 줄은 없다")
+            self.assertTrue('class="side"' in body, f"{sid}: 상세에도 왼쪽 목록이 함께 있어야 한다")
+            self.assertFalse('href="/admin"' in body, sid)
+            self.assertFalse('class="nav"' in body, "상세에도 이동줄은 없다")
 
     def test_list_shows_state_labels(self):
         """일지 목록의 표시 — 확정 전 「초안」 · 확정 「확정 · 채택 N건」 · 실시간으로 쌓이는 중 「LIVE · 쌓이는 중」(맨 위).
@@ -1368,8 +1372,66 @@ class TwoScreens(unittest.TestCase):
         self.assertIn(">초안<", body, "확정 전 근무는 「초안」")
         self.assertIn("확정 · 채택 1건", body, "확정된 근무는 채택 건수까지")
         self.assertLess(body.index("LIVE · 쌓이는 중"), body.index(">초안<"), "쌓이는 구간이 맨 위")
-        self.assertIn("06:00–18:00", body, "구간 시각을 줄에 적는다")
-        self.assertNotIn('class="nav"', body, "이동줄 없음")
+        self.assertFalse('class="nav"' in body, "이동줄 없음")
+        # 경모님 2026-09-14: 줄에는 날짜·주간/야간·상태만. 구간 시각과 감지 요약은 뺀다
+        # — 뒤에 채택 건수가 나오는데 감지 요약이 또 있으면 헷갈리고, 주간/야간이면 시각은 짐작된다.
+        self.assertFalse("06:00–18:00" in body, "줄에 구간 시각을 적지 않는다")
+        self.assertFalse("TI-403" in body.split('class="detail"')[0], "줄에 감지 요약을 적지 않는다")
+        self.assertFalse("교대 1시간 전" in body, "안내는 한 줄까지만 — 뒷문장은 뺀다")
+
+    def test_one_page_opens_with_a_shift_already_chosen(self):
+        """목록과 상세가 따로 열려 같은 근무를 두 번 찾아 들어가야 했다(경모님 2026-09-14) — 한 화면으로 합친다.
+        /draft 는 쌓이는 중인 근무를, 없으면 가장 최근 근무를 골라 연다. /shift/<근무> 는 그 근무를 고른 같은 화면이다."""
+        _fresh_db()
+        import approve
+        iid = self._add(*self.DAY)
+        approve.decide(self.DAY[0], {iid: {"adopted": True, "status": "완료"}})
+        self._add(*self.NIGHT)
+
+        code, body, _ = self._get("/draft")
+        self.assertEqual(code, 200)
+        self.assertTrue('class="side"' in body and 'class="detail"' in body, "왼쪽 목록 + 오른쪽 내용")
+        self.assertTrue('onsubmit="return chk(this)"' in body, "빈 화면을 만들지 않는다 — 가장 최근 근무를 펴 둔다")
+        self.assertTrue(f'class="nrow on" href="/shift/{self.NIGHT[0]}"' in body, "고른 근무는 목록에서 표시한다")
+        self.assertEqual(body.count('class="nrow on"'), 1, "표시는 한 줄만")
+        self.assertEqual(body, self._get(f"/shift/{self.NIGHT[0]}")[1], "주소만 다르고 같은 한 화면이다")
+
+        # 쌓이는 중인 근무가 있으면 그것부터
+        self._add("2026-08-26-day", "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
+        _, body, _ = self._get("/draft")
+        self.assertTrue('class="nrow on" href="/shift/2026-08-26-day"' in body, "재생 중이면 그 근무를 연다")
+
+    def test_one_page_with_no_shifts_shows_the_empty_state(self):
+        """근무가 하나도 없으면 오른쪽에 안내를 둔다 — 왼쪽만 비고 오른쪽이 빈 화면이 되면 안 된다.
+        고를 것이 없으면 왼쪽 목록과 「근무 고르기」는 아예 그리지 않는다 — 제목만 남은 껍데기가
+        모바일에서 빈 상자로 열렸다(반증 워커)."""
+        _fresh_db()
+        import db      # _fresh_db 가 모듈을 갈아 끼우므로 그 뒤에 가져와야 같은 DB 를 본다
+        for body in (self._get("/draft")[1], ):
+            self.assertTrue("아직 근무가 없습니다" in body, "빈 상태 안내")
+            self.assertFalse('class="nrow' in body, "줄은 없다")
+            self.assertFalse('class="side"' in body, "고를 것이 없으면 왼쪽 목록을 그리지 않는다")
+            self.assertFalse('id="pick"' in body, "펼칠 것이 없으면 「근무 고르기」도 없다")
+
+        # 적재만 되고 초안이 아직 없는 근무도 목록에 세우지 않는다(경모님: "미생성은 있을 필요 없다")
+        with db.connect() as conn:
+            conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                         "VALUES (?,'day',?,?,'test',?)", (*self.DAY, db.now()))
+        code, body, _ = self._get("/draft")
+        self.assertEqual(code, 200)
+        self.assertTrue("아직 초안이 없습니다" in body, "적재만 된 상태의 안내")
+        self.assertFalse('class="side"' in body, "줄이 0개면 왼쪽은 껍데기로도 남지 않는다")
+        self.assertFalse('id="pick"' in body, "펼칠 것이 없으면 「근무 고르기」도 없다")
+
+    def test_shift_picker_is_not_a_hidden_tab_stop_on_pc(self):
+        """PC 에서 첫 Tab 이 보이지 않는 체크박스에 걸렸다(반증 워커 실측 1440) — 목록이 늘 펼쳐져 있어
+        눌러도 아무 일도 안 나는 컨트롤이다. 기본은 아예 빼고, 접기가 실제로 도는 모바일 폭에서만 되살린다."""
+        import server
+        base, _, mobile = server.STYLE.partition("@media (max-width:760px)")
+        self.assertTrue(mobile, "모바일 미디어 쿼리를 못 찾음")
+        self.assertTrue(".pickbox{display:none}" in base, "PC 기본은 초점 순서에서 뺀다")
+        self.assertTrue(".pickbox{position:absolute" in mobile, "모바일에서는 초점을 받도록 되살린다")
+        self.assertFalse(".pickbox{position:absolute" in base, "PC 에 보이지 않는 초점 자리를 남기지 않는다")
 
     def test_live_shift_is_read_only(self):
         """아직 쌓이는 중인 근무(status='live')를 누르면 승인 폼이 그대로 떴다(반증 워커) — view_shift 가
@@ -1633,16 +1695,31 @@ class UploadAllOrNothing(unittest.TestCase):
 class SnapshotLinks(unittest.TestCase):
     longMessage = False
 
-    def test_back_link_to_list_becomes_static(self):
-        """정적 스냅숏(sample/)에서 상세의 「‹ 목록으로」가 index.html 로 바뀌어야 한다 — 목록 주소가 / 에서 /draft 로
-        바뀌며 치환이 빗나가 죽은 링크가 됐다(조각 1 반증 발견)."""
+    def test_shift_links_become_static(self):
+        """정적 스냅숏(sample/)에 서버 주소가 남으면 죽은 링크다. 손으로 쓴 픽스처의 「‹ 목록으로」만 보다가
+        화면에서 그 줄이 사라지자 검사가 공허해졌다(반증 워커) — 실제 화면 출력의 왼쪽 목록 링크로 본다."""
         sys.path.append(os.path.join(ROOT, "tools"))
-        import snapshot
-        html = ('<style></style><main class="wrap"><a class="row" href="/draft">2026-09-14</a>'
-                '<a class="back" href="/draft">‹ 일지 목록</a><div class="card">본문</div>')
-        out = snapshot.to_static(html, "handover.html")
-        self.assertNotIn('href="/draft"', out, "/draft 링크가 정적본에 남으면 죽은 링크")
-        self.assertIn('<a class="back" href="index.html">', out, "「‹ 목록으로」는 index.html 로")
+        _fresh_db()
+        import approve, db, server, snapshot
+        day, night = snapshot.DAY + "-day", snapshot.DAY + "-night"
+        items = {}
+        for sid, start, end in ((day, snapshot.DAY + "T06:00:00", snapshot.DAY + "T18:00:00"),
+                                (night, snapshot.DAY + "T18:00:00", snapshot.DAY + "T23:59:00")):
+            with db.connect() as conn:
+                conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                             "VALUES (?,?,?,?,'test',?)", (sid, sid.rsplit("-", 1)[1], start, end, db.now()))
+                did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) "
+                                   "VALUES (?,'pending','test',?)", (sid, db.now())).lastrowid
+                items[sid] = conn.execute(
+                    "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, severity) "
+                    "VALUES (?, NULL, 1, 'detected', 'TI-403', '항목', '본문', '중')", (did,)).lastrowid
+        approve.decide(day, {items[day]: {"adopted": True, "status": "완료"}})   # 주간조만 확정 — handover.html
+
+        out = snapshot.to_static(server._one_page(day), "handover.html")
+        self.assertFalse("/shift/" in out, "서버 주소가 남으면 정적본에서 죽은 링크다")
+        self.assertFalse('href="/draft"' in out, "/draft 도 남으면 안 된다")
+        self.assertTrue(f'class="nrow on" href="handover.html"' in out, "고른 근무 줄은 제 파일을 가리킨다")
+        self.assertTrue('href="index.html"' in out, "야간 초안 줄은 index.html 로 간다")
 
 
 if __name__ == "__main__":

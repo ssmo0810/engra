@@ -68,24 +68,36 @@ a{color:inherit}
 .pill.red{background:#fde4e6;color:var(--bad)}
 .pill.live{background:var(--accent);color:#fff}
 
-/* 일지 목록 — [날짜 · 주간/야간 · 구간] [감지 요약] [상태] [›] */
-.row{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:8px;
-     background:var(--card);border:1px solid var(--line);border-radius:10px;
-     text-decoration:none;color:inherit;transition:border-color .12s}
-.row:hover{border-color:#c8c4bd}
-.row .when{display:flex;align-items:baseline;gap:8px;min-width:230px}
-.row .date{font-size:16px;font-weight:700;letter-spacing:-.02em}
-.row .kind{font-size:13px;color:var(--sub)}
-.row .win{font-size:13px;color:var(--sub)}
-.row .gist{flex:1;min-width:0;font-size:13px;color:var(--sub);
-           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .arw{color:#bdb9b2;font-size:16px}
-.row.live{border-color:var(--accent)}
-@media (max-width:560px){
-  .row{flex-wrap:wrap;gap:6px 10px}
-  .row .when{width:100%;min-width:0}
-  .row .gist{flex:1 1 100%;white-space:normal}
-  .row .arw{margin-left:auto}
+/* 한 화면 — 왼쪽 근무 목록(고정 폭) + 오른쪽 그 근무의 내용. 목록과 내용이 따로 열리면
+   같은 근무를 두 번 찾아 들어가야 한다(경모님 2026-09-14) */
+.split{display:flex;gap:18px;align-items:flex-start}
+.side{width:280px;flex:none;background:var(--card);border:1px solid var(--line);
+      border-radius:10px;overflow:hidden;position:sticky;top:14px;max-height:calc(100vh - 28px);
+      overflow-y:auto}
+.side h2{font-size:15px;padding:13px 14px 0}
+.side .note{padding:3px 14px 11px;margin:0;font-size:12.5px}
+.detail{flex:1;min-width:0}
+/* 줄 = [날짜] [주간/야간] [상태]. 감지 요약·구간 시각은 뺀다 — 상태 뒤 채택 건수와 겹쳐 읽혔다 */
+.nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;
+      border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.nrow:hover{background:var(--bg)}
+.nrow.on{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}
+.nrow .date{font-size:14px;font-weight:700;letter-spacing:-.02em}
+.nrow .kind{font-size:13px;color:var(--sub)}
+.nrow .pill{margin-left:auto;font-size:12px}
+/* 모바일에서만 목록을 접는다. PC 에서는 접을 일이 없으니 체크박스를 아예 뺀다 —
+   남겨 두면 첫 Tab 이 보이지도 않고 눌러도 아무 일도 안 나는 자리에 걸린다(반증 워커 실측 1440) */
+.pickbox{display:none}
+.pickbtn{display:none}
+@media (max-width:760px){
+  /* 접기가 실제로 도는 폭에서만 되살린다 — 안 보이되 초점은 받는다(JS 없이 펼치기) */
+  .pickbox{position:absolute;display:block;width:1px;height:1px;opacity:0;pointer-events:none}
+  .split{flex-direction:column;gap:12px}
+  .side{width:100%;position:static;max-height:none;display:none}
+  .pickbox:checked ~ .split .side{display:block}
+  .pickbtn{display:inline-block;margin-bottom:12px;padding:8px 14px;background:var(--card);
+           border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .pickbox:focus-visible ~ .pickbtn{outline:2px solid var(--accent);outline-offset:2px}
 }
 
 /* 초안 항목 — 왼쪽 띠가 중요도(상 빨강 · 중 호박 · 하 회색). 제목 → 본문 → 근거 순 */
@@ -306,11 +318,6 @@ def esc(v):
 def _span(ts):
     """2026-08-24T06:00:00 -> 08-24 06:00"""
     return (ts or "")[5:16].replace("T", " ")
-
-
-def _hhmm(ts):
-    """2026-08-24T06:00:00 -> 06:00"""
-    return (ts or "")[11:16]
 
 
 def _sev_class(sev):
@@ -654,44 +661,51 @@ def _pipeline_card(locked):
 
 
 def view_draft():
-    """초안 — 근무 목록. 누르면 /shift/<근무> 에서 승인 대기 초안을 검토하거나 확정 일지를 본다.
+    """근무 일지 — 왼쪽 목록에서 고른 근무를 오른쪽에 편다. 주소 없이 들어오면 하나 골라 준다."""
+    return _one_page(None)
 
-    「초안 검토」(가장 최근 대기 초안으로 바로)와 「일지 조회」(목록)가 따로였다. 같은 근무가 두 화면에
-    나뉘어 결선 심사위원들이 흐름을 따라가기 힘들어했다 → 목록 → 상세 한 줄기로 합쳤다.
+
+def _one_page(sel):
+    """왼쪽 근무 목록 + 오른쪽 그 근무의 내용, 한 화면.
+
+    목록과 상세가 따로 열려 같은 근무를 두 번 찾아 들어가야 했다(경모님 2026-09-14).
+    주소는 그대로 /shift/<근무> 다 — 줄은 링크고, 승인 뒤 돌아오는 자리와 북마크가 계속 동작한다.
     """
     with db.connect() as conn:
         rows = db.list_shifts(conn)
-        summaries = {
-            r["id"]: [e["tag"] for e in db.load_events(conn, r["id"])] for r in rows
-        }
 
     # 'live' = 실시간으로 쌓이는 중(조각 2 의 재생이 만든다). 맨 위에 따로 세운다.
     only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed", "live")]
     live = [r for r in rows if r["draft_status"] == "live"]
-    rows = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다"
-    if not rows and not live:
-        why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
-        return page("일지 목록", '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>')
+    rest = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다"
+    listed = live + rest
+    if sel is None and listed:
+        sel = listed[0]["id"]      # 쌓이는 중이면 그것, 아니면 가장 최근 근무 (빈 화면을 만들지 않는다)
 
-    def row(r, state, extra=""):
-        tags = summaries.get(r["id"]) or []
-        gist = " · ".join(tags[:3]) + (f" 외 {len(tags) - 3}건" if len(tags) > 3 else "")
+    def row(r, state):
         date, kind = r["id"].rsplit("-", 1)
-        return (f'<a class="row{extra}" href="/shift/{esc(r["id"])}">'
-                f'<span class="when"><span class="date">{esc(date)}</span>'
-                f'<span class="kind">{"주간" if kind == "day" else "야간"}</span>'
-                f'<span class="win">{esc(_hhmm(r["window_start"]))}–{esc(_hhmm(r["window_end"]))}</span></span>'
-                f'<span class="gist">{esc(gist) or "감지 항목 없음"}</span>'
-                f'{state}<span class="arw">›</span></a>')
+        return (f'<a class="nrow{" on" if r["id"] == sel else ""}" href="/shift/{esc(r["id"])}">'
+                f'<span class="date">{esc(date)}</span>'
+                f'<span class="kind">{"주간" if kind == "day" else "야간"}</span>{state}</a>')
 
-    out = [row(r, '<span class="pill live">LIVE · 쌓이는 중</span>', extra=" live") for r in live]
-    out += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
-                if r["draft_status"] == "confirmed" else '<span class="pill amber">초안</span>') for r in rows]
+    nav = [row(r, '<span class="pill live">LIVE · 쌓이는 중</span>') for r in live]
+    nav += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
+                if r["draft_status"] == "confirmed" else '<span class="pill amber">초안</span>') for r in rest]
 
-    body = ('<div class="card"><h2>근무 일지</h2>'
-            '<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
-            '구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>' + "".join(out))
-    return page("일지 목록", body)
+    if sel:
+        right = _shift_body(sel)
+    else:
+        why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
+        right = '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>'
+
+    # 고를 것이 없으면 왼쪽과 「근무 고르기」를 아예 그리지 않는다 — 제목만 남은 껍데기가
+    # 모바일에서 빈 상자로 열렸다(반증 워커). 빈 상태 안내는 오른쪽에만 둔다.
+    left = (f'<input type="checkbox" id="pick" class="pickbox">'
+            f'<label for="pick" class="pickbtn">근무 고르기</label>'
+            f'<div class="split"><nav class="side"><h2>근무 일지</h2>'
+            f'<p class="note">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다.</p>'
+            f'{"".join(nav)}</nav>' if nav else '<div class="split">')
+    return page("근무 일지", f'{left}<section class="detail">{right}</section></div>')
 
 
 def _rounds_html(shift_id):
@@ -747,8 +761,8 @@ def _view_confirmed(shift_id, draft, handover):
               f'같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>')
 
     date, kind = shift_id.rsplit("-", 1)
-    return page(shift_id, f"""<a class="back" href="/draft">‹ 일지 목록</a>
-{_carry_box(opened, choices, editable=False)}
+    # 「‹ 일지 목록」 줄은 없다 — 목록이 늘 왼쪽에 있다(모바일은 「근무 고르기」).
+    return f"""{_carry_box(opened, choices, editable=False)}
 <div class="card det">
 <h3>{esc(date)} {"주간조" if kind == "day" else "야간조"} 인수인계서</h3>
 <div class="sub">분석 구간 {esc(_span(draft.get("window_start")))} · 작성 ENGRA
@@ -764,7 +778,7 @@ def _view_confirmed(shift_id, draft, handover):
 <span class="muted" style="font-size:13px">확정 후 잘못 적은 것을 고칠 때 — 채택·코멘트는 그대로</span>
 </form>
 {"".join(ents)}{ex}
-</div>""")
+</div>"""
 
 
 def _status_pill(status):
@@ -1135,8 +1149,8 @@ def _view_pending(shift_id, draft):
             '감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다. '
             '적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. '
             '진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.')
-    return page(shift_id, f"""<a class="back" href="/draft">‹ 일지 목록</a>
-{disc}
+    # 「‹ 일지 목록」 줄은 없다 — 목록이 늘 왼쪽에 있다(모바일은 「근무 고르기」).
+    return f"""{disc}
 {qbanner}
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
@@ -1152,10 +1166,16 @@ def _view_pending(shift_id, draft):
 {"".join(items)}
 {lowbox}
 <div id="mans"></div>
-{tail}""")
+{tail}"""
 
 
 def view_shift(shift_id):
+    """그 근무를 고른 채로 같은 한 화면을 그린다 — 주소는 유지된다."""
+    return _one_page(shift_id)
+
+
+def _shift_body(shift_id):
+    """한 화면의 오른쪽 — 초안 검토 또는 확정 일지."""
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
         handover = db.load_handover(conn, shift_id)
@@ -1164,10 +1184,9 @@ def view_shift(shift_id):
         ).fetchone()
 
     if draft is None:
-        return page(shift_id, f'<a class="back" href="/draft">‹ 일지 목록</a>'
-                              f'<div class="card"><div class="empty">{esc(shift_id)} 의 초안이 '
-                              f'없습니다.<br><code class="mono">python3 app/cli.py run '
-                              f'{esc(shift_id)}</code></div></div>')
+        return (f'<div class="card"><div class="empty">{esc(shift_id)} 의 초안이 '
+                f'없습니다.<br><code class="mono">python3 app/cli.py run '
+                f'{esc(shift_id)}</code></div></div>')
 
     draft["window_start"] = row["window_start"] if row else None
     if handover:

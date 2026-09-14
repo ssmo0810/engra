@@ -1,106 +1,162 @@
 <!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>2026-08-26-day · ENGRA</title>
+<title>근무 일지 · ENGRA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>
-:root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;
-      --accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+:root{--ink:#191b1f;--sub:#5f6672;--line:#e4e1dc;--bg:#f7f6f3;--card:#fff;
+      --accent:#EA002C;--ok:#1a6b3c;--warn:#8a5300;--bad:#b3261e;--chip:#f2f0ec}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);
-     color:var(--ink);font-size:14px;line-height:1.6}
-.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
-.top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
-.nav{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
-.nav a{flex:1;min-width:150px;text-decoration:none;background:var(--card);
- border:1px solid var(--line);border-radius:8px;padding:9px 13px;color:var(--sub);
- font-size:13px;font-weight:600;transition:.12s}
-.nav a small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px}
-.nav a:hover{border-color:#c9c6c1}
-.nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
-.nav a.on small{color:#c9c6c1}
-.frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
-.top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
-.top span{font-size:12.5px;color:var(--sub)}
-.top .eng{margin-left:auto;font-size:11.5px}
-.disc{font-size:12px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;
-      padding:7px 11px;border-radius:6px;margin:12px 0 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:9px;
-      padding:16px 18px;margin-bottom:14px}
-.card h2{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pill{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;
-      background:#eceae6;color:var(--sub)}
-.pill.on{background:#dcefe2;color:var(--ok)}
-.pill.red{background:#ffe0e6;color:#b00020}.pill.amber{background:#fdf0d8;color:var(--warn)}
-.muted{color:var(--sub)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-.note{font-size:12.5px;color:var(--sub);margin-bottom:11px}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.65;
+     font-variant-numeric:tabular-nums}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* 초안 항목 */
-.item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;
-      background:#fff;transition:.15s}
-.item.off{opacity:.5;background:#fafafa}
+/* 상단 얇은 바 — 워드마크·화면 이름은 왼쪽, 엔진·AI 상태는 오른쪽에 조용히.
+   이동줄은 없다: DCS 와 일지 목록은 각자 주소로 연다 (경모님 2026-09-14) */
+.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:11px 20px;
+     background:var(--card);border-bottom:1px solid var(--line)}
+.top .brand{font-size:16px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+.top .ttl{font-size:13px;color:var(--sub)}
+.top .sys{margin-left:auto;font-size:13px;color:var(--sub)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 72px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+      padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3,.det h3{font-size:20px;margin-bottom:4px;letter-spacing:-.02em}
+.det .sub{font-size:13px;color:var(--sub);margin-bottom:16px}
+.note{font-size:13px;color:var(--sub);margin-bottom:10px}
+.muted{color:var(--sub)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.empty{color:var(--sub);text-align:center;padding:32px 16px;font-size:14px}
+.back{display:inline-block;margin-bottom:14px;font-size:13px;font-weight:700;
+      color:var(--accent);text-decoration:none}
+.back:hover{text-decoration:underline}
+.disc{font-size:13px;color:var(--sub);background:#fff8e6;border:1px solid #efe2bd;
+      padding:9px 13px;border-radius:8px;margin-bottom:14px}
+.sc{border-collapse:collapse;width:100%;font-size:13px}
+.sc th,.sc td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
+.sc th{color:var(--sub);font-weight:600;font-size:13px}
+
+/* 상태 — 초안 호박 · 확정 초록 · 관찰 중 흐린 회색. 빨강은 워드마크·LIVE·주 버튼에만 */
+.pill{font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;
+      background:var(--chip);color:var(--sub);white-space:nowrap}
+.pill.on,.pill.done{background:#e4f1e8;color:var(--ok)}
+.pill.amber,.pill.going{background:#fbeed3;color:var(--warn)}
+.pill.red{background:#fde4e6;color:var(--bad)}
+.pill.live{background:var(--accent);color:#fff}
+
+/* 한 화면 — 왼쪽 근무 목록(고정 폭) + 오른쪽 그 근무의 내용. 목록과 내용이 따로 열리면
+   같은 근무를 두 번 찾아 들어가야 한다(경모님 2026-09-14) */
+.split{display:flex;gap:18px;align-items:flex-start}
+.side{width:280px;flex:none;background:var(--card);border:1px solid var(--line);
+      border-radius:10px;overflow:hidden;position:sticky;top:14px;max-height:calc(100vh - 28px);
+      overflow-y:auto}
+.side h2{font-size:15px;padding:13px 14px 0}
+.side .note{padding:3px 14px 11px;margin:0;font-size:12.5px}
+.detail{flex:1;min-width:0}
+/* 줄 = [날짜] [주간/야간] [상태]. 감지 요약·구간 시각은 뺀다 — 상태 뒤 채택 건수와 겹쳐 읽혔다 */
+.nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;
+      border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.nrow:hover{background:var(--bg)}
+.nrow.on{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}
+.nrow .date{font-size:14px;font-weight:700;letter-spacing:-.02em}
+.nrow .kind{font-size:13px;color:var(--sub)}
+.nrow .pill{margin-left:auto;font-size:12px}
+/* 모바일에서만 목록을 접는다. PC 에서는 접을 일이 없으니 체크박스를 아예 뺀다 —
+   남겨 두면 첫 Tab 이 보이지도 않고 눌러도 아무 일도 안 나는 자리에 걸린다(반증 워커 실측 1440) */
+.pickbox{display:none}
+.pickbtn{display:none}
+@media (max-width:760px){
+  /* 접기가 실제로 도는 폭에서만 되살린다 — 안 보이되 초점은 받는다(JS 없이 펼치기) */
+  .pickbox{position:absolute;display:block;width:1px;height:1px;opacity:0;pointer-events:none}
+  .split{flex-direction:column;gap:12px}
+  .side{width:100%;position:static;max-height:none;display:none}
+  .pickbox:checked ~ .split .side{display:block}
+  .pickbtn{display:inline-block;margin-bottom:12px;padding:8px 14px;background:var(--card);
+           border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .pickbox:focus-visible ~ .pickbtn{outline:2px solid var(--accent);outline-offset:2px}
+}
+
+/* 초안 항목 — 왼쪽 띠가 중요도(상 빨강 · 중 호박 · 하 회색). 제목 → 본문 → 근거 순 */
+.item{border:1px solid var(--line);border-left:3px solid #cfcbc4;border-radius:10px;
+      padding:14px 16px;margin-bottom:10px;background:var(--card);transition:.15s}
+.item.sev-high{border-left-color:var(--accent)}
+.item.sev-mid{border-left-color:#d9a441}
+.item.off{opacity:.55;background:#fbfaf8}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
-.item input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
-.item .ttl{font-weight:700;font-size:13.5px;flex:1}
-.item .meta{font-size:11.5px;color:var(--sub);margin:3px 0 8px 27px}
-.item .body{margin-left:27px}
-.why{font-size:12px;background:#f7f6f4;border-left:3px solid #cfcdc8;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
+.item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+.item .ttl{font-weight:700;font-size:16px;flex:1;letter-spacing:-.01em}
+.item .meta{font-size:13px;color:var(--sub);margin:4px 0 10px 28px}
+.item .body{margin-left:28px}
+.why{font-size:13px;background:#f6f5f2;border-left:3px solid #d5d1ca;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
 .why b{color:var(--ink)}
-.sug{font-size:12px;background:#f2f7f3;border-left:3px solid #a8ceb5;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
-.sug .lb{font-size:10.5px;font-weight:700;color:var(--ok);display:block;margin-bottom:2px}
-.sug button{font:inherit;font-size:11px;border:1px solid #a8ceb5;background:#fff;color:var(--ok);
-            border-radius:4px;padding:1px 7px;cursor:pointer;margin-left:6px}
-textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:inherit;
-         font-size:12.5px;resize:vertical;min-height:34px}
-.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;
-     background:#fff;border:1px solid var(--line);border-radius:9px;position:sticky;bottom:12px;
-     flex-wrap:wrap}
-.bar .cnt{font-size:13px}.bar .cnt b{color:var(--accent);font-size:16px}
-.btn{font:inherit;font-weight:700;font-size:13.5px;padding:9px 22px;border-radius:7px;border:none;
+.sug{font-size:13px;background:#f1f6f2;border-left:3px solid #a9cdb6;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
+.sug .lb{font-size:13px;font-weight:700;color:var(--ok);display:block;margin-bottom:3px}
+.sug button{font:inherit;font-size:13px;border:1px solid #a9cdb6;background:var(--card);
+            color:var(--ok);border-radius:6px;padding:2px 9px;cursor:pointer;margin-left:6px}
+textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;
+         font-size:14px;resize:vertical;min-height:38px;background:var(--card);color:inherit}
+
+/* 승인 영역 — 화면 아래에 붙어 늘 보인다 */
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+     padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+     position:sticky;bottom:12px}
+.bar .cnt{font-size:14px}
+.bar .cnt b{color:var(--accent);font-size:20px}
+.bar .need{color:var(--accent);font-size:13px;font-weight:700}
+.btn{font:inherit;font-weight:700;font-size:14px;padding:10px 22px;border-radius:8px;border:none;
      cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
-.btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+.btn:disabled{background:#c9c5be;cursor:not-allowed}
+.btn.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
+
+/* 완료 / 진행중 — 기본 선택 없음. 고르지 않으면 승인이 막힌다 */
+.st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:0 0 10px}
+.st label{border:1px solid var(--line);border-radius:999px;padding:3px 12px;cursor:pointer;
+          display:inline-flex;gap:6px;align-items:center}
+.st input[type=radio]{accent-color:var(--accent);margin:0}
+.st label:has(input:checked){border-color:var(--ink);background:var(--ink);color:#fff}
+.st .lb{font-size:13px;font-weight:700;color:var(--sub)}
+.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #fde4e6}
+.item.need .st .lb{color:var(--accent)}
+.item.need .st .lb::after{content:" — 골라야 승인됩니다"}
+
+/* 이월 항목 묶음 — 접힌 채로 두고 본문 항목과 섞지 않는다 */
+.carry{border-left:3px solid #d9a441}
+.carry .ci{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:10px;background:var(--card)}
+.carry .ci .t{font-weight:700;font-size:14px}
+.carry .ci .m{font-size:13px;color:var(--sub);margin:3px 0 7px}
+.carry .ci .c{font-size:13px;background:#f6f5f2;padding:7px 11px;border-radius:6px;margin-bottom:10px}
 
 /* 수동 추가 */
 .item.man{border-style:dashed}
-.item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;
-           border-bottom:1px solid var(--line);padding:1px 2px;background:none}
+.item .tin{flex:1;font:inherit;font-weight:700;font-size:16px;border:none;
+           border-bottom:1px solid var(--line);padding:2px;background:none;color:inherit}
 .item .tin:focus{outline:none;border-bottom-color:var(--accent)}
-.item .min{width:100%;font:inherit;font-size:11.5px;color:var(--sub);border:none;
-           border-bottom:1px dashed var(--line);padding:1px 2px;margin-bottom:8px;background:none}
+.item .min{width:100%;font:inherit;font-size:13px;color:var(--sub);border:none;
+           border-bottom:1px dashed var(--line);padding:2px;margin-bottom:10px;background:none}
 .item .min:focus{outline:none;border-bottom-color:var(--accent)}
-.del{font:inherit;font-size:11.5px;background:none;border:1px solid var(--line);color:var(--sub);
-     border-radius:5px;padding:2px 9px;cursor:pointer}
+.del{font:inherit;font-size:13px;background:none;border:1px solid var(--line);color:var(--sub);
+     border-radius:6px;padding:3px 10px;cursor:pointer}
 .del:hover{border-color:var(--accent);color:var(--accent)}
 
-/* 일지 조회 */
-.logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);
-        border-radius:8px;background:#fff;margin-bottom:8px;transition:.12s;
-        text-decoration:none;color:inherit}
-.logrow:hover{border-color:var(--accent);background:#fffafb}
-.logrow .d{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;width:104px}
-.logrow .s{font-size:12.5px;width:52px;color:var(--sub)}
-.logrow .x{flex:1;font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;
-           white-space:nowrap}
-.logrow .c{font-size:11.5px}
-.logrow .arw{color:#c9c7c2;font-size:15px}
-.det h3{font-size:15px;margin-bottom:2px}
-.det .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
-.ent{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:14px}
-.ent .t{font-weight:700;font-size:13px}
-.ent .m{font-size:11.5px;color:var(--sub);margin-bottom:4px}
-.ent .c{font-size:12.5px;background:#f7f6f4;padding:6px 10px;border-radius:5px}
-.ex{border-left:3px solid #d8d6d1;padding:2px 0 2px 12px;margin-bottom:9px;opacity:.72}
-.ex .t{font-size:12.5px}
-.back{font:inherit;font-size:12.5px;color:var(--accent);text-decoration:none;
-      display:inline-block;margin-bottom:12px;font-weight:700}
-.empty{color:var(--sub);text-align:center;padding:28px;font-size:13px}
+/* 확정 일지 */
+.ent{border-left:3px solid #cfcbc4;padding:2px 0 2px 14px;margin-bottom:16px}
+.ent.sev-high{border-left-color:var(--accent)}
+.ent.sev-mid{border-left-color:#d9a441}
+.ent .t{font-weight:700;font-size:14px}
+.ent .m{font-size:13px;color:var(--sub);margin-bottom:5px}
+.ent .c{font-size:13px;background:#f6f5f2;padding:8px 12px;border-radius:6px}
+.ex{border-left:3px solid #d9d5ce;padding:2px 0 2px 14px;margin-bottom:10px;opacity:.75}
+.ex .t{font-size:13px}
 .bar{position:static !important;bottom:auto !important}</style>
-<div class="wrap">
-<div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
-<span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
-<span class="eng pill on">엔진 engine</span></div>
-<div class="nav"><a class="" href="/dcs">① DCS<small>실시간 감시 · 기존 시스템</small></a><a class="" href="/rtdb">② RTDB<small>구간 데이터 추출</small></a><a class="" href="/draft">③ ENGRA 초안 검토<small>핵심 화면 · 직접 승인해 보세요</small></a><a class="on" href="index.html">④ 일지 조회<small>축적 · 검색</small></a></div><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
+<header class="top"><span class="brand">ENGRA</span><span class="ttl">근무 일지</span>
+<span class="sys">엔진 engine · AI cli · claude-opus-5</span></header>
+<main class="wrap"><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
 font-size:12.5px;line-height:1.75;padding:13px 17px">
 <b>실제로 돌아가는 프로토타입 화면입니다.</b> 스크린샷이 아니라 서버가 만든 화면을 그대로 떠 온
 것이라 값과 문구가 전부 진짜입니다. 다만 이 페이지는 정적이라 <b>버튼은 눌러도 반응하지
@@ -108,16 +164,23 @@ font-size:12.5px;line-height:1.75;padding:13px 17px">
 를 실행하세요 (설치할 것 없음).
 <div style="margin-top:9px;padding-top:9px;border-top:1px solid #d6e2f2"><b>승인이 끝나면 이렇게 확정됩니다.</b> 여기 적힌 코멘트가 곧 다음 근무 초안의 '과거 조치' 로 나타납니다.</div>
 </div>
-<a class="back" href="index.html">‹ 목록으로</a>
+<input type="checkbox" id="pick" class="pickbox"><label for="pick" class="pickbtn">근무 고르기</label><div class="split"><nav class="side"><h2>근무 일지</h2><p class="note">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다.</p><a class="nrow" href="index.html"><span class="date">2026-09-14</span><span class="kind">야간</span><span class="pill amber">초안</span></a><a class="nrow on" href="handover.html"><span class="date">2026-09-14</span><span class="kind">주간</span><span class="pill on">확정 · 채택 3건</span></a></nav><section class="detail">
 <div class="card det">
-<h3>2026-08-26 주간조 인수인계서</h3>
-<div class="sub">분석 구간 08-26 06:00 · 작성 ENGRA
-2026-08-26 05:54:26 · 승인 박경모
-2026-08-26 05:54:26 · 감지 3건 중
+<h3>2026-09-14 주간조 인수인계서</h3>
+<div class="sub">분석 구간 09-14 06:00 · 작성 ENGRA
+2026-09-14 19:20:28 · 승인 박경모
+2026-09-14 19:20:28 · 감지 3건 중
 <b>3건 채택 / 0건 제외</b></div>
-<div class="ent"><div class="t">TI-205 토출 온도 — 드리프트 <span class="pill red">중요도 상</span></div><div class="m">TI-205(토출 온도) 상승 추세 — 0.7412℃/시간, 구간 변화 2.96℃ (평소 산포의 4.7배) · 이 속도면 H 한계까지 약 6.3시간</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">AI-707 LP O2 순도 — 드리프트 <span class="pill amber">중요도 중</span></div><div class="m">AI-707(LP O2 순도) 하강 추세 — 0.5267%/시간, 구간 변화 -0.5223% (평소 산포의 9.4배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent"><div class="t">MI-302 A탑 후단 수분 — 드리프트 <span class="pill amber">중요도 중</span></div><div class="m">MI-302(A탑 후단 수분) 상승 추세 — 1.92ppm/시간, 구간 변화 3.83ppm (평소 산포의 5.2배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div>
-</div>
-</div><script>
+
+<form onsubmit="return false">
+<input type="hidden" name="shift_id" value="2026-09-14-day">
+<input class="tin" name="reason" placeholder="재검토 사유 (선택) — 예: 3번 항목 코멘트 오기" style="flex:1;min-width:260px">
+<button class="btn" style="background:var(--sub)">재검토</button>
+<span class="muted" style="font-size:13px">확정 후 잘못 적은 것을 고칠 때 — 채택·코멘트는 그대로</span>
+</form>
+<div class="ent sev-high"><div class="t">TI-205(토출 온도) 상승 드리프트 — 이 속도면 6.2시간 뒤 H 한계 도달 <span class="pill red">중요도 상</span> <span class="pill done">완료</span></div><div class="m">TI-205(토출 온도) 상승 추세 — 0.7517℃/시간, 구간 변화 3.00℃ (평소 산포의 49.8배) · 이 속도면 H 한계까지 약 6.2시간 · 실측 변화는 2.31℃ 이나 외기로 설명되는 몫 -0.6717℃ 을 제외한 값</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent sev-high"><div class="t">AI-707(LP O2 순도) 단시간 하강 — 제품 품질 재확인 필요 <span class="pill red">중요도 상</span> <span class="pill done">완료</span></div><div class="m">AI-707(LP O2 순도) 하강 추세 — 0.5363%/시간, 구간 변화 -0.5319% (평소 산포의 18.0배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div><div class="ent sev-high"><div class="t">MI-302(A탑 후단 수분) 상승 — 파과 진행 의심됨 <span class="pill red">중요도 상</span> <span class="pill done">완료</span></div><div class="m">MI-302(A탑 후단 수분) 상승 추세 — 1.92ppm/시간, 구간 변화 3.83ppm (평소 산포의 5.2배)</div><div class="c">샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인 <span class="muted">— 박경모</span></div></div>
+</div></section></div>
+</main><script>
 function tg(cb){cb.closest('.item').classList.toggle('off',!cb.checked);cnt()}
 function cnt(){
   var b=document.querySelectorAll('.item:not(.man) input[type=checkbox]');
@@ -136,10 +199,94 @@ function addMan(){
   d.innerHTML='<div class="row1"><input type="checkbox" checked disabled>'+
     '<input class="tin" name="manual_title" placeholder="제목 — 예: 3번 압축기 소음 증가" required>'+
     '<button type="button" class="del" onclick="this.closest(\'.item\').remove()">삭제</button></div>'+
-    '<div class="body" style="margin-top:6px"><textarea name="manual_body" '+
+    '<div class="body" style="margin-top:6px">'+
+    // 직접 추가도 상태가 있어야 한다. 라디오 이름은 항목마다 다르고, 서버에는 제목·내용과 같은 순서로 나란히 가는 숨은 칸으로 보낸다
+    '<div class="st"><span class="lb">상태</span>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="완료" onchange="mst(this)">완료</label>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="진행중" onchange="mst(this)">진행중</label>'+
+    '<input type="hidden" name="manual_status" value=""></div>'+
+    '<textarea name="manual_body" '+
     'placeholder="내용 — 언제부터, 무엇을, 다음 근무가 무엇을 봐야 하는지"></textarea></div>';
   document.getElementById('mans').appendChild(d);
   d.querySelector('.tin').focus();
 }
+function mst(r){ r.closest('.st').querySelector('[name=manual_status]').value=r.value; r.closest('.item').classList.remove('need'); }
+// 채택했는데 완료/진행중이 빈 항목이 하나라도 있으면 보내지 않고 그 항목을 짚는다.
+// 서버도 같은 검사를 한다(approve.decide) — 여기는 왕복을 줄이는 것뿐이다.
+function chk(f){
+  var bad=[];
+  f.querySelectorAll('.item:not(.man)').forEach(function(it){
+    var cb=it.querySelector('input[type=checkbox][name=item]'); if(!cb||!cb.checked){it.classList.remove('need');return;}
+    var on=it.querySelector('input[type=radio][name=status_'+cb.value+']:checked');
+    it.classList.toggle('need',!on); if(!on)bad.push(it);
+  });
+  f.querySelectorAll('.item.man').forEach(function(it){
+    var h=it.querySelector('[name=manual_status]'); var ok=h&&h.value;
+    it.classList.toggle('need',!ok); if(!ok)bad.push(it);
+  });
+  var m=document.getElementById('need');
+  if(bad.length){ if(m)m.textContent='완료/진행중이 빈 채택 항목 '+bad.length+'건'; bad[0].scrollIntoView({behavior:'smooth',block:'center'}); return false; }
+  if(m)m.textContent=''; return true;
+}
 document.addEventListener('DOMContentLoaded',cnt);
+</script><script>
+function upCheck(f){
+  var fs=f.querySelector('input[type=file]').files, m=f.querySelector('.upmsg');
+  if(!fs.length){m.textContent='파일을 고르세요'; return false;}
+  upSend(f, fs, m); return false;   // 폼 제출 대신 XHR — 진행률을 보이고, 끝날 때까지 화면 이동을 막는다
+}
+function upLock(on){
+  document.body.classList.toggle('uploading', on);
+  document.querySelectorAll('button, input[type=file]').forEach(function(b){
+    if(on){ if(!b.disabled){ b.disabled=true; b.dataset.uplock='1'; } }
+    else if(b.dataset.uplock){ b.disabled=false; delete b.dataset.uplock; }   // 원래 꺼져 있던 버튼(실행 중 생성 등)은 그대로
+  });
+  window.onbeforeunload = on ? function(){return '업로드 중입니다';} : null;
+  window.__uploading = on;   // 실행 중 5초 새로고침이 업로드를 끊지 않게
+}
+async function upSend(f, fs, m){
+  var max=+f.dataset.max, mb=function(n){return (n/1048576).toFixed(1)+'MB';};
+  upLock(true);
+  try{
+    var fd=new FormData(), tot=0, raw=0, gz=(typeof CompressionStream!=='undefined');
+    for(var i=0;i<fs.length;i++){
+      var file=fs[i]; raw+=file.size;
+      if(gz && file.size>1048576){
+        m.textContent='압축 중… '+file.name+' ('+mb(file.size)+')';
+        var blob=await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+        fd.append('files', blob, file.name+'.gz'); tot+=blob.size;
+      }else{ fd.append('files', file, file.name); tot+=file.size; }
+    }
+    if(tot>max){ m.textContent='압축해도 '+mb(tot)+' — 한 번에 '+mb(max)+' 까지. 근무 하나씩 올리세요'; upLock(false); return; }
+    var xhr=new XMLHttpRequest(); xhr.open('POST','/pipeline/upload');
+    xhr.upload.onprogress=function(e){ if(e.lengthComputable) m.textContent='올리는 중 '+Math.round(100*e.loaded/e.total)+'% ('+mb(e.loaded)+'/'+mb(e.total)+(gz?' · 원본 '+mb(raw):'')+')'; };
+    xhr.upload.onload=function(){ m.textContent='서버에서 푸는 중… (원본 '+mb(raw)+')'; };
+    xhr.onload=function(){
+      if(xhr.status<400){ window.onbeforeunload=null; location.replace('/admin'); return; }
+      var d=new DOMParser().parseFromString(xhr.responseText,'text/html'), t=d.querySelector('.empty');
+      m.textContent='실패 '+xhr.status+' — '+(t?t.textContent:''); upLock(false);
+    };
+    xhr.onerror=function(){ m.textContent='연결이 끊겼습니다. 다시 올려 주세요'; upLock(false); };
+    xhr.send(fd);
+  }catch(e){ m.textContent='실패 — '+e; upLock(false); }
+}
+document.querySelectorAll('.trend[data-trend]').forEach(function(box){
+  var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
+  var svg=box.querySelector('svg'), cur=svg.querySelector('.cur'), dot=svg.querySelector('.dot'), tip=box.querySelector('.tip');
+  var n=d.v.length, t0=Date.parse(d.t0), t1=Date.parse(d.t1);
+  function hm(ms){ var x=new Date(ms); return ('0'+x.getHours()).slice(-2)+':'+('0'+x.getMinutes()).slice(-2); }
+  function move(ev){
+    var r=svg.getBoundingClientRect(), sc=r.width/720;
+    var cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left, x=cx/sc;
+    var g=Math.max(0,Math.min(1,(x-d.L)/d.pw)), i=Math.round(g*(n-1)), val=d.v[i];
+    var px=d.L+g*d.pw, py=d.T+d.ph-(val-d.ylo)/d.span*d.ph;
+    cur.setAttribute('x1',px); cur.setAttribute('x2',px); cur.style.display='';
+    dot.setAttribute('cx',px); dot.setAttribute('cy',py); dot.style.display='';
+    tip.textContent=hm(t0+g*(t1-t0))+'  '+(Math.abs(val)>=100?val.toFixed(1):val.toFixed(3))+(d.unit?' '+d.unit:'');
+    tip.style.left=(px*sc)+'px'; tip.style.display='';
+  }
+  function out(){ cur.style.display='none'; dot.style.display='none'; tip.style.display='none'; }
+  svg.addEventListener('mousemove',move); svg.addEventListener('mouseleave',out);
+  svg.addEventListener('touchstart',move,{passive:true}); svg.addEventListener('touchmove',move,{passive:true}); svg.addEventListener('touchend',out);
+});
 </script></html>
