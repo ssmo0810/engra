@@ -9,6 +9,7 @@ AI 는 부르지 않는다(ENGRA_LLM=off).
 import importlib.util
 import json
 import os
+import pathlib
 import sys
 import unittest
 from urllib.parse import urlencode
@@ -246,6 +247,39 @@ class BatchCardMarkers(unittest.TestCase):
         body = server.view_shift(H.SID)
         self.assertIn(f'data-item="{iid}"', body)
         self.assertIn('data-tag="TI-101"', body)
+
+
+class DcsLiveValues(unittest.TestCase):
+    """DCS 흐름도 숫자 — 재생 중이면 근무 시각의 값으로 바뀐다. 원본 파일(docs/asu_dcs_overview.html)은 고치지 않는다."""
+
+    def setUp(self):
+        H._fresh_db()
+
+    def test_values_api_uses_the_number_rule(self):
+        import live
+        live.values = lambda: {"clock": "2026-08-25T18:07:00",
+                               "values": {"FI-602": ["2026-08-25T18:06:58", 40131.4],
+                                          "XI-001": ["2026-08-25T18:06:58", 3.2e-05]}}
+        code, body = _get("/api/live/values")
+        self.assertEqual(code, 200)
+        j = json.loads(body)
+        self.assertEqual(j["clock"], "2026-08-25T18:07:00")
+        self.assertEqual(j["values"]["FI-602"], "40,131", "앱 숫자 규칙으로 찍는다")
+        self.assertEqual(j["values"]["XI-001"], "0.000032")
+        self.assertNotRegex(body, r"\d[eE][+-]?\d", "지수 표기가 나가면 안 된다")
+
+    def test_dcs_page_carries_one_updater_for_the_tag_boxes(self):
+        import server
+        body = server.view_dcs()
+        self.assertEqual(body.count("/api/live/values"), 1, "덧붙이는 스크립트는 하나")
+        self.assertIn('g[data-tag=', body, "태그 상자만 건드린다")
+        self.assertIn("text.tv", body, "값 글자만 바꾼다")
+
+    def test_the_original_dcs_file_has_the_structure_the_updater_needs(self):
+        """원본이 바뀌어 구조가 어긋나면 조용히 안 바뀌는 대신 여기서 걸린다."""
+        src = (pathlib.Path(ROOT) / "docs" / "asu_dcs_overview.html").read_text(encoding="utf-8")
+        self.assertIn("'data-tag': tag[0]", src, "태그마다 g[data-tag] 가 있어야 한다")
+        self.assertIn("txt('tv'", src, "그 안에 값 글자(text.tv)가 있어야 한다")
 
 
 if __name__ == "__main__":

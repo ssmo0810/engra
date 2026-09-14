@@ -399,11 +399,24 @@ body$ON .wrap>.disc{visibility:visible;position:fixed;right:12px;bottom:34px;z-i
 </style>""".replace("$ON", ":has(.hmi #viewOverview):has(.wrap>.disc)")
 
 
+# 재생 중이면 흐름도 숫자를 근무 시각의 값으로 바꾼다. 원본(docs/asu_dcs_overview.html)은 고치지 않고 서빙 때 덧붙인다 —
+# 원본이 태그마다 만드는 g[data-tag] 안의 값 글자(text.tv)만 건드린다. 재생이 없으면 값이 비어 원본 숫자가 그대로 남는다.
+_DCS_LIVE_JS = """<script>(function(){
+function set(){fetch('/api/live/values').then(function(r){return r.json()}).then(function(j){
+ var v=j.values||{};
+ Object.keys(v).forEach(function(t){
+  var el=document.querySelector('g[data-tag="'+t+'"] text.tv'); if(el) el.textContent=v[t];
+ });
+ setTimeout(set,2000);
+}).catch(function(){setTimeout(set,5000);});}
+setTimeout(set,1500);})();</script>"""
+
+
 def view_dcs():
-    """DCS 개요 — 원본 파일 그대로 + 전체 화면 CSS."""
+    """DCS 개요 — 원본 파일 그대로 + 전체 화면 CSS + 재생 중 숫자 갱신."""
     if not ASU_FILE.exists():
         return view_asu()
-    return ASU_FILE.read_text(encoding="utf-8") + _DCS_FULL_CSS
+    return ASU_FILE.read_text(encoding="utf-8") + _DCS_FULL_CSS + _DCS_LIVE_JS
 
 
 def _score_html():
@@ -1430,6 +1443,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/live":
                 st = live.status()
                 self._json({"status": st, "line": _live_line(st)})
+            elif path == "/api/live/values":
+                v = live.values()      # {태그: [시각, 값]} → 앱 숫자 규칙으로 찍은 글자만 내보낸다(지수 표기 금지)
+                self._json({"clock": v.get("clock"),
+                            "values": {t: numfmt.fmt(x[1]) for t, x in (v.get("values") or {}).items()}})
             elif path == "/api/live/cards":
                 q = parse_qs(urlparse(self.path).query)
                 have = {k for k in (q.get("have", [""])[0] or "").split(",") if k}
