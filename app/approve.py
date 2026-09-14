@@ -32,6 +32,10 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         draft = db.load_draft(conn, shift_id)
         if draft is None:
             raise ValueError(f"{shift_id} 의 초안이 없습니다.")
+        # 실시간 구간은 마감 동기화와 AI 서술이 끝나 승인 대기가 된 뒤에만 확정한다 — 쌓이는 중인 부분 초안을 승인하면
+        # 관찰 중·서술 중인 문제가 인계에서 빠진다. 상태가 DB 에 있으므로 서버를 다시 켜도 잠긴 채다.
+        if draft["status"] == "live":
+            raise ValueError(f"{shift_id} 는 실시간으로 쌓는 중인 구간입니다 — 마감 동기화와 AI 서술이 끝난 뒤 승인할 수 있습니다.")
 
         known = {it["id"] for it in draft["items"] if it["origin"] != "carried"}   # 이월 행은 이번 판단으로 다시 쓴다
         unknown = set(decisions) - known
@@ -93,6 +97,16 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                 raise ValueError(f"이월 항목 #{root_id} 의 상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {ch.get('status')!r}")
             if ch.get("comment"):
                 ch["comment"] = str(ch["comment"])[:1000]
+        # 앞 근무가 승인 대기인데 뒤 근무를 먼저 확정하면, 앞 근무의 「진행중」 항목이 뒤 근무 인계(open_items)에서 빠진다.
+        # 이월 선택 검사 뒤에 둔다 — 잘못 가리킨 이월 번호는 그 사유를 먼저 짚는다(거부되면 위 쓰기는 전부 되돌아간다).
+        prev = db.unconfirmed_before(conn, shift_id)
+        if prev and prev[1] == "live":
+            # 'live' 는 승인할 수도 없는 상태다 — 「먼저 확정하세요」만 말하면 그 근무로 가도 다시 거부돼 맴돈다
+            raise ValueError(f"앞 근무 {prev[0]} 의 실시간 초안이 아직 안 끝났습니다 — 그 근무를 다시 재생해 마감하거나 "
+                             f"일괄 실행으로 초안을 만들어 확정한 뒤 이 근무를 승인하세요.")
+        if prev:
+            raise ValueError(f"앞 근무 {prev[0]} 가 아직 승인 대기입니다 — 앞 근무를 먼저 확정하세요. "
+                             f"뒤 근무를 먼저 확정하면 앞 근무의 진행중 항목이 인계에서 빠질 수 있습니다.")
         # 원 근무가 재검토 중이면 그 원 항목이 open_items 에서 빠져, 아래 save_carried 가 이 근무의 기존 판단을
         # 조용히 지운다(반증 워커 실측). 명령줄·화면 공통으로 거부한다 — 원 근무를 먼저 확정하면 된다.
         in_review = db.carried_roots_in_review(conn, draft["id"])

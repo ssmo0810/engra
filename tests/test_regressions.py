@@ -968,10 +968,16 @@ class StatusSwitchAndCarry(unittest.TestCase):
         with db.connect() as conn:
             nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
             xids = self._draft(conn, self.NEXT[0], ("주간 항목",))
-        approve.decide(self.NEXT[0], {xids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})   # 뒤 근무를 먼저
+        # 앞 근무가 대기인 채 뒤 근무를 먼저 승인하는 길은 승인 순서 규칙이 막는다. 같은 상태(뒤 근무 확정 · 앞 근무 대기)는
+        # 순서대로 확정한 뒤 앞 근무를 재검토로 되돌리면 여전히 생긴다 — 그 길로 만든다.
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})
+        approve.decide(self.NEXT[0], {xids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})
+        with db.connect() as conn:
+            db.reopen_handover(conn, self.NIGHT[0], "뒤 근무 확정 뒤 되돌림")
         with self.assertRaises(ValueError) as cm:
             approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료"}})
         self.assertIn(self.NEXT[0], str(cm.exception), "어느 뒤 근무 때문인지 짚어야 한다")
+        self.assertIn("이어받아 판단했습니다", str(cm.exception), "앞 근무 DAY 는 확정 — 순서 규칙이 아니라 이월 계보 가드가 거부해야 한다")
         with db.connect() as conn:
             self.assertIsNone(db.load_handover(conn, self.NIGHT[0]), "거부됐으면 확정되면 안 된다")
         # 이어 가는 판단(진행중)은 뒤 근무 기록과 어긋나지 않는다
