@@ -728,6 +728,19 @@ class PollSafety(unittest.TestCase):
         self.assertNotIn("__h_ready", j["order"], "마감되면 무리 머리는 걷는다")
         self.assertIn("감지", j["summary"], "요약도 마감 화면의 것")
 
+    def test_cards_slide_to_their_new_place(self):
+        """자리를 옮기는 것이 보여야 관측 → AI → 초안 흐름이 읽힌다(경모님). 동작 줄이기 설정이면 즉시 놓는다."""
+        import server
+        js = server._POLL_JS
+        self.assertIn("getBoundingClientRect", js, "옮기기 전 자리를 잰다")
+        self.assertIn("transform .25s", js, "200~300ms 전환")
+        self.assertIn("prefers-reduced-motion", js, "동작 줄이기면 전환 없음")
+        flip = js[js.index("var b=was["):]
+        self.assertIn("busy(e)", js[js.index("if(!still)"):js.index("var b=was[")],
+                      "쓰고 있는 칸은 미끄러뜨리지 않는다 — 커서 아래에서 움직인다(codex 반증)")
+        self.assertTrue(flip, "전환 자리가 있다")
+        self.assertIn("window.scrollBy", js, "쓰고 있는 칸은 화면에서 제자리에 둔다 — 위 카드가 늘면 커서 밑에서 밀린다")
+
     def test_left_list_and_full_page_do_not_collide(self):
         """화면 요청과 폴링이 동시에 들어온다(ThreadingHTTPServer). 목록 조각을 만드는 길이
         전체 화면 함수와 상태를 나눠 쓰면 둘이 섞여 반쪽 화면이 나간다(codex 반증)."""

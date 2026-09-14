@@ -1424,6 +1424,7 @@ def live_cards(shift_id):
 _POLL_JS = """<script>(function(){
 var box=document.getElementById('items'); var sid=(box&&box.dataset.shift)||'';
 function busy(el){return el.contains(document.activeElement)&&document.activeElement!==document.body}
+var still=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;   /* 즉시 이동 */
 function keep(el){          /* 근무자가 넣은 것 — 갈아 끼운 뒤 그대로 되돌린다 */
  var o={cb:[],rd:null,ta:{},dt:[]};
  el.querySelectorAll('input[type=checkbox]').forEach(function(x){o.cb.push([x.value,x.checked])});
@@ -1449,6 +1450,16 @@ function tick(){
      확정본·없는 근무면 응답에 목록이 없으니 화면을 그대로 둔다. */
   var listed=(j.draft==='live'||j.draft==='pending');
   if(box&&box.dataset.live&&listed){
+   /* 쓰고 있는 칸은 화면에서 제자리에 둔다 — 위쪽 카드가 늘거나 줄면 커서 밑에서 칸이 밀린다(codex 반증) */
+   var foc=(document.activeElement&&document.activeElement!==document.body&&box.contains(document.activeElement))
+           ?document.activeElement.closest('[data-key]'):null;
+   var focTop=foc?foc.getBoundingClientRect().top:null;
+   /* 옮겨가는 것이 보이게 — 옮기기 전 자리를 재 둔다. 문서 기준으로 재야 아래 scrollBy 보정에 흔들리지 않는다
+      (화면 기준으로 쟀더니 보정한 만큼 카드가 튄 자리에서 전환이 시작됐다 — codex 반증) */
+   var was={};
+   if(!still) Array.prototype.forEach.call(box.querySelectorAll('[data-key]'),function(e){
+    was[e.getAttribute('data-key')]=e.getBoundingClientRect().top+window.scrollY;
+   });
    var seen={};
    (j.cards||[]).forEach(function(c){ seen[c.key]=1;
     var el=box.querySelector('[data-key="'+c.key+'"]');
@@ -1474,6 +1485,18 @@ function tick(){
      prev=e;
     });
    }
+   if(foc&&foc.isConnected){                     /* 쓰던 칸이 있던 자리에 그대로 보이게 화면을 먼저 맞춘다 */
+    var dy=foc.getBoundingClientRect().top-focTop;
+    if(Math.abs(dy)>1) window.scrollBy(0,dy);
+   }
+   if(!still) Array.prototype.forEach.call(box.querySelectorAll('[data-key]'),function(e){
+    if(busy(e)) return;                          /* 쓰고 있는 칸은 미끄러뜨리지 않는다 — 커서 아래에서 움직인다 */
+    var b=was[e.getAttribute('data-key')]; if(b===undefined) return;
+    var d=b-(e.getBoundingClientRect().top+window.scrollY);
+    if(Math.abs(d)<2) return;                    /* 안 움직였으면 그대로 */
+    e.style.transition='none'; e.style.transform='translateY('+d+'px)';
+    requestAnimationFrame(function(){e.style.transition='transform .25s ease';e.style.transform=''});
+   });
   }
   var sm=document.getElementById('summary'); if(sm&&j.summary) sm.innerHTML=j.summary;
   var tot=document.getElementById('tot'); if(tot&&j.total) tot.textContent=j.total;
