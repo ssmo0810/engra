@@ -1,0 +1,3 @@
+{"scale": 5, "tags": 265, "events": 163, "groups": 31, "load_series_s": 13.5, "group_sort_s": 0.428, "neighbour_table_s": 0.008, "group_sort_cached_s": 0.002, "cached_same_exact": true, "groups_spanning_components": 0, "maxrss_mb": 1055}
+{"scale": 10, "tags": 530, "events": 330, "groups": 61, "load_series_s": 21.22, "group_sort_s": 3.501, "neighbour_table_s": 0.036, "group_sort_cached_s": 0.009, "cached_same_exact": true, "groups_spanning_components": 0, "maxrss_mb": 2079}
+{"scale": 20, "tags": 1060, "events": 657, "groups": 120, "load_series_s": 64.79, "group_sort_s": 29.176, "neighbour_table_s": 0.138, "group_sort_cached_s": 0.038, "cached_same_exact": true, "groups_spanning_components": 0, "maxrss_mb": 4127}

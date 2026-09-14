@@ -1,0 +1,20 @@
+         41745608 function calls (41745338 primitive calls) in 9.729 seconds
+
+   Ordered by: cumulative time
+   List reduced from 243 to 12 due to restriction <12>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.001    0.001    9.729    9.729 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/tmp_speed/bench.py:81(stages)
+        1    0.591    0.591    5.737    5.737 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:250(ingest)
+  1144801    0.102    0.000    1.961    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:200(read)
+  1144801    0.544    0.000    1.859    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:141(_rows)
+        1    0.013    0.013    1.337    1.337 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/engine/core.py:483(build_views)
+        1    0.554    0.554    1.257    1.257 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/db.py:396(load_series)
+  1144800    0.540    0.000    1.217    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:37(shift_id_for)
+      230    0.000    0.000    1.214    0.005 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:284(_flush)
+      233    1.197    0.005    1.197    0.005 {method 'executemany' of 'sqlite3.Connection' objects}
+  1144801    0.628    0.000    1.124    0.000 /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/csv.py:173(__next__)
+       53    0.214    0.004    1.091    0.021 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/engine/core.py:322(to_blocks)
+        1    0.000    0.000    1.053    1.053 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/ports.py:135(summarize)
+
+

@@ -1,0 +1,15 @@
+prep x1 2026-09-10-day: ingest 3.2s run 2.2s events=27 items=8
+prep x1 2026-09-10-night: ingest 4.0s run 2.2s events=28 items=5
+prep x1 done maxrss=248MB db=181MB
+prep x2 2026-09-10-day: ingest 6.9s run 4.6s events=53 items=17
+prep x2 2026-09-10-night: ingest 8.2s run 4.7s events=58 items=10
+prep x2 done maxrss=452MB db=374MB
+prep x5 2026-09-10-day: ingest 23.4s run 11.7s events=135 items=40
+prep x5 2026-09-10-night: ingest 21.6s run 11.9s events=143 items=26
+prep x5 done maxrss=1069MB db=945MB
+prep x10 2026-09-10-day: ingest 59.7s run 40.7s events=264 items=80
+prep x10 2026-09-10-night: ingest 62.4s run 27.5s events=288 items=53
+prep x10 done maxrss=2093MB db=1889MB
+prep x20 2026-09-10-day: ingest 126.4s run 96.1s events=532 items=160
+prep x20 2026-09-10-night: ingest 164.9s run 99.0s events=579 items=114
+prep x20 done maxrss=4144MB db=3904MB

@@ -1,0 +1,20 @@
+         492294159 function calls (492291463 primitive calls) in 148.550 seconds
+
+   Ordered by: cumulative time
+   List reduced from 243 to 12 due to restriction <12>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.007    0.007  148.550  148.550 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/tmp_speed/bench.py:81(stages)
+        1    6.079    6.079   90.900   90.900 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:250(ingest)
+     2291    0.005    0.000   44.832    0.020 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:284(_flush)
+     2294   44.623    0.019   44.623    0.019 {method 'executemany' of 'sqlite3.Connection' objects}
+        1    6.306    6.306   23.653   23.653 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/db.py:396(load_series)
+ 11448001    1.030    0.000   19.868    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:200(read)
+ 11448001    5.520    0.000   18.838    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:141(_rows)
+      140   16.373    0.117   16.373    0.117 {method 'execute' of 'sqlite3.Connection' objects}
+        1    0.098    0.098   12.577   12.577 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/engine/core.py:483(build_views)
+ 11448000    5.436    0.000   12.358    0.000 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/app/collect.py:37(shift_id_for)
+ 11448001    6.266    0.000   11.313    0.000 /opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/csv.py:173(__next__)
+      530    2.014    0.004   10.225    0.019 /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-speed/engine/core.py:322(to_blocks)
+
+

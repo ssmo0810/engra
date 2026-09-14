@@ -1,0 +1,15 @@
+{"variant": "orig", "scale": 10, "ingest_s": 69.49, "executemany_s": 47.06, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 35, "round": 1}
+{"variant": "cache", "scale": 10, "ingest_s": 55.86, "executemany_s": 45.96, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 44, "round": 1}
+{"variant": "reader", "scale": 10, "ingest_s": 47.73, "executemany_s": 41.9, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 43, "round": 1}
+{"variant": "cache", "scale": 10, "ingest_s": 52.4, "executemany_s": 43.23, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 43, "round": 2}
+{"variant": "reader", "scale": 10, "ingest_s": 47.83, "executemany_s": 41.92, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 43, "round": 2}
+{"variant": "orig", "scale": 10, "ingest_s": 64.79, "executemany_s": 42.59, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 35, "round": 2}
+{"variant": "reader", "scale": 10, "ingest_s": 49.41, "executemany_s": 42.98, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 44, "round": 3}
+{"variant": "orig", "scale": 10, "ingest_s": 66.31, "executemany_s": 43.44, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 35, "round": 3}
+{"variant": "cache", "scale": 10, "ingest_s": 55.22, "executemany_s": 45.61, "counts": {"2026-09-11-day": 11448000}, "maxrss_mb": 43, "round": 3}
+orig: 적재 [69.49, 64.79, 66.31] 평균 66.9s (orig 대비 1.00배) · 그중 executemany 44.4s · 나머지(파이썬 행 처리·커밋) 22.5s · maxrss 35MB
+cache: 적재 [55.86, 52.4, 55.22] 평균 54.5s (orig 대비 1.23배) · 그중 executemany 44.9s · 나머지(파이썬 행 처리·커밋) 9.6s · maxrss 44MB
+reader: 적재 [47.73, 47.83, 49.41] 평균 48.3s (orig 대비 1.38배) · 그중 executemany 42.3s · 나머지(파이썬 행 처리·커밋) 6.1s · maxrss 44MB
+대조 orig vs cache (마지막 회차 DB): raw_sample 전 행 같음=True (비교 34,344,000행) · shift 행 같음=True · 근무별 행 수 같음=True · 계획 SCAN raw_sample
+대조 orig vs reader (마지막 회차 DB): raw_sample 전 행 같음=True (비교 34,344,000행) · shift 행 같음=True · 근무별 행 수 같음=True · 계획 SCAN raw_sample
+세 결과가 같아 복사본을 지웠다

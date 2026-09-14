@@ -1,0 +1,15 @@
+태그 530 · links 연결 성분 270개 (최대 9태그) · NOISE_TAGS=('TI-101', 'MI-102')
+순차: load_series 23.74s + detect 10.76s = 34.50s · 이벤트 330
+순차: load_series 21.88s + detect 10.96s = 32.84s · 이벤트 330
+순차 2회 결정성(동일): True
+병렬 N=2 묶음크기=[265, 265]: 워커 6.05s (load≤2.25 compute≤3.61) + 묶음 3.531s = 9.58s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 1063MB
+병렬 N=2 묶음크기=[265, 265]: 워커 5.92s (load≤2.08 compute≤3.67) + 묶음 3.706s = 9.63s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 1063MB
+병렬 N=4 묶음크기=[133, 133, 132, 132]: 워커 3.1s (load≤1.11 compute≤1.88) + 묶음 3.758s = 6.86s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 554MB
+병렬 N=4 묶음크기=[133, 133, 132, 132]: 워커 3.31s (load≤1.15 compute≤2.04) + 묶음 3.565s = 6.88s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 554MB
+병렬 N=8 묶음크기=[67, 67, 66, 66, 66, 66, 66, 66]: 워커 1.9s (load≤0.65 compute≤1.15) + 묶음 3.508s = 5.41s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 299MB
+병렬 N=8 묶음크기=[67, 67, 66, 66, 66, 66, 66, 66]: 워커 1.83s (load≤0.62 compute≤1.11) + 묶음 3.536s = 5.37s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 299MB
+병렬 N=15 묶음크기=[36, 36, 36, 36, 36, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]: 워커 1.29s (load≤0.43 compute≤0.77) + 묶음 3.707s = 5.0s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 180MB
+병렬 N=15 묶음크기=[36, 36, 36, 36, 36, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35]: 워커 1.32s (load≤0.44 compute≤0.76) + 묶음 3.58s = 4.9s · 이벤트 330 · 순차와 동일=False (group 제외=True) · 자식 maxrss 180MB
+순진한 분할 N=4 (links·NOISE 무시): 이벤트 390 · 순차와 동일=False (group 제외=False) · 순차 대비 차집합 100건
+부모 maxrss 2081MB · 자식 최대 1063MB
+EXIT=0
