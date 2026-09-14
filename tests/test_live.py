@@ -498,7 +498,7 @@ class StartStopAndLocks(unittest.TestCase):
         ports.detect, ports.compose = s.detect, s.compose
         entered, release = threading.Event(), threading.Event()
 
-        def slow_ai(shift, item):
+        def slow_ai(shift, item, *_a, **_k):
             entered.set()
             release.wait(10)
             return dict(item, title="정지 뒤 돌아온 AI 문장"), "시험"
@@ -633,11 +633,11 @@ class ApprovalRules(unittest.TestCase):
         calls = []
         real = live._write_ai
 
-        def flaky(shift, item):
+        def flaky(shift, item, *a, **k):
             calls.append(item["title"])
             if len(calls) == 1:
                 raise llm.LLMUnavailable("시험용 실패")
-            return real(shift, item)
+            return real(shift, item, *a, **k)
 
         live._write_ai = flaky
         r = _replay(_csv(), Script(lambda t: [ev("PI-201", "레벨시프트", 700, t, 1)] if t >= T(720) else []))
@@ -747,7 +747,7 @@ class FoldingAndEvents(unittest.TestCase):
     def _count_ai(self):
         import live
         calls, real = [], live._write_ai
-        live._write_ai = lambda shift, item: (calls.append(item.get("title")), real(shift, item))[1]
+        live._write_ai = lambda shift, item, *a, **k: (calls.append(item.get("title")), real(shift, item, *a, **k))[1]
         return calls
 
     def test_recurrence_folds_into_the_original_item_without_new_ai(self):
@@ -910,11 +910,11 @@ class FoldingAndEvents(unittest.TestCase):
         import llm
         real, seen = live._write_ai, []
 
-        def flaky(shift, item):
+        def flaky(shift, item, *a, **k):
             seen.append(item.get("title"))
             if len(seen) == 1:
                 raise llm.LLMUnavailable("시험용 실패")
-            return real(shift, item)
+            return real(shift, item, *a, **k)
         live._write_ai = flaky
         r = _replay(_csv(), self._same_problem_script())
         sec = r.sections[0]
@@ -1125,6 +1125,100 @@ class WindowAndRawJudgement(unittest.TestCase):
             dropped = db.drop_unreferenced_events(conn, SID, [])
             left = [r[0] for r in conn.execute("SELECT id FROM event WHERE shift_id = ? ORDER BY id", (SID,))]
         self.assertEqual((dropped, left), (2, [ids[0]]), "초안이 가리키는 한 건만 남고 나머지는 지워진다")
+
+
+class LiveAIContext(unittest.TestCase):
+    """AI 맥락 — 확정 항목을 쓸 때 이미 화면에 나간 항목(이 근무에서 AI 가 다 쓴 항목 · 앞 근무에서 넘어온 진행중 항목)을 넘긴다.
+
+    실제 모델은 부르지 않는다 — llm.rewrite 를 대역으로 바꿔 끼워 무엇을 넘기고 무엇을 남기는지만 본다."""
+
+    def setUp(self):
+        _fresh_db()
+
+    def _fake_rewrite(self, status="AI 대역", spoil=False):
+        import llm
+        calls, lock = [], threading.Lock()
+
+        def fake(shift, items, say=None, context=None):
+            ctx = list(context or [])
+            with lock:
+                calls.append({"items": [dict(it) for it in items], "context": [dict(c) for c in ctx]})
+            if spoil:       # 맥락을 망가뜨리는 대역 — 실시간이 사본을 넘기고 이미 쓴 항목을 다시 쓰지 않는지 본다
+                for c in ctx:
+                    c["title"], c["body"] = "망가뜨림", "망가뜨림"
+            return [dict(it, title=f"AI {it.get('tag')}", body=f"AI 본문 {it.get('tag')}", severity="중") for it in items], status
+        llm.rewrite = fake
+        return calls
+
+    def _two_problems(self):
+        """TI-101 이 06:30 에 끝나 07:00 에 확정되고, 그 AI 가 끝난 뒤에야 PI-201 이 나타난다 — 순서를 대본이 강제한다."""
+        import live
+
+        def events(t):
+            out = [ev("TI-101", "드리프트", 0, 30, 1)]
+            if t >= T(120):
+                if not _wait(lambda: any(c["tag"] == "TI-101" and c["state"] == "ready" for c in live.items())):
+                    raise RuntimeError("첫 항목 AI 가 끝나지 않아 순서를 강제할 수 없다")
+                out.append(ev("PI-201", "레벨시프트", 120, 150, 2))
+            return out
+        return Script(events)
+
+    def test_second_confirmed_item_gets_the_first_as_context(self):
+        calls = self._fake_rewrite()
+        r = _replay(_csv(), self._two_problems())
+        self.assertEqual(r.phase, "ended", r.error)
+        by_tag = {c["items"][0]["tag"]: c for c in calls}
+        self.assertEqual(sorted(by_tag), ["PI-201", "TI-101"])
+        self.assertEqual(by_tag["TI-101"]["context"], [], "첫 항목 때는 이미 나간 항목이 없다")
+        ctx = by_tag["PI-201"]["context"]
+        self.assertEqual([(c["tag"], c["title"]) for c in ctx], [("TI-101", "AI TI-101")],
+                         "둘째 항목 호출에 첫 항목이 맥락으로 들어간다 — 제목은 AI 가 써서 화면에 나간 값")
+        self.assertEqual((ctx[0]["metrics"]["start_ts"], ctx[0]["metrics"]["end_ts"]), (iso(T(0)), iso(T(30))))
+        head = by_tag["PI-201"]["items"][0]["metrics"]
+        self.assertEqual((head["start_ts"], head["end_ts"]), (iso(T(120)), iso(T(150))),
+                         "새 항목에도 대표 이벤트 시각을 얹는다 — 일괄 실행과 같게, 연속성 판정이 시간대를 대조한다")
+
+    def test_context_items_are_not_rewritten(self):
+        import db
+        self._fake_rewrite(spoil=True)
+        r = _replay(_csv(), self._two_problems())
+        self.assertEqual(r.phase, "ended", r.error)
+        with db.connect() as conn:
+            d = db.load_draft(conn, SID)
+        first = next(it for it in d["items"] if it["tag"] == "TI-101")
+        self.assertEqual((first["title"], first["body"]), ("AI TI-101", "AI 본문 TI-101"),
+                         "맥락으로 넘긴 항목은 대역이 망가뜨려도 저장본이 그대로다 — 사본을 넘기고 다시 쓰지 않는다")
+        tr = next(t for t in r.sections[0].tracks.all if t.written and t.written["tag"] == "TI-101")
+        self.assertEqual(tr.written["title"], "AI TI-101", "다음 항목에 넘길 맥락도 망가지지 않는다")
+
+    def test_carried_open_items_from_the_previous_shift_are_context(self):
+        import db
+        calls = self._fake_rewrite()
+        _prev_raw()
+        with db.connect() as conn:
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'confirmed','test',?)",
+                               (PREV_SID, db.now())).lastrowid
+            conn.execute("INSERT INTO draft_item (draft_id, seq, origin, tag, title, body, severity, adopted, status) "
+                         "VALUES (?,1,'detected','FI-301','FI-301 유량 — 드리프트','앞 근무 본문','중',1,'진행중')", (did,))
+            conn.execute("INSERT INTO handover (shift_id, draft_id, confirmed_by, confirmed_at, body) VALUES (?,?,?,?,?)",
+                         (PREV_SID, did, "시험", db.now(), "확정 일지"))
+        r = _replay(_csv(), Script(lambda t: [ev("TI-101", "드리프트", 0, 30, 1)]), prev=False)
+        self.assertEqual(r.phase, "ended", r.error)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual([(c["tag"], c["title"]) for c in calls[0]["context"]], [("FI-301", "FI-301 유량 — 드리프트")],
+                         "앞 근무에서 넘어온 진행중 항목도 맥락으로 들어간다")
+
+    def test_link_failure_stays_on_the_card_and_in_the_draft(self):
+        import db
+        import live
+        self._fake_rewrite(status="AI 대역 · 연속성 판정 실패(RuntimeError: 끊김) — 같은 사건 묶기 없음")
+        r = _replay(_csv(), Script(lambda t: [ev("TI-101", "드리프트", 0, 30, 1)]))
+        self.assertEqual(r.phase, "ended", r.error)
+        self.assertIn("연속성 판정 실패", live.items()[0]["ai_status"], "연속성 판정이 실패해도 카드에서 조용히 사라지지 않는다")
+        with db.connect() as conn:
+            d = db.load_draft(conn, SID)
+        self.assertEqual((d["status"], len(d["items"])), ("pending", 1), "항목은 저장되고 초안은 승인 대기로 넘어간다")
+        self.assertIn("연속성 판정 실패", d["items"][0]["live"]["ai_status"], "마감 정리 뒤 초안의 추적 기록에도 남는다")
 
 
 class ClockAndContract(unittest.TestCase):

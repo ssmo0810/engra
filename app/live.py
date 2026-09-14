@@ -96,7 +96,8 @@ items() 한 건
 - 재생 스레드 1개(live-replay): 시계 → 1분 묶음(CSV → 메모리 버퍼 + DB 덧붙이기) → 5분 틱(검출·조립·추적) → 근무마다 마감 동기화 → 다음 근무.
   버퍼·추적기를 고치는 것은 이 스레드뿐이다. 검출(12시간 창 틱당 ~0.7~1초)은 잠금 밖에서 한다.
 - AI 작업 스레드 AI_WORKERS 개(live-ai): 확정된 문제를 줄에서 꺼내 _write_ai() 한 곳에서만 llm.rewrite 를 부르고, 끝나면 짧은 트랜잭션으로
-  그 근무 초안에 넣는다. 맥락 인자·전역 동시 상한(final/speed-parallel)은 병합 뒤 _write_ai() 에만 붙인다.
+  그 근무 초안에 넣는다. 부를 때 이미 화면에 나간 항목(이 근무에서 AI 가 다 쓴 항목 · 앞 근무에서 넘어온 진행중 항목)을 맥락으로
+  넘기고, 외부 호출 동시 수는 llm 의 프로세스 전역 자리표가 묶는다 — 작업 스레드 수와 곱해지지 않는다.
 - 모듈 잠금 _lock: 메모리 상태를 고치거나 복사하는 동안만 잡는다. 서버 요청은 이것만 잡으므로 검출·AI·DB 를 기다리지 않는다.
 - 재생마다 DB 쓰기 잠금(wlock): 이 재생의 DB 쓰기는 전부 이 안에서 정지 표시를 확인한 뒤 쓴다. stop() 이 이 잠금 아래에서 정지를 켠다.
 - jobs 작업 락: 재생 동안(준비 ~ 마지막 근무 마감 AI 끝) jobs.hold() 로 쥔다. 그래서 서버의 기존 잠금 검사가 POST /pipeline/run ·
@@ -342,7 +343,7 @@ class _Track:
         self.parent = self.root = None          # 재발을 만든 추적기 · 초안 항목을 가진 추적기
         self.folded, self.recurrences, self.saved_recur, self.ai_severity = False, [], 0, None
         self.ai = None                                                # None | writing | ready | failed
-        self.ai_sec = self.draft_item_id = self.error = None
+        self.ai_sec = self.draft_item_id = self.error = self.ai_status = self.written = None
         self.db_events = []
 
     def see(self, prob):
@@ -399,9 +400,17 @@ class _Track:
         """draft_item.live_json — 내부 확인용 추적 기록."""
         return {"key": self.key, "first_seen": _iso(self.first_seen), "confirmed": _iso(self.confirmed),
                 "confirm": self.state, "ongoing": self.ongoing, "not_in_close": self.not_in_close,
-                "recurrence_of": self.recurrence_of, "ai_sec": self.ai_sec,
+                "recurrence_of": self.recurrence_of, "ai_sec": self.ai_sec, "ai_status": self.ai_status,
                 "recurrences": [_iso(r.first_seen) for r in self.recurrences], "end": _iso(self.end_at()),
                 "members": [list(m) for m in sorted(self.members_all())], "related_tags": sorted(self.related_all())}
+
+    def context_item(self):
+        """이미 화면에 나간 항목으로서 AI 연속성 판정에 넘길 사본 — llm 이 읽는 필드만(태그 · 시각 · 중요도 · 제목 · 근거).
+        제목·중요도는 AI 가 써서 저장한 값, 시각은 처음 움직임 ~ 마지막 재발 끝이다. _lock 아래에서 부른다."""
+        w = self.written
+        return {"origin": w["origin"], "tag": w["tag"], "title": w["title"], "severity": w["severity"],
+                "evidence": self.evidence_line(),
+                "metrics": {"start_ts": _iso(self.prob.minstart), "end_ts": _iso(self.end_at())}}
 
     def view(self):
         p, it = self.prob, self.prob.item
@@ -424,7 +433,7 @@ class _Track:
             "related_tags": sorted(self.related_all()),
             "stop": dict(p.stop) if p.stop else None,
             "first_seen": _iso(self.first_seen), "confirmed": _iso(self.confirmed),
-            "ai_sec": self.ai_sec, "draft_item_id": self.draft_item_id, "error": self.error,
+            "ai_sec": self.ai_sec, "ai_status": self.ai_status, "draft_item_id": self.draft_item_id, "error": self.error,
         }
 
 
@@ -525,10 +534,14 @@ class _Tracks:
 
 # --- AI -----------------------------------------------------------------
 
-def _write_ai(shift, item):
-    """문제 하나를 AI 로 쓴다 → (항목, AI 상태). AI 호출은 이 한 곳에서만 한다 —
-    final/speed-parallel 병합 뒤 context(이미 쓴 항목 + 이월 항목)와 프로세스 전역 동시 상한(_gate)을 여기에만 붙인다."""
-    out, status_ = llm.rewrite(shift, [item])
+def _write_ai(shift, item, context, say=None):
+    """문제 하나를 AI 로 쓴다 → (항목, AI 상태 문구). AI 호출은 이 한 곳에서만 한다.
+
+    context — 이미 화면에 나간 항목(이 근무에서 AI 가 다 쓴 항목 · 앞 근무에서 넘어온 진행중 항목)의 사본. llm 은 읽기만 하고
+    연속성 판정 결과(같은 사건 · 중복)는 새 항목에만 붙인다. 연속성 판정만 실패하면 항목은 그대로 돌아오고 실패는 상태 문구에
+    남는다 — 부른 쪽이 카드에 싣는다. 외부 호출 동시 수는 llm 의 프로세스 전역 자리표(_gate)가 묶으므로 AI 작업 스레드가
+    겹쳐 불러도 곱해지지 않는다."""
+    out, status_ = llm.rewrite(shift, [item], say=say, context=context)
     return out[0], status_
 
 
@@ -1075,13 +1088,23 @@ class _Replay:
                 tr.ai, tr.error = "failed", _STOP_NOTE
             return
         p = tr.prob
-        item = dict(p.item, metrics=dict(p.members[0].get("metrics") or {}) if p.members else {})
+        head = p.members[0] if p.members else None
+        # 대표 이벤트 시각을 metrics 에 얹는다 — 일괄 실행(pipeline)과 같게. 연속성 판정이 근무의 시간대를 대조하는 재료다
+        item = dict(p.item, metrics=dict(head.get("metrics") or {}, start_ts=head.get("start_ts"), end_ts=head.get("end_ts")) if head else {})
+        with _lock:     # 이미 화면에 나간 이 근무 항목 — AI 가 다 써서 저장된 것만(쓰는 중 · 실패 · 접힌 재발은 뺀다)
+            done = sorted((t for t in sec.tracked() if t is not tr and t.ai == "ready" and t.written is not None),
+                          key=lambda t: (t.first_seen, t.order))
+            context = [t.context_item() for t in done]
         try:
-            out, _ai_status = _write_ai(dict(sec.shift, quality=sec.quality), item)
+            with db.connect() as conn:
+                carried = db.open_items(conn, sec.shift_id)     # 앞 근무에서 넘어온 진행중 항목 — 초안 조립 · 화면과 같은 함수
+            out, ai_status = _write_ai(dict(sec.shift, quality=sec.quality), item, carried + context,
+                                       say=lambda msg: _log(f"{tr.key} {msg}"))
             new = {key: v for key, v in out.items() if key != "metrics"}   # 저장 스키마엔 없는 임시 필드 (pipeline 과 같음)
             with _lock:
                 ai_sec = round(time.monotonic() - tr.conf_wall, 2)
                 tr.ai_severity = new.get("severity")        # AI 가 판정한 중요도 = 항목 값. 접힌 재발이 더 커도 덮지 않는다
+                tr.ai_status = ai_status                    # 연속성 판정 실패도 여기 남는다 — 카드 · live_json 에 실린다
                 new["evidence"], new["live"] = tr.evidence_line(), dict(tr.live(), ai_sec=ai_sec)
                 n_recur = len(tr.recurrences)
             with self.writing(), db.connect() as conn:
@@ -1102,6 +1125,7 @@ class _Replay:
             return
         with _lock:
             tr.ai, tr.ai_sec, tr.draft_item_id, tr.error, tr.saved_recur = "ready", ai_sec, item_id, None, n_recur
+            tr.written = {k: new.get(k) for k in ("origin", "tag", "title", "severity")}    # 뒤 항목의 맥락 — 화면에 나간 값
         _log(f"{tr.key} 선택 가능 — {sec.shift_id} {p.item.get('title')} · 처음 감지 {_iso(tr.first_seen)[11:16]} · "
              f"확정 {_iso(tr.confirmed)[11:16]}({tr.state}) · AI {ai_sec}s")
         self._sync_recurrences(sec, tr)     # AI 가 도는 사이에 접힌 재발이 있으면 반영한다
