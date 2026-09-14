@@ -855,7 +855,7 @@ class FoldingAndEvents(unittest.TestCase):
         self.assertIn("재발 2회", evidence, "마지막에 써진 근거 줄이 최신 재발 수여야 한다")
         self.assertEqual(root.saved_recur, 2)
 
-    def test_same_problem_recurrence_folds_keeps_ai_severity_and_merges_score(self):
+    def test_same_problem_recurrence_folds_without_changing_severity_and_merges_score(self):
         import db
         import live
         calls = self._count_ai()
@@ -867,13 +867,13 @@ class FoldingAndEvents(unittest.TestCase):
             d = db.load_draft(conn, SID)
         self.assertEqual(len(d["items"]), 1)
         it = d["items"][0]
-        self.assertEqual(it["severity"], "중", "항목 중요도는 AI 판정 그대로 — 더 큰 재발이 접혀도 덮지 않는다")
+        self.assertEqual(it["severity"], "중", "접기는 중요도를 바꾸지 않는다 — 더 큰(상) 재발이 접혀도 원 항목 값 그대로")
         self.assertIn("재발 1회 — 08:00", it["evidence"], "마감 뒤에도 근거 줄이 최종본이어야 한다")
-        self.assertIn("재발 중 가장 큰 것은 중요도 상", it["evidence"],
-                      "덮지 않는 대신 더 큰 재발이 있었다는 사실은 근거 줄에 남는다")
+        self.assertNotIn("중요도", it["evidence"], "접기는 중요도를 근거 줄에도 드러내지 않는다 — 중요도는 화면에서 뺐다")
         self.assertEqual(it["live"]["end"], iso(T(150)))
-        self.assertEqual(live.items()[0]["score_max"], 9.0)
-        self.assertEqual(live.items()[0]["recur_severity"], "상", "카드에는 재발 최댓값이 따로 뜬다")
+        card = live.items()[0]
+        self.assertEqual((card["score_max"], card["severity"]), (9.0, "중"), "점수는 합치고 중요도는 원 항목 값 그대로")
+        self.assertNotIn("recur_severity", card, "재발 중요도를 카드에 따로 싣지 않는다")
         self.assertEqual((sec.false_confirm, sec.false_confirm_tracks), (1, 2),
                          "화면 숫자는 카드 기준(접힌 재발 뺌), 틱 실험 대조값은 추적기 기준")
 
@@ -933,8 +933,8 @@ class FoldingAndEvents(unittest.TestCase):
             d = db.load_draft(conn, SID)
         self.assertEqual((d["status"], len(d["items"])), ("pending", 1))
         self.assertIn("재발 1회 — 08:00", d["items"][0]["evidence"], "실패 뒤 다시 쓴 항목에도 접힌 재발이 들어간다")
-        self.assertEqual(d["items"][0]["severity"], "중", "다시 쓴 뒤에도 항목 값은 AI 판정 그대로다")
-        self.assertIn("재발 중 가장 큰 것은 중요도 상", d["items"][0]["evidence"])
+        self.assertEqual(d["items"][0]["severity"], "중", "다시 쓴 뒤에도 접기는 중요도를 바꾸지 않는다")
+        self.assertNotIn("중요도", d["items"][0]["evidence"])
         live.forget()
 
     def test_recurrence_that_vanishes_before_confirming_still_folds(self):

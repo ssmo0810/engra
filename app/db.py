@@ -732,15 +732,11 @@ def add_live_item(conn, draft_id, item, events, detector):
     return conn.execute(_ITEM_INSERT, _item_row(draft_id, seq, dict(item, event_id=ids[0] if ids else None))).lastrowid
 
 
-def update_live_item(conn, item_id, evidence, live, severity=None):
-    """이미 들어간 실시간 항목의 근거 줄·추적 기록·중요도만 고친다 — 재발이 원 항목에 접힐 때.
-    AI 가 쓴 제목·본문은 건드리지 않는다(확정 때 문장 그대로)."""
-    if severity is None:
-        conn.execute("UPDATE draft_item SET evidence = ?, live_json = ? WHERE id = ?",
-                     (evidence, json.dumps(live, ensure_ascii=False), item_id))
-    else:
-        conn.execute("UPDATE draft_item SET evidence = ?, live_json = ?, severity = ? WHERE id = ?",
-                     (evidence, json.dumps(live, ensure_ascii=False), severity, item_id))
+def update_live_item(conn, item_id, evidence, live):
+    """이미 들어간 실시간 항목의 근거 줄·추적 기록만 고친다 — 재발이 원 항목에 접힐 때.
+    AI 가 쓴 제목·본문·중요도는 건드리지 않는다(확정 때 그대로)."""
+    conn.execute("UPDATE draft_item SET evidence = ?, live_json = ? WHERE id = ?",
+                 (evidence, json.dumps(live, ensure_ascii=False), item_id))
 
 
 def drop_unreferenced_events(conn, shift_id, keep_ids):
@@ -758,14 +754,14 @@ def drop_unreferenced_events(conn, shift_id, keep_ids):
 def finish_live_draft(conn, draft_id, order, finals):
     """마감 동기화와 AI 서술이 끝난 실시간 초안을 승인 대기로 넘긴다.
     order = 항목 id 를 보일 순서대로(초안의 항목 전부),
-    finals = {항목 id: {"live", "evidence", "severity"}} — 재발 갱신이 경합으로 되돌아갔을 수 있어 최종본으로 덮는다."""
+    finals = {항목 id: {"live", "evidence"}} — 재발 갱신이 경합으로 되돌아갔을 수 있어 최종본으로 덮는다. 중요도는 건드리지 않는다."""
     _live_draft(conn, draft_id)
     have = {r[0] for r in conn.execute("SELECT id FROM draft_item WHERE draft_id = ?", (draft_id,))}
     if set(order) != have or len(order) != len(have):
         raise ValueError(f"실시간 초안 #{draft_id} 의 항목 순서가 초안과 다릅니다 — 순서 {len(order)}개 / 초안 {len(have)}개")
     conn.executemany("UPDATE draft_item SET seq = ? WHERE id = ?", [(i, iid) for i, iid in enumerate(order, start=1)])
-    conn.executemany("UPDATE draft_item SET live_json = ?, evidence = ?, severity = ? WHERE id = ?",
-                     [(json.dumps(f["live"], ensure_ascii=False), f["evidence"], f["severity"], iid) for iid, f in finals.items()])
+    conn.executemany("UPDATE draft_item SET live_json = ?, evidence = ? WHERE id = ?",
+                     [(json.dumps(f["live"], ensure_ascii=False), f["evidence"], iid) for iid, f in finals.items()])
     conn.execute("UPDATE draft SET status = 'pending', generated_at = ? WHERE id = ?", (now(), draft_id))
 
 

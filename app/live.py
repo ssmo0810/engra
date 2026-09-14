@@ -366,31 +366,18 @@ class _Track:
         return max(ends) if ends else None
 
     def evidence_line(self):
-        """감지 근거 — 접힌 재발이 있으면 그 시각을 한 줄로 남긴다(문장은 확정 때 것 그대로).
-        재발이 원 항목보다 중요하면 그 사실도 여기 적는다 — 항목 중요도는 AI 판정 그대로 두기 때문이다."""
+        """감지 근거 — 접힌 재발이 있으면 그 시각을 한 줄로 남긴다(문장은 확정 때 것 그대로)."""
         base = self.prob.item.get("evidence") or ""
         if not self.recurrences:
             return base
-        line = f"{base}\n재발 {len(self.recurrences)}회 — " + " · ".join(_iso(r.first_seen)[11:16] for r in self.recurrences)
-        top = self.recur_severity()
-        return line + (f"\n재발 중 가장 큰 것은 중요도 {top} — 위 판단은 처음 확정된 건 기준이다." if top else "")
+        return f"{base}\n재발 {len(self.recurrences)}회 — " + " · ".join(_iso(r.first_seen)[11:16] for r in self.recurrences)
 
     def severity(self):
-        """항목 중요도 — AI 가 판정한 값 그대로다. 접힌 재발이 더 커도 덮지 않는다.
+        """항목 중요도 — 확정 때 AI 가 판정한 값 그대로다. 접기는 중요도를 건드리지 않는다.
 
-        덮었더니 승인 화면이 「중요도 상(통계 하 → AI 판정 상)」이라 적고 그 밑에 AI 가 쓴 '하' 근거 문장을
-        나란히 보여, AI 가 한 적 없는 판정을 AI 것이라 말했다(3라운드). 재발 최댓값은 근거 줄·카드에 드러낸다."""
+        재발 중요도로 덮었더니 승인 화면이 AI 가 한 적 없는 판정을 AI 것이라 적었고(3라운드), 그 뒤 중요도는
+        화면에서 뺐다. 값은 DB 에 남아 채점·측정이 쓴다 — 그래서 접기가 바꾸면 안 된다."""
         return self.ai_severity or self.prob.item.get("severity")
-
-    def recur_severity(self):
-        """접힌 재발 중 항목보다 큰 중요도가 있으면 그 최댓값, 없으면 None."""
-        rank = {"상": 0, "중": 1, "하": 2}
-        cands = [s for s in (r.prob.item.get("severity") for r in self.recurrences) if s in rank]
-        if not cands:
-            return None
-        top = min(cands, key=lambda s: rank[s])
-        own = self.severity()
-        return top if own not in rank or rank[top] < rank[own] else None
 
     def members_all(self):
         """접힌 재발까지 합친 멤버 (tag, kind)."""
@@ -430,7 +417,6 @@ class _Track:
             "confirm": self.state if self.state in ("ended", "closed") else None,
             "ongoing": self.ongoing, "not_in_close": self.not_in_close, "recurrence_of": self.recurrence_of,
             "tag": it.get("tag"), "kind": p.kind, "title": it.get("title"), "severity": self.severity(),
-            "recur_severity": self.recur_severity(),    # 항목보다 큰 재발이 있으면 카드에만 드러낸다 (항목 값은 AI 판정 그대로)
             "evidence": self.evidence_line(), "score": p.score, "score_max": self.score_top(),
             "start": _iso(p.minstart), "end": _iso(self.end_at()),
             "recurrences": [_iso(r.first_seen) for r in self.recurrences],
@@ -1051,7 +1037,7 @@ class _Replay:
             rest = sorted((tr for tr in trs if tr.draft_item_id), key=lambda tr: (tr.first_seen, tr.order))
             order = list(dict.fromkeys(tr.draft_item_id for tr in first + rest if tr.draft_item_id))
             # 늦게 돌아온 _sync_recurrences 가 앞선 갱신을 되돌렸을 수 있다(경합) — 마감에서 최종본으로 덮는다
-            finals = {tr.draft_item_id: {"live": tr.live(), "evidence": tr.evidence_line(), "severity": tr.severity()}
+            finals = {tr.draft_item_id: {"live": tr.live(), "evidence": tr.evidence_line()}
                       for tr in trs if tr.draft_item_id}
         try:
             with self.writing(), db.connect() as conn:
