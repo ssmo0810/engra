@@ -2111,6 +2111,40 @@ class ScreenNumbersAndTrends(unittest.TestCase):
             self.assertFalse("중요도" in body, f"{name}: 중요도가 남았다")
 
 
+class SeedSwap(unittest.TestCase):
+    def test_swap_keeps_writes_that_are_still_in_the_wal(self):
+        """seed 가 빌드 DB 를 라이브로 바꿀 때 WAL 에만 남은 마지막 쓰기(승인 대기 근무의 초안·이벤트)가 사라졌다 — 본 파일만
+        복사·교체하고 -wal 을 지웠다(2026-09-14 실측: 로그엔 「초안 10 · 승인 대기」 인데 engra.db 엔 그 근무가 없었다, 변경 전 코드도 같음).
+        교체 전에 WAL 을 본 파일로 옮겨야 한다."""
+        import importlib.util
+        import sqlite3
+        from pathlib import Path
+        d = Path(tempfile.mkdtemp(prefix="seedswap_"))
+        build, live, seed = d / "seed_build.db", d / "engra.db", d / "seed.db"
+        w = sqlite3.connect(build)
+        w.execute("PRAGMA journal_mode=WAL")
+        w.execute("PRAGMA wal_autocheckpoint=0")
+        w.execute("CREATE TABLE t (x)")
+        w.commit()
+        w.execute("PRAGMA wal_checkpoint(TRUNCATE)")          # 표는 본 파일에 — 행만 WAL 에 남긴다
+        w.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(50)])
+        w.commit()
+        self.assertTrue((d / "seed_build.db-wal").stat().st_size > 0, "쓰기가 WAL 에 남아 있어야 이 시험이 뜻이 있다")
+        spec = importlib.util.spec_from_file_location("seed_tool", os.path.join(ROOT, "tools", "seed.py"))
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        try:
+            tool.swap_in(build, live, seed)                     # 빌드 쪽 연결이 열려 있어도(seed 가 실제로 그랬다)
+        finally:
+            w.close()
+        for p in (live, seed):
+            c = sqlite3.connect(p)
+            try:
+                self.assertEqual(c.execute("SELECT COUNT(*) FROM t").fetchone()[0], 50, f"{p.name} 에서 WAL 에 있던 행이 사라졌다")
+            finally:
+                c.close()
+
+
 class SnapshotLinks(unittest.TestCase):
     longMessage = False
 

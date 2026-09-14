@@ -119,26 +119,45 @@ def main(argv):
         else:
             print(f"  {sid}  이벤트 {ev} · 초안 {it} · **승인 대기** (심사위원용)")
 
-    with db.connect() as conn:
+    conn = db.connect()
+    try:
         pending = [r["id"] for r in db.list_shifts(conn) if db.load_handover(conn, r["id"]) is None]
+    finally:
+        conn.close()
     print(f"\n빌드 완료. 승인 대기: {pending}")
 
     # 교체 — 기준선(seed.db)과 라이브(engra.db)를 한 번에. 서비스는 다음 요청부터 새 파일을 읽는다.
+    live, seed = ROOT / "app" / "engra.db", ROOT / "app" / "seed.db"
+    swap_in(build, live, seed)
+    print(f"교체 완료 → {live.name} (기준선 {seed.name} 갱신). 서비스 재시작 불필요 — 다음 요청부터 반영.")
+    return 0
+
+
+def swap_in(build, live, seed):
+    """빌드 DB 를 라이브(engra.db)와 기준선(seed.db)으로 바꾼다.
+
+    교체 전에 WAL 에 남은 쓰기를 본 파일로 옮긴다 — 본 파일만 복사·교체하고 -wal 을 지우면 마지막 근무(승인 대기 초안)가
+    통째로 사라졌다(2026-09-14 실측: 로그엔 「초안 10 · 승인 대기」 인데 engra.db 엔 그 근무의 초안·이벤트가 없었다). 다 못 옮기면 교체하지 않는다.
+    """
     import shutil
-    live = ROOT / "app" / "engra.db"
-    seed = ROOT / "app" / "seed.db"
+    import sqlite3
+    ck = sqlite3.connect(build)
+    try:
+        busy, frames, moved = ck.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+    finally:
+        ck.close()
+    if busy or frames != moved:
+        raise SystemExit(f"빌드 DB 의 WAL 을 본 파일로 다 옮기지 못했다(busy={busy}, {moved}/{frames}) — 교체하지 않는다.")
     shutil.copyfile(build, seed)
     for suf in ("-wal", "-shm"):
-        p = ROOT / "app" / (live.name + suf)
+        p = live.with_name(live.name + suf)
         if p.exists():
             p.unlink()
     os.replace(build, live)     # 원자적 교체
     for suf in ("-wal", "-shm"):            # 빌드 부산물 정리
-        p = ROOT / "app" / (build.name + suf)
+        p = build.with_name(build.name + suf)
         if p.exists():
             p.unlink()
-    print(f"교체 완료 → {live.name} (기준선 {seed.name} 갱신). 서비스 재시작 불필요 — 다음 요청부터 반영.")
-    return 0
 
 
 if __name__ == "__main__":
