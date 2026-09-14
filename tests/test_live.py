@@ -1083,6 +1083,22 @@ class WindowAndRawJudgement(unittest.TestCase):
         self.assertEqual(len(d["items"]), 1, "끝 시각이 없다고 실시간에서만 사라지면 안 된다")
         self.assertEqual(d["items"][0]["live"]["end"], iso(T(720)), "끝 시각이 없으면 지금도 이어지는 것으로 본다")
 
+    def test_a_live_draft_keeps_the_batch_from_trusting_the_raw(self):
+        """재생 중 서버가 강제 종료된 자리 — _drop_partial 이 못 돌아 반쪽 원본과 'live' 초안이 함께 남는다.
+
+        첫 표본이 창 시작이라 회전 규칙만으로는 온전으로 보여, 화면이 권하는 복구 경로(일괄 실행)가 반쪽 데이터로
+        초안을 만들었다. 'live' 초안이 있는 동안은 믿지 않고, 마감 동기화가 끝나 pending 이 되면 원래 규칙으로 돌아온다."""
+        import db
+        with db.connect() as conn:
+            _shift_row(conn, SID, WS, WS + dt.timedelta(hours=12))
+            conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                             [(tag, iso(T(i)), 1.0) for i in range(100) for tag in TAGS])     # 앞 100분 — 재생이 죽은 자리
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'live','live',?)",
+                               (SID, db.now())).lastrowid
+            self.assertFalse(db.raw_complete(conn, SID), "'live' 초안이 남은 근무의 원본은 일괄 실행이 믿지 않는다")
+            conn.execute("UPDATE draft SET status = 'pending' WHERE id = ?", (did,))
+            self.assertTrue(db.raw_complete(conn, SID), "pending 이 되면 원래 규칙(회전이 앞을 잘랐나)으로 판정한다")
+
     def test_closing_with_no_detection_still_cleans_the_event_table(self):
         """마감 검출이 0건인 조용한 근무도 정리가 돌아야 한다(3라운드 ③).
 

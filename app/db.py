@@ -323,7 +323,13 @@ def raw_complete(conn, shift_id):
     여기서 묻는 것은 「3일 회전이 원본을 지웠으니 파일에서 다시 적재해야 하나」 하나뿐이다. 창 가운데가
     성긴지는 묻지 않는다 — 계측이 한 시간 멎어도 원본은 멀쩡한데, 그걸 「원본 없음」이라 하면
     /pipeline/run 이 사실과 다른 문구로 거부하고 구멍은 파일에 있으니 다시 적재해도 영영 그대로다(3라운드).
-    창이 실제로 찼는지는 raw_window_complete 가 실시간 창 판정에서 따로 본다."""
+    창이 실제로 찼는지는 raw_window_complete 가 실시간 창 판정에서 따로 본다.
+
+    예외: 그 근무에 'live' 초안이 남아 있으면 False — 재생이 쌓는 원본은 마감 동기화로 초안이 pending 이 되기 전까지
+    반쪽일 수 있다. 재생 중 서버가 강제 종료되면 _drop_partial 이 못 돌아 반쪽 원본과 'live' 초안이 함께 남는데,
+    첫 표본은 창 시작이라 위 규칙은 그걸 온전으로 봐서 화면이 권하는 복구 경로(일괄 실행)가 반쪽 데이터로 초안을 만들었다."""
+    if conn.execute("SELECT 1 FROM draft WHERE shift_id = ? AND status = 'live'", (shift_id,)).fetchone():
+        return False
     n, first = raw_coverage(conn, shift_id)
     if not n:           # 쌓다 만 원본은 _drop_partial 이 비우므로 여기서 0 이 되어 「온전 아님」이다 (반증 A6)
         return False
