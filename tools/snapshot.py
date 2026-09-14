@@ -102,7 +102,7 @@ def build_data():
     cli("ingest", "app/sample_day.csv")
     cli("ingest", "app/sample_night.csv")
     cli("run", f"{DAY}-day")
-    cli("approve", f"{DAY}-day", "--all", "--by", "박경모",
+    cli("approve", f"{DAY}-day", "--all", "--status", "완료", "--by", "박경모",
         "--comment", "샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인")
     cli("run", f"{DAY}-night")
 
@@ -121,9 +121,13 @@ def to_static(html, name):
         for q in ('"', "'"):
             html = html.replace(f"href={q}{src}{q}", f"href={q}{dst}{q}")
 
-    # 동작하지 않는 폼은 제출 경로를 없앤다
-    html = html.replace('<form method="post" action="/approve">',
-                        '<form onsubmit="return false">')
+    # 동작하지 않는 폼은 제출 경로를 없앤다 — 승인 폼만이 아니라 확정 화면의 재검토 폼까지 POST 폼 전부.
+    # 폼 태그가 바뀌면 치환이 조용히 빗나가 정적 페이지에 제출 경로가 남는다(onsubmit 이 붙었을 때 실제로 그랬다) — 남으면 멈춘다.
+    # 대소문자·따옴표·공백 표기가 달라도 같은 POST 폼이다 — METHOD="post" · method='post' · method=post 가 빠져나갔다(반증 워커).
+    post = r'method\s*=\s*["\']?post\b'
+    html = re.sub(r'<form\b[^>]*\b' + post + r'[^>]*>', '<form onsubmit="return false">', html, flags=re.I)
+    if re.search(post, html, re.I):
+        raise SystemExit(f"{name}: POST 폼을 정적화하지 못했다 — app/server.py 의 폼 태그가 바뀌었으면 여기 치환도 고쳐라")
     html = re.sub(r'<button type="submit" class="btn">.*?</button>',
                   '<span class="muted" style="font-size:12px">'
                   '승인 버튼은 실제 프로토타입에서 동작합니다</span>', html)

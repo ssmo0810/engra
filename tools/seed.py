@@ -75,7 +75,8 @@ def approve_with_texts(sid, texts):
     items = (draft or {}).get("items") or []
     tags = sorted({it.get("tag") for it in items if it.get("tag")})
     comment = next((texts[t] for t in tags if t in texts), FALLBACK)
-    run("approve", sid, "--all", "--comment", comment)
+    # 시드는 조치가 끝난 과거 일지다. 진행중으로 넣으면 뒤의 모든 근무 초안에 이월 묶음이 쌓인다.
+    run("approve", sid, "--all", "--status", "완료", "--comment", comment)
     return comment[:50]
 
 
