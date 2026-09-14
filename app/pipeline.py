@@ -190,9 +190,11 @@ def run(shift_id, verbose=True, redo=False, say=None):
 
         # 4-1) AI 서술 — 문장만 다시 쓴다. 근거·숫자는 이벤트 metrics 로 넘기고 출력에서는 뺀다.
         # 실패하면 여기서 멈춘다. AI 없이 만든 초안을 저장하지 않는다 (llm.py 원칙 1).
-        by_event = {e["id"]: (e.get("metrics") or {}) for e in stored}
+        # 대표 이벤트의 시각도 얹는다 — 근거 문장엔 시각이 없어서, 연속성 판정(llm 2단계)이 근무 전체의 시간대를 대조할 재료가 없었다.
+        by_event = {e["id"]: e for e in stored}
         for it in items:
-            it["metrics"] = by_event.get(it.get("event_id"), {})
+            e = by_event.get(it.get("event_id"))
+            it["metrics"] = dict(e.get("metrics") or {}, start_ts=e.get("start_ts"), end_ts=e.get("end_ts")) if e else {}
         conn.commit()   # 여기까지의 쓰기를 확정하고 잠금을 놓는다 — AI 가 수 분 걸리는 동안 승인 화면이 "database is locked" 로 막혔다 (경모님 QA 2026-08-27)
         items, ai_status = llm.rewrite(shift, items, say=say)
         for it in items:
