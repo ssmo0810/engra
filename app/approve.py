@@ -32,6 +32,10 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         draft = db.load_draft(conn, shift_id)
         if draft is None:
             raise ValueError(f"{shift_id} 의 초안이 없습니다.")
+        # 실시간 구간은 마감 동기화와 AI 서술이 끝나 승인 대기가 된 뒤에만 확정한다 — 쌓이는 중인 부분 초안을 승인하면
+        # 관찰 중·서술 중인 문제가 인계에서 빠진다. 상태가 DB 에 있으므로 서버를 다시 켜도 잠긴 채다.
+        if draft["status"] == "live":
+            raise ValueError(f"{shift_id} 는 실시간으로 쌓는 중인 구간입니다 — 마감 동기화와 AI 서술이 끝난 뒤 승인할 수 있습니다.")
 
         known = {it["id"] for it in draft["items"] if it["origin"] != "carried"}   # 이월 행은 이번 판단으로 다시 쓴다
         unknown = set(decisions) - known
@@ -39,7 +43,6 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
             raise ValueError(f"이 초안에 없는 항목입니다: {sorted(unknown)}")
 
         for item_id, d in decisions.items():
-            # 근무자가 중요도를 바꿨으면 그 값이 최종이다. AI 판정은 제안이지 결정이 아니다.
             if d.get("comment"):
                 d["comment"] = str(d["comment"])[:1000]     # 공개 폼. 무제한이면 디스크 증식 경로
             adopted_flag = 1 if d.get("adopted") else 0
@@ -47,19 +50,12 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
             status = d.get("status") if adopted_flag else None
             if status is not None and status not in db.ITEM_STATUSES:
                 raise ValueError(f"상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {status!r}")
-            sev = d.get("severity")
-            if sev in ("상", "중", "하"):
-                conn.execute(
-                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?, severity = ?
-                       WHERE id = ? AND draft_id = ?""",
-                    (adopted_flag, d.get("comment"), db.now(), status, sev, item_id, draft["id"]),
-                )
-            else:
-                conn.execute(
-                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?
-                       WHERE id = ? AND draft_id = ?""",
-                    (adopted_flag, d.get("comment"), db.now(), status, item_id, draft["id"]),
-                )
+            # 중요도는 승인으로 바꾸지 않는다 — 화면에서 뺐고(경모님 2026-09-14), 엔진·AI 가 매긴 값은 기록으로 둔다.
+            conn.execute(
+                """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?
+                   WHERE id = ? AND draft_id = ?""",
+                (adopted_flag, d.get("comment"), db.now(), status, item_id, draft["id"]),
+            )
 
         # 직접 추가. 상태가 비었으면 비운 채 넣는다 — 아래 최종 검사가 다른 빈 항목과 함께 짚고 전부 되돌린다.
         for m in manual:
@@ -93,6 +89,16 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                 raise ValueError(f"이월 항목 #{root_id} 의 상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {ch.get('status')!r}")
             if ch.get("comment"):
                 ch["comment"] = str(ch["comment"])[:1000]
+        # 앞 근무가 승인 대기인데 뒤 근무를 먼저 확정하면, 앞 근무의 「진행중」 항목이 뒤 근무 인계(open_items)에서 빠진다.
+        # 이월 선택 검사 뒤에 둔다 — 잘못 가리킨 이월 번호는 그 사유를 먼저 짚는다(거부되면 위 쓰기는 전부 되돌아간다).
+        prev = db.unconfirmed_before(conn, shift_id)
+        if prev and prev[1] == "live":
+            # 'live' 는 승인할 수도 없는 상태다 — 「먼저 확정하세요」만 말하면 그 근무로 가도 다시 거부돼 맴돈다
+            raise ValueError(f"앞 근무 {prev[0]} 의 실시간 초안이 아직 안 끝났습니다 — 그 근무를 다시 재생해 마감하거나 "
+                             f"일괄 실행으로 초안을 만들어 확정한 뒤 이 근무를 승인하세요.")
+        if prev:
+            raise ValueError(f"앞 근무 {prev[0]} 가 아직 승인 대기입니다 — 앞 근무를 먼저 확정하세요. "
+                             f"뒤 근무를 먼저 확정하면 앞 근무의 진행중 항목이 인계에서 빠질 수 있습니다.")
         # 원 근무가 재검토 중이면 그 원 항목이 open_items 에서 빠져, 아래 save_carried 가 이 근무의 기존 판단을
         # 조용히 지운다(반증 워커 실측). 명령줄·화면 공통으로 거부한다 — 원 근무를 먼저 확정하면 된다.
         in_review = db.carried_roots_in_review(conn, draft["id"])
@@ -123,7 +129,9 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                 raise ValueError(f"뒤 근무 {sid} 가 #{rid} {it['title'] or ''} 를 진행중으로 이어받았습니다 — "
                                  f"상태를 바꾸려면 그 근무를 먼저 재검토로 되돌리세요.")
 
-        adopted = [it for it in final["items"] if it["adopted"] == 1 and it["origin"] != "carried"]
+        # 본문 번호도 화면과 같은 순서(처음 감지된 시각)로 매긴다 — 엔진이 넘긴 중요도 순서가 본문에만 남아 있었다(반증 A).
+        starts = db.item_starts(conn, shift_id)
+        adopted = db.by_time([it for it in final["items"] if it["adopted"] == 1 and it["origin"] != "carried"], starts)
         excluded = [it for it in final["items"] if it["adopted"] == 0]
         carried_rows = [it for it in final["items"] if it["origin"] == "carried"]
 
@@ -136,6 +144,8 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         if db.load_handover(conn, shift_id) is not None:
             round_no = db.reopen_handover(conn, shift_id, reason=f"재승인 — {confirmed_by}")
         db.confirm_handover(conn, shift_id, confirmed_by, body, len(adopted), len(excluded))
+        # 확정 일지는 오래 남는 기록이라 추이 곡선을 항목에 붙여 둔다 — 초안 때 못 붙인 것(실시간 초안 · 이 변경 전 초안)까지.
+        db.save_curves(conn, shift_id)
         # 색인에는 닫은 이월 판단(완료)만 넣는다. 계속 진행중까지 넣으면 같은 원 항목 복제본이 태그 검색 상위(limit 3)를
         # 독점해 다른 과거 사례가 밀려난다(codex 반증). 조치가 끝난 기록이 다음 초안의 과거 조치가 된다.
         db.index_handover(conn, shift_id, adopted + [it for it in carried_rows if it["status"] == "완료"])
@@ -158,7 +168,7 @@ def render(shift_id, adopted, carried=()):
     for i, it in enumerate(adopted, start=1):
         mark = {"detected": "", "quality": " (원본 품질)"}.get(it["origin"], " (직접 추가)")
         status = f" — {it['status']}" if it.get("status") else ""
-        lines.append(f"{i}. [{it['severity'] or '-'}] {it['title']}{mark}{status}")
+        lines.append(f"{i}. {it['title']}{mark}{status}")    # 중요도는 화면에서 뺐다(경모님 2026-09-14) — 일지 본문에도 적지 않는다
         if it.get("body"):
             lines.append(f"   {it['body']}")
         if it.get("evidence"):

@@ -13,6 +13,7 @@ import sys
 import threading
 import time
 import traceback
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -302,26 +303,100 @@ def mark_qa_active():
     (ROOT / "app" / ".qa_active").write_text(str(int(time.time())))
 
 
-def save_upload(name, data):
-    """생성기가 내려준 CSV/정답지 JSON 을 받는다. 파일명은 그대로, 폴더만 고정. → (경로, 정답지의 근무 ID 들)"""
-    UPLOAD_DIR.mkdir(exist_ok=True)
+def upload_name(name):
+    """올린 파일 이름 → uploads/ 안에서 쓸 이름. 검사·저장·재시작 등록이 모두 이 함수로만 이름을 정한다 — 검사와 저장이
+    이름을 따로 정리하는 바람에 「x.json/」 이 검사에선 정답지가 아니고 저장에선 정답지가 돼 열쇠를 건너뛰었다(조각 1 2차 재반증).
+
+    폴더는 떼고 「..」 는 막는다. 저장할 수 없는 이름(빈 이름 · NUL · 255바이트 초과)은 여기서 ValueError 로 거부해
+    검사 단계 400 이 되게 한다 — 저장 단계에서 터지면 500 이 되고 앞 파일이 남았다. 점으로 시작하는 이름도 막는다:
+    uploads/ 안 우리 파일(.keys_first_seen.json · 임시 .upload-*.part)을 덮을 수 있다."""
+    if "\x00" in name:
+        raise ValueError("파일 이름에 NUL 문자가 있습니다")
     safe = Path(name).name.replace("..", "_")
-    p = UPLOAD_DIR / safe
-    p.write_bytes(data)
-    sids = _register_key(p) if safe.endswith(".json") else []
-    return p, sids
+    if not safe or safe.startswith("."):
+        raise ValueError("파일 이름이 비었거나 점으로 시작합니다")
+    if len(safe.encode("utf-8", "surrogateescape")) > 255:
+        raise ValueError("파일 이름이 255바이트를 넘습니다")
+    return safe
 
 
-def _register_key(p):
-    """정답지 JSON 하나를 KEYS 에 올린다. 두 형식 — 근무 하나짜리(shift_id·injected 최상위, 새 생성기) /
-    묶음(shift_list, asu_answer_all.json). 업로드 직후와 서버 시작 시 둘 다 여기로."""
-    d = json.loads(p.read_bytes().decode("utf-8"))
+def name_key(name):
+    """이름을 견줄 때 쓰는 꼴 — 유니코드 정규화(NFC) + 대소문자 지움. 확장자 판정과 중복 검사가 같은 자를 쓴다.
+    대소문자를 구분하는 바람에 「.JSON」 이 열쇠 검사를 빠져나갔고(대소문자를 안 가리는 파일시스템에서는 기존 정답지를
+    덮어썼다), 자모 조합만 다른 같은 이름(NFC/NFD)이 중복 검사를 빠져나가 조용히 덮였다(조각 1 3차 재반증)."""
+    return unicodedata.normalize("NFC", name).casefold()
+
+
+def is_key_name(name):
+    """정리된 이름이 정답지 JSON 인가 — 열쇠·형식 검사와 등록·재시작 등록이 같은 판정을 쓴다.
+    uploads/ 안 우리 파일은 점으로 시작해 여기서 걸러진다."""
+    return name_key(name).endswith(".json") and not name.startswith(".")
+
+
+def save_uploads(files):
+    """한 요청의 파일을 모두 반영하거나 하나도 반영하지 않는다. files = (이름, 내용) 을 하나씩 내놓는 iterable
+    (서버는 조각을 하나씩 풀어 넘겨 메모리에 한 파일만 둔다). → (경로들, 정답지의 근무 ID 들)
+
+    파일마다 최종 이름으로 저장하던 때는 뒤 파일이 실패하면 앞 파일이 남거나 같은 이름의 기존 파일을 덮었다(조각 1 재반증).
+    그래서 전부 uploads/ 안 임시 이름으로 쓴 뒤 os.replace 로 옮기고, 그다음에 정답지를 등록한다. 쓰는 도중 실패하면
+    이번 요청의 임시 파일만 지우고 예외를 그대로 올린다 — 기존 파일은 그대로다."""
+    import os
+    import tempfile
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    staged, keys = [], set()
+    try:
+        for name, data in files:
+            final = UPLOAD_DIR / upload_name(name)
+            key = name_key(final.name)
+            if key in keys:   # 정리·정규화하면 같은 이름 — 알림 없이 뒤 파일이 앞 파일을 덮었다(조각 1 2·3차 재반증)
+                raise ValueError(f"같은 이름으로 저장될 파일이 둘: {final.name}")
+            keys.add(key)
+            # 임시 이름은 짧은 고정 접두어. 최종 이름을 붙였더니 240바이트대 이름이 임시 파일에서만 길이 제한에 걸렸다(조각 1 2차 재반증)
+            fd, tmp = tempfile.mkstemp(dir=UPLOAD_DIR, prefix=".upload-", suffix=".part")
+            staged.append((Path(tmp), final))
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            del data   # 다음 조각을 푸는 동안 직전 파일 내용을 들고 있지 않게 — 메모리에 한 파일만
+            os.chmod(tmp, 0o644)   # mkstemp 는 0600 — 예전 write_bytes 로 쓰던 때와 같은 권한으로 둔다
+        for tmp, final in staged:
+            os.replace(tmp, final)
+    except BaseException:
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+        raise
+    sids = []
+    for _, final in staged:
+        if is_key_name(final.name):
+            sids += _register_key(final)
+    return [final for _, final in staged], sids
+
+
+def key_shifts(data):
+    """정답지 JSON(바이트)의 근무 목록. 두 형식 — 근무 하나짜리(shift_id·injected 최상위, 새 생성기) /
+    묶음(shift_list, asu_answer_all.json). 형식이 아니면 ValueError.
+    업로드는 저장하기 전에 이것으로 먼저 거른다 — 저장한 뒤에 형식을 보면 거부돼도 파일이 uploads/ 에 남았다(조각 1 반증)."""
+    try:
+        d = json.loads(data.decode("utf-8"))
+    except ValueError as exc:   # UnicodeDecodeError·JSONDecodeError 둘 다 ValueError
+        raise ValueError(f"JSON 으로 읽지 못했습니다 — {exc}") from exc
     if isinstance(d, dict) and isinstance(d.get("shift_list"), list):
         shifts = d["shift_list"]
     elif isinstance(d, dict) and "shift_id" in d and isinstance(d.get("injected"), list):
         shifts = [d]
     else:
-        raise ValueError(f"{p.name}: 정답지 형식이 아닙니다 (shift_id·injected 또는 shift_list 가 없음)")
+        raise ValueError("정답지 형식이 아닙니다 (shift_id·injected 또는 shift_list 가 없음)")
+    # shift_id 는 비어 있지 않은 문자열만 — 목록·객체면 등록에서 TypeError, 숫자면 관리 카드의 sorted(KEYS) 가 500 이었다(조각 1 재반증)
+    if not all(isinstance(sh, dict) and isinstance(sh.get("shift_id"), str) and sh["shift_id"] for sh in shifts):
+        raise ValueError("shift_id 는 비어 있지 않은 문자열이어야 합니다")
+    return shifts
+
+
+def _register_key(p):
+    """정답지 JSON 하나를 KEYS 에 올린다. 업로드 직후와 서버 시작 시 둘 다 여기로."""
+    try:
+        shifts = key_shifts(p.read_bytes())
+    except ValueError as exc:
+        raise ValueError(f"{p.name}: {exc}") from exc
     seen = _load_seen()
     sids, changed = [], False
     for sh in shifts:
@@ -368,8 +443,8 @@ def _save_seen(seen):
 def _reload_uploads():
     """서버 시작 시 이전에 올라온 정답지를 다시 등록한다 — 재시작(배포·타이머) 뒤 목록에서 사라지지 않게.
     깨진 JSON 하나가 공개 서비스 기동을 막지 않게 건너뛰고 크게 남긴다. CSV 는 DB(shift 표)가 기억한다."""
-    try:
-        files = sorted(UPLOAD_DIR.glob("*.json"), key=lambda x: x.stat().st_mtime)
+    try:   # 정답지 판정은 is_key_name 하나로 — 우리 파일(.keys_first_seen.json)과 임시 .upload-*.part 는 걸러진다
+        files = sorted((p for p in UPLOAD_DIR.glob("*") if p.is_file() and is_key_name(p.name)), key=lambda x: x.stat().st_mtime)
     except OSError as exc:
         print(f"  !! uploads/ 를 읽지 못함 — 정답지 없이 시작: {exc}", file=sys.stderr)
         return

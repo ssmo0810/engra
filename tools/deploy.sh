@@ -28,8 +28,8 @@ ssh "$H" 'chown -R engra:engra /opt/engra/app /opt/engra/engine /opt/engra/tools
 echo "== 기동 대기 (uploads 재적재 때문에 20~30초 걸린다)"
 for i in $(seq 1 20); do
   sleep 3
-  C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://engra.64-176-227-85.sslip.io/ || echo 000)
+  C=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://engra.64-176-227-85.sslip.io/draft || echo 000)   # / 는 /draft 로 303
   [ "$C" = "200" ] && { echo "== 200 OK ($((i*3))초)"; break; }
   [ "$i" = "20" ] && { echo "!! 60초 안에 안 떴다 — journalctl -u engra.service 확인"; exit 1; }
 done
-for p in /draft /admin /pipeline; do echo "   $p → $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://engra.64-176-227-85.sslip.io$p")"; done
+for p in /dcs /draft /admin; do echo "   $p → $(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://engra.64-176-227-85.sslip.io$p")"; done

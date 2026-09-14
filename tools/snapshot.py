@@ -26,22 +26,25 @@ OUT = ROOT / "sample"
 # 고정 날짜를 쓰면 원본 보관 기간(RAW_RETENTION_DAYS)을 지나 run 이 깨진다.
 # smoke.sh 에서 같은 병을 두 번 겪었다. 항상 보관 기간 안에 있는 오늘을 쓴다.
 DAY = _dt.date.today().isoformat()
+# 왼쪽 목록 + 오른쪽 내용이 한 화면이라 /draft 가 곧 초안 검토 화면이다 — 따로 뜨던 draft.html 은 없앴다.
 PAGES = {
-    "index.html": "/",
-    "draft.html": f"/shift/{DAY}-night",
-    "handover.html": f"/shift/{DAY}-day",
+    "index.html": "/draft",                   # / 도 여기로 303. 가장 최근 근무(야간 초안)가 펴져 있다
+    "handover.html": f"/shift/{DAY}-day",     # 확정 일지
+}
+# 정적본에서 링크가 갈 곳. 야간 줄은 index.html 이 이미 그 화면이라 제자리로 돌아온다.
+LINKS = {
+    "/draft": "index.html",
+    f"/shift/{DAY}-night": "index.html",
+    f"/shift/{DAY}-day": "handover.html",
 }
 NOTES = {
     "index.html": (
-        "<b>여기는 일지 목록입니다.</b> 근무 이름을 누르면 화면이 열립니다 — "
-        f"<b>{DAY}-night</b> 는 아직 승인 전인 <b>초안 검토</b> 화면이고, "
-        f"<b>{DAY}-day</b> 는 이미 승인된 <b>확정 일지</b> 입니다."
-    ),
-    "draft.html": (
-        "<b>여기가 근무자가 실제로 쓰는 화면입니다.</b> 감지된 항목을 전부 보여주고, "
-        "적을 것을 고르고 코멘트를 답니다. 각 항목의 초록 칸(<b>과거 조치</b>)을 보세요 — "
-        "이건 우리가 넣어 둔 문구가 아니라, <b>앞 근무자가 승인하면서 직접 쓴 코멘트</b>가 "
-        "저장됐다가 돌아온 것입니다. 이 순환이 ENGRA 의 핵심입니다."
+        "<b>여기가 근무자가 보는 한 화면입니다.</b> 왼쪽에서 근무를 고르면 오른쪽에 그 근무가 열립니다 — "
+        f"지금 열려 있는 <b>{DAY}-night</b> 는 아직 승인 전인 <b>초안 검토</b> 이고, 왼쪽의 "
+        f"<b>{DAY}-day</b> 줄을 누르면 이미 승인된 <b>확정 일지</b> 입니다. "
+        "각 항목의 초록 칸(<b>과거 조치</b>)을 보세요 — 이건 우리가 넣어 둔 문구가 아니라, "
+        "<b>앞 근무자가 승인하면서 직접 쓴 코멘트</b>가 저장됐다가 돌아온 것입니다. "
+        "이 순환이 ENGRA 의 핵심입니다."
     ),
     "handover.html": (
         "<b>승인이 끝나면 이렇게 확정됩니다.</b> 여기 적힌 코멘트가 곧 다음 근무 초안의 "
@@ -117,7 +120,7 @@ def fetch(base, path):
 
 
 def to_static(html, name):
-    for src, dst in {v: k for k, v in PAGES.items()}.items():
+    for src, dst in LINKS.items():
         for q in ('"', "'"):
             html = html.replace(f"href={q}{src}{q}", f"href={q}{dst}{q}")
 
@@ -136,9 +139,14 @@ def to_static(html, name):
     html = html.replace("</style>",
                         ".bar{position:static !important;bottom:auto !important}</style>", 1)
 
-    # 안내 배너를 헤더 바로 뒤에 넣는다
-    return re.sub(r"(</div>)(?=\s*<a class=\"back\"|\s*<div class=\"card\")",
-                  r"\1" + banner(NOTES[name]), html, count=1)
+    # 안내 배너를 본문 맨 앞에 넣는다. 앵커는 page() 의 본문 시작 태그다 —
+    # 옛 이동줄(<div class="nav">…</div>)의 닫는 태그를 앵커로 쓰다가, 이동줄을 없앤 새 page() 에서
+    # 매치가 0 이 되어 안내가 말없이 빠졌다(반증 워커 실측). re.sub 는 매치 0 을 알려주지 않으니 세고 멈춘다.
+    html, n = re.subn(r'<main class="wrap">',
+                      lambda m: m.group(0) + banner(NOTES[name]), html, count=1)
+    if n != 1:
+        raise SystemExit(f"{name}: 안내 배너를 넣을 자리를 못 찾았다 — app/server.py 의 page() 본문 태그가 바뀌었으면 여기 앵커도 고쳐라")
+    return html
 
 
 def main():
@@ -163,7 +171,8 @@ def main():
         (ROOT / "app" / f).unlink(missing_ok=True)
     shutil.rmtree(ROOT / "app" / "__pycache__", ignore_errors=True)
 
-    leftover = [n for n in PAGES if "/shift/" in (OUT / n).read_text(encoding="utf-8")]
+    # 목록 주소가 / 에서 /draft 로 바뀌며 「‹ 목록으로」 치환이 조용히 빗나갔다(조각 1 반증) — /draft 링크가 남아도 멈춘다
+    leftover = [n for n in PAGES if any(s in (OUT / n).read_text(encoding="utf-8") for s in ("/shift/", 'href="/draft"'))]
     if leftover:
         raise SystemExit(f"정적 링크로 안 바뀐 페이지: {leftover}")
     print(f"\n생성 위치: {OUT}  (링크·폼 정적화 확인)")

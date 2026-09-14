@@ -1,115 +1,217 @@
 <!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>일지 조회 · ENGRA</title>
+<title>근무 일지 · ENGRA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>
-:root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;
-      --accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+:root{--ink:#191b1f;--sub:#5f6672;--line:#e4e1dc;--bg:#f7f6f3;--card:#fff;
+      --accent:#EA002C;--ok:#1a6b3c;--warn:#8a5300;--bad:#b3261e;--chip:#f2f0ec}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);
-     color:var(--ink);font-size:14px;line-height:1.6}
-.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
-.top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
-.nav{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
-.nav a{flex:1;min-width:150px;text-decoration:none;background:var(--card);
- border:1px solid var(--line);border-radius:8px;padding:9px 13px;color:var(--sub);
- font-size:13px;font-weight:600;transition:.12s}
-.nav a small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px}
-.nav a:hover{border-color:#c9c6c1}
-.nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
-.nav a.on small{color:#c9c6c1}
-.frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
-.top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
-.top span{font-size:12.5px;color:var(--sub)}
-.top .eng{margin-left:auto;font-size:11.5px}
-.disc{font-size:12px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;
-      padding:7px 11px;border-radius:6px;margin:12px 0 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:9px;
-      padding:16px 18px;margin-bottom:14px}
-.card h2{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pill{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;
-      background:#eceae6;color:var(--sub)}
-.pill.on{background:#dcefe2;color:var(--ok)}
-.pill.red{background:#ffe0e6;color:#b00020}.pill.amber{background:#fdf0d8;color:var(--warn)}
-.muted{color:var(--sub)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-.note{font-size:12.5px;color:var(--sub);margin-bottom:11px}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.65;
+     font-variant-numeric:tabular-nums}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* 초안 항목 */
-.item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;
-      background:#fff;transition:.15s}
-.item.off{opacity:.5;background:#fafafa}
+/* 상단 얇은 바 — 워드마크·화면 이름은 왼쪽, 엔진·AI 상태는 오른쪽에 조용히.
+   이동줄은 없다: DCS 와 일지 목록은 각자 주소로 연다 (경모님 2026-09-14) */
+.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:11px 20px;
+     background:var(--card);border-bottom:1px solid var(--line)}
+.top .brand{font-size:16px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+.top .ttl{font-size:13px;color:var(--sub)}
+.top .sys{margin-left:auto;font-size:13px;color:var(--sub)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 72px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+      padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3,.det h3{font-size:20px;margin-bottom:4px;letter-spacing:-.02em}
+.det .sub{font-size:13px;color:var(--sub);margin-bottom:16px}
+.note{font-size:13px;color:var(--sub);margin-bottom:10px}
+.muted{color:var(--sub)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.empty{color:var(--sub);text-align:center;padding:32px 16px;font-size:14px}
+.back{display:inline-block;margin-bottom:14px;font-size:13px;font-weight:700;
+      color:var(--accent);text-decoration:none}
+.back:hover{text-decoration:underline}
+.disc{font-size:13px;color:var(--sub);background:#fff8e6;border:1px solid #efe2bd;
+      padding:9px 13px;border-radius:8px;margin-bottom:14px}
+.sc{border-collapse:collapse;width:100%;font-size:13px}
+.sc th,.sc td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
+.sc th{color:var(--sub);font-weight:600;font-size:13px}
+
+/* 상태 — 초안 호박 · 확정 초록 · 관찰 중 흐린 회색. 빨강은 워드마크·LIVE·주 버튼에만 */
+.pill{font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;
+      background:var(--chip);color:var(--sub);white-space:nowrap}
+.pill.on,.pill.done{background:#e4f1e8;color:var(--ok)}
+.pill.amber,.pill.going{background:#fbeed3;color:var(--warn)}
+.pill.red{background:#fde4e6;color:var(--bad)}
+.pill.live{background:var(--accent);color:#fff}
+
+/* 한 화면 — 왼쪽 근무 목록(고정 폭) + 오른쪽 그 근무의 내용. 목록과 내용이 따로 열리면
+   같은 근무를 두 번 찾아 들어가야 한다(경모님 2026-09-14) */
+.split{display:flex;gap:18px;align-items:flex-start}
+.side{width:280px;flex:none;background:var(--card);border:1px solid var(--line);
+      border-radius:10px;overflow:hidden;position:sticky;top:14px;max-height:calc(100vh - 28px);
+      overflow-y:auto}
+.side h2{font-size:15px;padding:13px 14px 0}
+.side .note{padding:3px 14px 11px;margin:0;font-size:12.5px}
+.detail{flex:1;min-width:0}
+/* 줄 = [날짜] [주간/야간] [상태]. 감지 요약·구간 시각은 뺀다 — 상태 뒤 채택 건수와 겹쳐 읽혔다 */
+.nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;
+      border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.nrow:hover{background:var(--bg)}
+.nrow.on{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}
+.nrow .date{font-size:14px;font-weight:700;letter-spacing:-.02em}
+.nrow .kind{font-size:13px;color:var(--sub)}
+.nrow .pill{margin-left:auto;font-size:12px}
+/* 모바일에서만 목록을 접는다. PC 에서는 접을 일이 없으니 체크박스를 아예 뺀다 —
+   남겨 두면 첫 Tab 이 보이지도 않고 눌러도 아무 일도 안 나는 자리에 걸린다(반증 워커 실측 1440) */
+.pickbox{display:none}
+.pickbtn{display:none}
+@media (max-width:760px){
+  /* 접기가 실제로 도는 폭에서만 되살린다 — 안 보이되 초점은 받는다(JS 없이 펼치기) */
+  .pickbox{position:absolute;display:block;width:1px;height:1px;opacity:0;pointer-events:none}
+  .split{flex-direction:column;gap:12px}
+  .side{width:100%;position:static;max-height:none;display:none}
+  .pickbox:checked ~ .split .side{display:block}
+  .pickbtn{display:inline-block;margin-bottom:12px;padding:8px 14px;background:var(--card);
+           border:1px solid var(--line);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .pickbox:focus-visible ~ .pickbtn{outline:2px solid var(--accent);outline-offset:2px}
+}
+
+/* 초안 항목 — 제목 → 본문 → 근거 순. 왼쪽 색 띠는 뺐다(경모님 2026-09-14) — 경계는 카드 테두리가 잡는다 */
+.item{border:1px solid var(--line);border-radius:10px;
+      padding:14px 16px;margin-bottom:10px;background:var(--card);transition:.15s}
+.item.off{opacity:.55;background:#fbfaf8}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
-.item input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
-.item .ttl{font-weight:700;font-size:13.5px;flex:1}
-.item .meta{font-size:11.5px;color:var(--sub);margin:3px 0 8px 27px}
-.item .body{margin-left:27px}
-.why{font-size:12px;background:#f7f6f4;border-left:3px solid #cfcdc8;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
+.item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+.item .ttl{font-weight:700;font-size:16px;flex:1;letter-spacing:-.01em}
+.item .meta{font-size:13px;color:var(--sub);margin:4px 0 10px 28px}
+.item .body{margin-left:28px}
+.why{font-size:13px;background:#f6f5f2;border-left:3px solid #d5d1ca;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
 .why b{color:var(--ink)}
-.sug{font-size:12px;background:#f2f7f3;border-left:3px solid #a8ceb5;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
-.sug .lb{font-size:10.5px;font-weight:700;color:var(--ok);display:block;margin-bottom:2px}
-.sug button{font:inherit;font-size:11px;border:1px solid #a8ceb5;background:#fff;color:var(--ok);
-            border-radius:4px;padding:1px 7px;cursor:pointer;margin-left:6px}
-textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:inherit;
-         font-size:12.5px;resize:vertical;min-height:34px}
-.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;
-     background:#fff;border:1px solid var(--line);border-radius:9px;position:sticky;bottom:12px;
-     flex-wrap:wrap}
-.bar .cnt{font-size:13px}.bar .cnt b{color:var(--accent);font-size:16px}
-.btn{font:inherit;font-weight:700;font-size:13.5px;padding:9px 22px;border-radius:7px;border:none;
+.sug{font-size:13px;background:#f1f6f2;border-left:3px solid #a9cdb6;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
+.sug .lb{font-size:13px;font-weight:700;color:var(--ok);display:block;margin-bottom:3px}
+.sug button{font:inherit;font-size:13px;border:1px solid #a9cdb6;background:var(--card);
+            color:var(--ok);border-radius:6px;padding:2px 9px;cursor:pointer;margin-left:6px}
+textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;
+         font-size:14px;resize:vertical;min-height:38px;background:var(--card);color:inherit}
+
+/* 승인 영역 — 화면 아래에 붙어 늘 보인다 */
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+     padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+     position:sticky;bottom:12px}
+.bar .cnt{font-size:14px}
+.bar .cnt b{color:var(--accent);font-size:20px}
+.bar .need{color:var(--accent);font-size:13px;font-weight:700}
+.btn{font:inherit;font-weight:700;font-size:14px;padding:10px 22px;border-radius:8px;border:none;
      cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
-.btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+.btn:disabled{background:#c9c5be;cursor:not-allowed}
+.btn.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
+
+/* 완료 / 진행중 — 기본 선택 없음. 고르지 않으면 승인이 막힌다 */
+.st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:0 0 10px}
+.st label{border:1px solid var(--line);border-radius:999px;padding:3px 12px;cursor:pointer;
+          display:inline-flex;gap:6px;align-items:center}
+.st input[type=radio]{accent-color:var(--accent);margin:0}
+.st label:has(input:checked){border-color:var(--ink);background:var(--ink);color:#fff}
+.st .lb{font-size:13px;font-weight:700;color:var(--sub)}
+.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #fde4e6}
+.item.need .st .lb{color:var(--accent)}
+.item.need .st .lb::after{content:" — 골라야 승인됩니다"}
+
+/* 이월 항목 묶음 — 접힌 채로 두고 본문 항목과 섞지 않는다 */
+.carry .ci{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:10px;background:var(--card)}
+.carry .ci .t{font-weight:700;font-size:14px}
+.carry .ci .m{font-size:13px;color:var(--sub);margin:3px 0 7px}
+.carry .ci .c{font-size:13px;background:#f6f5f2;padding:7px 11px;border-radius:6px;margin-bottom:10px}
 
 /* 수동 추가 */
 .item.man{border-style:dashed}
-.item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;
-           border-bottom:1px solid var(--line);padding:1px 2px;background:none}
+.item .tin{flex:1;font:inherit;font-weight:700;font-size:16px;border:none;
+           border-bottom:1px solid var(--line);padding:2px;background:none;color:inherit}
 .item .tin:focus{outline:none;border-bottom-color:var(--accent)}
-.item .min{width:100%;font:inherit;font-size:11.5px;color:var(--sub);border:none;
-           border-bottom:1px dashed var(--line);padding:1px 2px;margin-bottom:8px;background:none}
+.item .min{width:100%;font:inherit;font-size:13px;color:var(--sub);border:none;
+           border-bottom:1px dashed var(--line);padding:2px;margin-bottom:10px;background:none}
 .item .min:focus{outline:none;border-bottom-color:var(--accent)}
-.del{font:inherit;font-size:11.5px;background:none;border:1px solid var(--line);color:var(--sub);
-     border-radius:5px;padding:2px 9px;cursor:pointer}
+.del{font:inherit;font-size:13px;background:none;border:1px solid var(--line);color:var(--sub);
+     border-radius:6px;padding:3px 10px;cursor:pointer}
 .del:hover{border-color:var(--accent);color:var(--accent)}
 
-/* 일지 조회 */
-.logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);
-        border-radius:8px;background:#fff;margin-bottom:8px;transition:.12s;
-        text-decoration:none;color:inherit}
-.logrow:hover{border-color:var(--accent);background:#fffafb}
-.logrow .d{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;width:104px}
-.logrow .s{font-size:12.5px;width:52px;color:var(--sub)}
-.logrow .x{flex:1;font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;
-           white-space:nowrap}
-.logrow .c{font-size:11.5px}
-.logrow .arw{color:#c9c7c2;font-size:15px}
-.det h3{font-size:15px;margin-bottom:2px}
-.det .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
-.ent{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:14px}
-.ent .t{font-weight:700;font-size:13px}
-.ent .m{font-size:11.5px;color:var(--sub);margin-bottom:4px}
-.ent .c{font-size:12.5px;background:#f7f6f4;padding:6px 10px;border-radius:5px}
-.ex{border-left:3px solid #d8d6d1;padding:2px 0 2px 12px;margin-bottom:9px;opacity:.72}
-.ex .t{font-size:12.5px}
-.back{font:inherit;font-size:12.5px;color:var(--accent);text-decoration:none;
-      display:inline-block;margin-bottom:12px;font-weight:700}
-.empty{color:var(--sub);text-align:center;padding:28px;font-size:13px}
+/* 확정 일지 */
+.ent{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:12px;background:var(--card);position:relative}
+.ent .t{font-weight:700;font-size:14px}
+.ent .m{font-size:13px;color:var(--sub);margin-bottom:5px}
+.ent .c{font-size:13px;background:#f6f5f2;padding:8px 12px;border-radius:6px}
+.ex{border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-bottom:10px;opacity:.75;position:relative}
+.ex .t{font-size:13px}
+
+/* 확정 일지의 추이 — 기본은 접고 「<태그> 추이 보기」로 편다(JS 없이). 일지는 읽는 문서라 펴 두면 길어진다.
+   체크박스는 보이지 않되 초점은 받는다 */
+.trbox{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.trbtn{display:inline-block;margin:8px 0 2px;padding:3px 12px;border:1px solid var(--line);border-radius:999px;
+       font-size:12.5px;font-weight:700;color:var(--sub);background:var(--card);cursor:pointer}
+.trbtn::before{content:"▸ "}
+.trbox:checked+.trbtn::before{content:"▾ "}
+.trbox:focus-visible+.trbtn{outline:2px solid var(--accent);outline-offset:2px}
+.trwrap{display:none;margin-top:8px}
+.trbox:checked~.trwrap{display:block}
 .bar{position:static !important;bottom:auto !important}</style>
-<div class="wrap">
-<div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
-<span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
-<span class="eng pill on">엔진 engine</span></div>
-<div class="nav"><a class="" href="/dcs">① DCS<small>실시간 감시 · 기존 시스템</small></a><a class="" href="/rtdb">② RTDB<small>구간 데이터 추출</small></a><a class="" href="/draft">③ ENGRA 초안 검토<small>핵심 화면 · 직접 승인해 보세요</small></a><a class="on" href="index.html">④ 일지 조회<small>축적 · 검색</small></a></div><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
+<header class="top"><span class="brand">ENGRA</span><span class="ttl">근무 일지</span>
+<span class="sys">엔진 engine · AI cli · claude-opus-5</span></header>
+<main class="wrap"><div class="card" style="background:#eef3fb;border-color:#c9d9ef;color:#25405f;
 font-size:12.5px;line-height:1.75;padding:13px 17px">
 <b>실제로 돌아가는 프로토타입 화면입니다.</b> 스크린샷이 아니라 서버가 만든 화면을 그대로 떠 온
 것이라 값과 문구가 전부 진짜입니다. 다만 이 페이지는 정적이라 <b>버튼은 눌러도 반응하지
 않습니다.</b> 직접 돌려 보시려면 저장소를 받아 <code class="mono">python3 app/cli.py serve</code>
 를 실행하세요 (설치할 것 없음).
-<div style="margin-top:9px;padding-top:9px;border-top:1px solid #d6e2f2"><b>여기는 일지 목록입니다.</b> 근무 이름을 누르면 화면이 열립니다 — <b>2026-08-26-night</b> 는 아직 승인 전인 <b>초안 검토</b> 화면이고, <b>2026-08-26-day</b> 는 이미 승인된 <b>확정 일지</b> 입니다.</div>
+<div style="margin-top:9px;padding-top:9px;border-top:1px solid #d6e2f2"><b>여기가 근무자가 보는 한 화면입니다.</b> 왼쪽에서 근무를 고르면 오른쪽에 그 근무가 열립니다 — 지금 열려 있는 <b>2026-09-14-night</b> 는 아직 승인 전인 <b>초안 검토</b> 이고, 왼쪽의 <b>2026-09-14-day</b> 줄을 누르면 이미 승인된 <b>확정 일지</b> 입니다. 각 항목의 초록 칸(<b>과거 조치</b>)을 보세요 — 이건 우리가 넣어 둔 문구가 아니라, <b>앞 근무자가 승인하면서 직접 쓴 코멘트</b>가 저장됐다가 돌아온 것입니다. 이 순환이 ENGRA 의 핵심입니다.</div>
 </div>
-<div class="card" style="padding:14px 18px"><h2>근무 일지</h2><p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. 분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div><a class="logrow" href="draft.html"><span class="d">2026-08-26</span><span class="s">야간</span><span class="x">TI-205 · AI-707 · AI-707 외 5건</span><span class="c"><span class="pill amber">승인 대기</span></span><span class="arw">›</span></a><a class="logrow" href="handover.html"><span class="d">2026-08-26</span><span class="s">주간</span><span class="x">TI-205 · AI-707 · AI-707 외 5건</span><span class="c"><span class="pill on">채택 3건</span></span><span class="arw">›</span></a>
-</div><script>
+<input type="checkbox" id="pick" class="pickbox"><label for="pick" class="pickbtn">근무 고르기</label><div class="split"><nav class="side"><h2>근무 일지</h2><p class="note">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다.</p><a class="nrow on" href="index.html"><span class="date">2026-09-14</span><span class="kind">야간</span><span class="pill amber">초안</span></a><a class="nrow" href="handover.html"><span class="date">2026-09-14</span><span class="kind">주간</span><span class="pill on">확정 · 채택 3건</span></a></nav><section class="detail">
+
+<div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+     align-items:flex-start">
+<div><h2 style="margin-bottom:4px">2026-09-14 야간조
+인수인계 초안 </h2>
+<p class="note" style="margin:0">감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다. 적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. 진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.</p></div>
+<div class="muted" style="font-size:13px">감지
+<b style="color:var(--ink)">3</b>건<br>전체 표시 (걸러내지 않음)
+</div>
+</div>
+<form onsubmit="return false"><input type="hidden" name="shift_id" value="2026-09-14-night">
+
+<div class="item">
+<div class="row1"><input type="checkbox" name="item" value="4" checked onchange="tg(this)">
+<div class="ttl">TI-205(토출 온도) 상승 추세 — 다음 근무 중 H 한계 125.0℃ 도달 추세</div></div>
+<div class="meta">TI-205 · TI-205(토출 온도) 210분 동안 시간당 0.7461℃씩 올라 2.98℃ 상승함(정상범위 폭의 12%). 이 속도면 H 한계 125.0℃까지 약 6.2시간. 아직 한계 전이지만 다음 근무 시간 안에 한계에 닿는 추세임. 실측 변화는 2.28℃이고 외기로 설명되는 몫 -0.5775℃를 뺀 값이 2.98℃라, 외기 탓에 오른 게 아니고 밤 외기가 오히려 상승폭을 가려주고 있었음. 주간 근무(2026-09-14-day)에도 시간당 0.7517℃, 한계까지 약 6.2시간으로 같은 추세가 기록돼 있어 두 근무 연속 이어진 현상인지 확인 필요.</div>
+<div class="body">
+<div class="trend" data-trend='{&quot;t0&quot;:&quot;2026-09-14T18:00:00&quot;,&quot;span_m&quot;:720,&quot;L&quot;:64,&quot;pw&quot;:644,&quot;unit&quot;:&quot;&quot;,&quot;m&quot;:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239],&quot;y&quot;:[103.1,98.9,94.4,90.9,88.4,89.1,91.4,93.9,98.6,101.6,106.6,112.1,114.9,116.1,116.1,114.4,110.4,105.4,102.1,95.4,90.9,86.9,84.9,83.4,83.1,86.4,87.9,93.1,98.4,102.1,106.4,108.6,109.4,109.9,108.4,105.1,98.9,95.4,90.1,84.6,80.4,78.1,78.9,77.1,79.4,83.6,87.9,92.4,96.9,99.6,103.6,104.9,104.1,102.6,97.4,92.9,88.4,83.1,77.6,75.1,72.1,71.6,71.9,75.1,77.4,83.6,87.9,91.4,96.4,98.1,99.1,98.1,94.6,91.1,85.1,82.1,76.1,71.1,68.9,65.9,64.6,67.6,68.6,72.6,77.9,82.1,86.6,90.6,92.4,92.1,92.1,88.4,84.1,80.1,74.9,69.1,65.1,62.1,61.4,58.4,60.4,64.6,68.1,72.4,77.4,81.1,83.4,86.6,87.6,85.9,83.1,77.9,73.4,67.6,63.6,58.6,57.1,54.6,53.1,54.9,58.4,62.4,66.1,70.9,76.4,78.9,81.1,81.6,80.1,76.9,73.1,67.1,62.1,56.4,51.6,49.9,47.6,47.4,49.9,53.6,57.9,61.6,67.6,70.4,73.6,76.1,75.4,72.4,68.9,65.4,59.4,53.9,50.1,46.4,42.6,43.1,42.6,44.1,46.9,52.6,56.6,61.6,65.1,67.1,68.4,68.9,66.9,62.9,59.1,53.9,49.1,44.9,39.4,37.4,36.1,37.9,39.1,41.9,45.9,52.6,55.9,59.4,61.9,64.1,62.6,60.9,56.4,51.6,46.6,41.6,37.6,33.1,30.4,29.9,31.4,34.4,36.9,42.1,45.4,49.9,55.1,55.9,57.1,55.9,54.9,51.1,45.4,40.1,35.1,31.4,26.9,25.1,25.6,27.9,27.6,31.9,36.4,41.9,45.4,47.4,51.6,51.4,50.1,47.9,43.4,37.9,34.6,28.1,23.4,21.4,19.1,17.9,21.6,22.4,27.1,31.1,34.6,38.9,43.6,44.9],&quot;v&quot;:[&quot;118.1&quot;,&quot;118.3&quot;,&quot;118.5&quot;,&quot;118.6&quot;,&quot;118.7&quot;,&quot;118.7&quot;,&quot;118.6&quot;,&quot;118.5&quot;,&quot;118.3&quot;,&quot;118.2&quot;,&quot;118.0&quot;,&quot;117.7&quot;,&quot;117.6&quot;,&quot;117.6&quot;,&quot;117.6&quot;,&quot;117.7&quot;,&quot;117.8&quot;,&quot;118.0&quot;,&quot;118.1&quot;,&quot;118.4&quot;,&quot;118.6&quot;,&quot;118.8&quot;,&quot;118.8&quot;,&quot;118.9&quot;,&quot;118.9&quot;,&quot;118.8&quot;,&quot;118.7&quot;,&quot;118.5&quot;,&quot;118.3&quot;,&quot;118.1&quot;,&quot;118.0&quot;,&quot;117.9&quot;,&quot;117.8&quot;,&quot;117.8&quot;,&quot;117.9&quot;,&quot;118.0&quot;,&quot;118.3&quot;,&quot;118.4&quot;,&quot;118.6&quot;,&quot;118.8&quot;,&quot;119.0&quot;,&quot;119.1&quot;,&quot;119.1&quot;,&quot;119.1&quot;,&quot;119.0&quot;,&quot;118.9&quot;,&quot;118.7&quot;,&quot;118.5&quot;,&quot;118.3&quot;,&quot;118.2&quot;,&quot;118.1&quot;,&quot;118.0&quot;,&quot;118.1&quot;,&quot;118.1&quot;,&quot;118.3&quot;,&quot;118.5&quot;,&quot;118.7&quot;,&quot;118.9&quot;,&quot;119.1&quot;,&quot;119.2&quot;,&quot;119.3&quot;,&quot;119.4&quot;,&quot;119.3&quot;,&quot;119.2&quot;,&quot;119.1&quot;,&quot;118.9&quot;,&quot;118.7&quot;,&quot;118.6&quot;,&quot;118.4&quot;,&quot;118.3&quot;,&quot;118.3&quot;,&quot;118.3&quot;,&quot;118.4&quot;,&quot;118.6&quot;,&quot;118.8&quot;,&quot;118.9&quot;,&quot;119.2&quot;,&quot;119.4&quot;,&quot;119.5&quot;,&quot;119.6&quot;,&quot;119.6&quot;,&quot;119.5&quot;,&quot;119.5&quot;,&quot;119.3&quot;,&quot;119.1&quot;,&quot;118.9&quot;,&quot;118.8&quot;,&quot;118.6&quot;,&quot;118.5&quot;,&quot;118.5&quot;,&quot;118.5&quot;,&quot;118.7&quot;,&quot;118.9&quot;,&quot;119.0&quot;,&quot;119.2&quot;,&quot;119.5&quot;,&quot;119.6&quot;,&quot;119.7&quot;,&quot;119.8&quot;,&quot;119.9&quot;,&quot;119.8&quot;,&quot;119.6&quot;,&quot;119.5&quot;,&quot;119.3&quot;,&quot;119.1&quot;,&quot;119.0&quot;,&quot;118.9&quot;,&quot;118.8&quot;,&quot;118.7&quot;,&quot;118.8&quot;,&quot;118.9&quot;,&quot;119.1&quot;,&quot;119.3&quot;,&quot;119.5&quot;,&quot;119.7&quot;,&quot;119.9&quot;,&quot;119.9&quot;,&quot;120.0&quot;,&quot;120.1&quot;,&quot;120.0&quot;,&quot;119.9&quot;,&quot;119.7&quot;,&quot;119.6&quot;,&quot;119.4&quot;,&quot;119.2&quot;,&quot;119.1&quot;,&quot;119.0&quot;,&quot;119.0&quot;,&quot;119.0&quot;,&quot;119.2&quot;,&quot;119.3&quot;,&quot;119.5&quot;,&quot;119.7&quot;,&quot;120.0&quot;,&quot;120.2&quot;,&quot;120.2&quot;,&quot;120.3&quot;,&quot;120.3&quot;,&quot;120.2&quot;,&quot;120.1&quot;,&quot;119.9&quot;,&quot;119.8&quot;,&quot;119.5&quot;,&quot;119.4&quot;,&quot;119.3&quot;,&quot;119.2&quot;,&quot;119.2&quot;,&quot;119.3&quot;,&quot;119.5&quot;,&quot;119.6&quot;,&quot;119.8&quot;,&quot;120.1&quot;,&quot;120.2&quot;,&quot;120.4&quot;,&quot;120.5&quot;,&quot;120.5&quot;,&quot;120.5&quot;,&quot;120.5&quot;,&quot;120.3&quot;,&quot;120.1&quot;,&quot;120.0&quot;,&quot;119.8&quot;,&quot;119.6&quot;,&quot;119.5&quot;,&quot;119.5&quot;,&quot;119.5&quot;,&quot;119.5&quot;,&quot;119.7&quot;,&quot;119.9&quot;,&quot;120.1&quot;,&quot;120.3&quot;,&quot;120.4&quot;,&quot;120.7&quot;,&quot;120.7&quot;,&quot;120.8&quot;,&quot;120.7&quot;,&quot;120.7&quot;,&quot;120.5&quot;,&quot;120.4&quot;,&quot;120.1&quot;,&quot;120.0&quot;,&quot;119.8&quot;,&quot;119.8&quot;,&quot;119.7&quot;,&quot;119.7&quot;,&quot;119.8&quot;,&quot;120.0&quot;,&quot;120.2&quot;,&quot;120.4&quot;,&quot;120.6&quot;,&quot;120.7&quot;,&quot;120.9&quot;,&quot;121.0&quot;,&quot;121.0&quot;,&quot;121.0&quot;,&quot;120.8&quot;,&quot;120.8&quot;,&quot;120.5&quot;,&quot;120.4&quot;,&quot;120.2&quot;,&quot;120.0&quot;,&quot;120.0&quot;,&quot;119.9&quot;,&quot;120.0&quot;,&quot;120.0&quot;,&quot;120.2&quot;,&quot;120.4&quot;,&quot;120.6&quot;,&quot;120.8&quot;,&quot;121.0&quot;,&quot;121.2&quot;,&quot;121.2&quot;,&quot;121.2&quot;,&quot;121.1&quot;,&quot;121.1&quot;,&quot;121.0&quot;,&quot;120.8&quot;,&quot;120.5&quot;,&quot;120.4&quot;,&quot;120.3&quot;,&quot;120.2&quot;,&quot;120.2&quot;,&quot;120.2&quot;,&quot;120.3&quot;,&quot;120.5&quot;,&quot;120.7&quot;,&quot;120.8&quot;,&quot;121.1&quot;,&quot;121.3&quot;,&quot;121.4&quot;,&quot;121.5&quot;,&quot;121.5&quot;,&quot;121.4&quot;,&quot;121.3&quot;,&quot;121.1&quot;,&quot;121.0&quot;,&quot;120.8&quot;,&quot;120.7&quot;,&quot;120.5&quot;,&quot;120.4&quot;]}' style="position:relative;margin-bottom:10px"><svg viewBox="0 0 720 150" style="display:block;width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px"><line x1="64" y1="124.0" x2="708" y2="124.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="127.5" font-size="10" text-anchor="end" fill="var(--sub)">117.3</text><line x1="64" y1="86.0" x2="708" y2="86.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="89.5" font-size="10" text-anchor="end" fill="var(--sub)">118.8</text><line x1="64" y1="48.0" x2="708" y2="48.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="51.5" font-size="10" text-anchor="end" fill="var(--sub)">120.3</text><line x1="64" y1="10.0" x2="708" y2="10.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="13.5" font-size="10" text-anchor="end" fill="var(--sub)">121.8</text><rect x="90.8" y="10" width="187.8" height="114" fill="var(--accent)" opacity=".13"/><polyline points="64.0,103.1 64.9,98.9 65.8,94.4 66.7,90.9 67.6,88.4 68.5,89.1 69.4,91.4 70.3,93.9 71.2,98.6 72.0,101.6 72.9,106.6 73.8,112.1 74.7,114.9 75.6,116.1 76.5,116.1 77.4,114.4 78.3,110.4 79.2,105.4 80.1,102.1 81.0,95.4 81.9,90.9 82.8,86.9 83.7,84.9 84.6,83.4 85.5,83.1 86.4,86.4 87.3,87.9 88.2,93.1 89.0,98.4 89.9,102.1 90.8,106.4 91.7,108.6 92.6,109.4 93.5,109.9 94.4,108.4 95.3,105.1 96.2,98.9 97.1,95.4 98.0,90.1 98.9,84.6 99.8,80.4 100.7,78.1 101.6,78.9 102.5,77.1 103.4,79.4 104.2,83.6 105.1,87.9 106.0,92.4 106.9,96.9 107.8,99.6 108.7,103.6 109.6,104.9 110.5,104.1 111.4,102.6 112.3,97.4 113.2,92.9 114.1,88.4 115.0,83.1 115.9,77.6 116.8,75.1 117.7,72.1 118.6,71.6 119.5,71.9 120.3,75.1 121.2,77.4 122.1,83.6 123.0,87.9 123.9,91.4 124.8,96.4 125.7,98.1 126.6,99.1 127.5,98.1 128.4,94.6 129.3,91.1 130.2,85.1 131.1,82.1 132.0,76.1 132.9,71.1 133.8,68.9 134.7,65.9 135.6,64.6 136.4,67.6 137.3,68.6 138.2,72.6 139.1,77.9 140.0,82.1 140.9,86.6 141.8,90.6 142.7,92.4 143.6,92.1 144.5,92.1 145.4,88.4 146.3,84.1 147.2,80.1 148.1,74.9 149.0,69.1 149.9,65.1 150.8,62.1 151.7,61.4 152.6,58.4 153.4,60.4 154.3,64.6 155.2,68.1 156.1,72.4 157.0,77.4 157.9,81.1 158.8,83.4 159.7,86.6 160.6,87.6 161.5,85.9 162.4,83.1 163.3,77.9 164.2,73.4 165.1,67.6 166.0,63.6 166.9,58.6 167.8,57.1 168.7,54.6 169.5,53.1 170.4,54.9 171.3,58.4 172.2,62.4 173.1,66.1 174.0,70.9 174.9,76.4 175.8,78.9 176.7,81.1 177.6,81.6 178.5,80.1 179.4,76.9 180.3,73.1 181.2,67.1 182.1,62.1 183.0,56.4 183.9,51.6 184.8,49.9 185.6,47.6 186.5,47.4 187.4,49.9 188.3,53.6 189.2,57.9 190.1,61.6 191.0,67.6 191.9,70.4 192.8,73.6 193.7,76.1 194.6,75.4 195.5,72.4 196.4,68.9 197.3,65.4 198.2,59.4 199.1,53.9 200.0,50.1 200.8,46.4 201.7,42.6 202.6,43.1 203.5,42.6 204.4,44.1 205.3,46.9 206.2,52.6 207.1,56.6 208.0,61.6 208.9,65.1 209.8,67.1 210.7,68.4 211.6,68.9 212.5,66.9 213.4,62.9 214.3,59.1 215.2,53.9 216.1,49.1 216.9,44.9 217.8,39.4 218.7,37.4 219.6,36.1 220.5,37.9 221.4,39.1 222.3,41.9 223.2,45.9 224.1,52.6 225.0,55.9 225.9,59.4 226.8,61.9 227.7,64.1 228.6,62.6 229.5,60.9 230.4,56.4 231.3,51.6 232.2,46.6 233.1,41.6 233.9,37.6 234.8,33.1 235.7,30.4 236.6,29.9 237.5,31.4 238.4,34.4 239.3,36.9 240.2,42.1 241.1,45.4 242.0,49.9 242.9,55.1 243.8,55.9 244.7,57.1 245.6,55.9 246.5,54.9 247.4,51.1 248.3,45.4 249.1,40.1 250.0,35.1 250.9,31.4 251.8,26.9 252.7,25.1 253.6,25.6 254.5,27.9 255.4,27.6 256.3,31.9 257.2,36.4 258.1,41.9 259.0,45.4 259.9,47.4 260.8,51.6 261.7,51.4 262.6,50.1 263.5,47.9 264.4,43.4 265.2,37.9 266.1,34.6 267.0,28.1 267.9,23.4 268.8,21.4 269.7,19.1 270.6,17.9 271.5,21.6 272.4,22.4 273.3,27.1 274.2,31.1 275.1,34.6 276.0,38.9 276.9,43.6 277.8,44.9" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="277.8" cy="44.9" r="3" fill="var(--ink)"/><line x1="64.0" y1="124" x2="64.0" y2="128" stroke="var(--line)"/><text x="64.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">18:00</text><line x1="225.0" y1="124" x2="225.0" y2="128" stroke="var(--line)"/><text x="225.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">21:00</text><line x1="386.0" y1="124" x2="386.0" y2="128" stroke="var(--line)"/><text x="386.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">00:00</text><line x1="547.0" y1="124" x2="547.0" y2="128" stroke="var(--line)"/><text x="547.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">03:00</text><line x1="708.0" y1="124" x2="708.0" y2="128" stroke="var(--line)"/><text x="708.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">06:00</text><line x1="64" y1="10" x2="64" y2="124" stroke="var(--line)"/><line x1="64" y1="124" x2="708" y2="124" stroke="var(--line)"/><line class="cur" x1="0" y1="10" x2="0" y2="124" stroke="var(--accent)" stroke-width="1" style="display:none"/><circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg><div class="muted" style="font-size:13px;margin-top:3px">근무 구간 전체 · 음영 = 감지 구간 · 감지 구간 ±30분 최저 117.6 · 최고 121.4</div><div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div></div><div class="why"><b>감지 근거</b> — TI-205(토출 온도) 상승 추세 — 0.7461℃/시간, 구간 변화 2.98℃ (정상범위 폭의 12%, 평소 흔들림의 51.8배) · 이 속도면 H 한계까지 약 6.2시간 · 실측 변화는 2.28℃ 이나 외기로 설명되는 몫 -0.5775℃ 을 제외한 값</div>
+<div class="sug"><span class="lb">과거 조치 — 확정 일지 1건 <span class="muted">— 주간 근무 기록이 같은 태그·같은 상승 추세(시간당 0.7517℃, 한계까지 약 6.2시간)라 증상은 맞지만, 기록에 현장 조치 내용은 없어 따를 조치는 없음.</span></span><ul style="margin:4px 0 0 16px;font-size:12px"><li>2026-09-14-day 2026-09-14 — TI-205(토출 온도) 상승 추세 — 이 속도면 H 한계 125.0℃ 까지 약 6.2시간 TI-205(토출… <button type="button" onclick="use(this,&quot;TI-205(토출 온도) 상승 추세 — 이 속도면 H 한계 125.0℃ 까지 약 6.2시간 TI-205(토출 온도) 210분 동안 시간당 0.7517℃ 씩 올라 3.00℃ 상승함(정상범위 폭의 12%). 실측 변화는 2.31℃ 이지만 외기 영향분 -0.6717℃ 를 빼면 3.00℃ — 외기 때문에 오른 게 아니고, 외기가 오히려 상승폭을 가려주고 있었음. 아직 한계 전이지만 이 속도면 H 한계 125.0℃ 까지 약 6.2시간이라 다음 근무 중 한계 도달 예상됨. 추세 계속 지켜보고 원인 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인&quot;)">코멘트로 사용</button><details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">원문 보기 — 앞 근무자가 직접 쓴 문장</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">TI-205(토출 온도) 상승 추세 — 이 속도면 H 한계 125.0℃ 까지 약 6.2시간 TI-205(토출 온도) 210분 동안 시간당 0.7517℃ 씩 올라 3.00℃ 상승함(정상범위 폭의 12%). 실측 변화는 2.31℃ 이지만 외기 영향분 -0.6717℃ 를 빼면 3.00℃ — 외기 때문에 오른 게 아니고, 외기가 오히려 상승폭을 가려주고 있었음. 아직 한계 전이지만 이 속도면 H 한계 125.0℃ 까지 약 6.2시간이라 다음 근무 중 한계 도달 예상됨. 추세 계속 지켜보고 원인 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인</pre></details></li></ul></div>
+<div class="st"><span class="lb">상태</span><label><input type="radio" name="status_4" value="완료" onchange="this.closest('.item,.ci').classList.remove('need')">완료</label><label><input type="radio" name="status_4" value="진행중" onchange="this.closest('.item,.ci').classList.remove('need')">진행중</label></div><textarea name="comment_4" placeholder="코멘트 (선택)"></textarea>
+</div></div><div class="item">
+<div class="row1"><input type="checkbox" name="item" value="5" checked onchange="tg(this)">
+<div class="ttl">AI-707(LP O2 순도) 17.5분 사이 0.5331% 급하강 — 두 근무 연속</div></div>
+<div class="meta">AI-707 · AI-707(LP O2 순도) 17.5분 사이에 0.5331% 떨어짐(정상범위 폭의 59%). 한계 99.0%까지 남은 시간은 계산되지 않아 현재값이 한계에서 얼마나 떨어져 있는지 바로 확인 필요. 짧은 구간 변화라 분석기 순간 이상값인지 실제 순도 하강인지 아직 구분 안 됨. 주간 근무에도 18분 동안 0.5319% 하강이 같은 식으로 기록돼 두 근무 연속 나타남.</div>
+<div class="body">
+<div class="trend" data-trend='{&quot;t0&quot;:&quot;2026-09-14T18:00:00&quot;,&quot;span_m&quot;:720,&quot;L&quot;:64,&quot;pw&quot;:644,&quot;unit&quot;:&quot;&quot;,&quot;m&quot;:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239],&quot;y&quot;:[25.3,22.0,20.0,19.2,18.2,18.5,19.6,21.6,23.7,26.6,28.2,31.1,32.5,33.0,33.3,32.6,31.1,29.7,27.1,24.9,21.9,20.3,19.1,18.2,18.6,20.2,21.6,24.6,26.5,28.8,31.6,32.3,33.4,33.4,33.0,31.3,29.1,26.5,24.6,21.6,19.4,18.3,18.8,18.5,20.3,22.3,24.0,26.5,29.7,31.6,33.0,33.4,33.4,33.1,30.6,28.5,26.2,23.7,22.0,19.9,18.9,18.9,19.4,20.8,22.3,24.0,27.1,29.0,32.0,33.0,34.0,33.7,36.2,44.4,51.3,58.1,63.0,68.8,74.9,80.9,85.5,92.7,97.2,103.4,108.1,112.3,114.9,116.1,115.1,113.5,109.5,104.3,96.9,88.6,78.9,69.0,59.6,49.0,39.6,30.5,22.8,20.6,22.5,25.7,27.9,31.0,31.4,33.1,33.3,33.4,32.3,29.6,27.4,25.1,22.8,20.5,18.8,18.2,18.5,19.7,21.6,22.8,26.0,28.6,30.2,32.3,33.7,33.7,32.8,31.6,30.2,27.3,24.5,22.2,20.3,19.2,18.6,18.9,20.0,21.7,24.0,26.6,29.4,30.3,32.2,32.8,33.6,32.6,31.9,29.4,27.1,24.3,20.9,20.3,18.8,18.2,18.5,20.3,21.6,24.0,26.5,28.3,31.3,33.1,33.1,33.3,32.0,31.7,29.3,26.5,23.3,21.9,19.7,18.5,17.9,18.8,20.2,21.7,25.1,26.8,29.3,32.2,33.0,34.0,33.7,31.7,31.1,28.6,26.0,24.0,21.9,20.0,19.2,18.0,19.2,20.5,22.3,24.3,28.0,29.7,31.7,33.3,33.9,32.8,32.3,30.3,28.2,25.7,23.6,21.4,19.9,18.5,18.9,19.1,21.1,22.6,24.8,28.2,30.3,31.9,32.6,33.3,33.3,32.3,30.3,29.0,25.4,23.6,20.5,19.2,18.2,18.3,19.1,21.1,22.8,25.1,28.2,30.5,32.0,33.1],&quot;v&quot;:[&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.2&quot;,&quot;99.2&quot;,&quot;99.1&quot;,&quot;99.1&quot;,&quot;99.1&quot;,&quot;99.0&quot;,&quot;99.0&quot;,&quot;99.0&quot;,&quot;98.9&quot;,&quot;98.9&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.8&quot;,&quot;98.9&quot;,&quot;98.9&quot;,&quot;99.0&quot;,&quot;99.1&quot;,&quot;99.1&quot;,&quot;99.2&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.4&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;,&quot;99.3&quot;]}' style="position:relative;margin-bottom:10px"><svg viewBox="0 0 720 150" style="display:block;width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px"><line x1="64" y1="124.0" x2="708" y2="124.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="127.5" font-size="10" text-anchor="end" fill="var(--sub)">98.7</text><line x1="64" y1="86.0" x2="708" y2="86.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="89.5" font-size="10" text-anchor="end" fill="var(--sub)">99.0</text><line x1="64" y1="48.0" x2="708" y2="48.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="51.5" font-size="10" text-anchor="end" fill="var(--sub)">99.2</text><line x1="64" y1="10.0" x2="708" y2="10.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="13.5" font-size="10" text-anchor="end" fill="var(--sub)">99.5</text><rect x="128.8" y="10" width="15.7" height="114" fill="var(--accent)" opacity=".13"/><polyline points="64.0,25.3 64.9,22.0 65.8,20.0 66.7,19.2 67.6,18.2 68.5,18.5 69.4,19.6 70.3,21.6 71.2,23.7 72.0,26.6 72.9,28.2 73.8,31.1 74.7,32.5 75.6,33.0 76.5,33.3 77.4,32.6 78.3,31.1 79.2,29.7 80.1,27.1 81.0,24.9 81.9,21.9 82.8,20.3 83.7,19.1 84.6,18.2 85.5,18.6 86.4,20.2 87.3,21.6 88.2,24.6 89.0,26.5 89.9,28.8 90.8,31.6 91.7,32.3 92.6,33.4 93.5,33.4 94.4,33.0 95.3,31.3 96.2,29.1 97.1,26.5 98.0,24.6 98.9,21.6 99.8,19.4 100.7,18.3 101.6,18.8 102.5,18.5 103.4,20.3 104.2,22.3 105.1,24.0 106.0,26.5 106.9,29.7 107.8,31.6 108.7,33.0 109.6,33.4 110.5,33.4 111.4,33.1 112.3,30.6 113.2,28.5 114.1,26.2 115.0,23.7 115.9,22.0 116.8,19.9 117.7,18.9 118.6,18.9 119.5,19.4 120.3,20.8 121.2,22.3 122.1,24.0 123.0,27.1 123.9,29.0 124.8,32.0 125.7,33.0 126.6,34.0 127.5,33.7 128.4,36.2 129.3,44.4 130.2,51.3 131.1,58.1 132.0,63.0 132.9,68.8 133.8,74.9 134.7,80.9 135.6,85.5 136.4,92.7 137.3,97.2 138.2,103.4 139.1,108.1 140.0,112.3 140.9,114.9 141.8,116.1 142.7,115.1 143.6,113.5 144.5,109.5 145.4,104.3 146.3,96.9 147.2,88.6 148.1,78.9 149.0,69.0 149.9,59.6 150.8,49.0 151.7,39.6 152.6,30.5 153.4,22.8 154.3,20.6 155.2,22.5 156.1,25.7 157.0,27.9 157.9,31.0 158.8,31.4 159.7,33.1 160.6,33.3 161.5,33.4 162.4,32.3 163.3,29.6 164.2,27.4 165.1,25.1 166.0,22.8 166.9,20.5 167.8,18.8 168.7,18.2 169.5,18.5 170.4,19.7 171.3,21.6 172.2,22.8 173.1,26.0 174.0,28.6 174.9,30.2 175.8,32.3 176.7,33.7 177.6,33.7 178.5,32.8 179.4,31.6 180.3,30.2 181.2,27.3 182.1,24.5 183.0,22.2 183.9,20.3 184.8,19.2 185.6,18.6 186.5,18.9 187.4,20.0 188.3,21.7 189.2,24.0 190.1,26.6 191.0,29.4 191.9,30.3 192.8,32.2 193.7,32.8 194.6,33.6 195.5,32.6 196.4,31.9 197.3,29.4 198.2,27.1 199.1,24.3 200.0,20.9 200.8,20.3 201.7,18.8 202.6,18.2 203.5,18.5 204.4,20.3 205.3,21.6 206.2,24.0 207.1,26.5 208.0,28.3 208.9,31.3 209.8,33.1 210.7,33.1 211.6,33.3 212.5,32.0 213.4,31.7 214.3,29.3 215.2,26.5 216.1,23.3 216.9,21.9 217.8,19.7 218.7,18.5 219.6,17.9 220.5,18.8 221.4,20.2 222.3,21.7 223.2,25.1 224.1,26.8 225.0,29.3 225.9,32.2 226.8,33.0 227.7,34.0 228.6,33.7 229.5,31.7 230.4,31.1 231.3,28.6 232.2,26.0 233.1,24.0 233.9,21.9 234.8,20.0 235.7,19.2 236.6,18.0 237.5,19.2 238.4,20.5 239.3,22.3 240.2,24.3 241.1,28.0 242.0,29.7 242.9,31.7 243.8,33.3 244.7,33.9 245.6,32.8 246.5,32.3 247.4,30.3 248.3,28.2 249.1,25.7 250.0,23.6 250.9,21.4 251.8,19.9 252.7,18.5 253.6,18.9 254.5,19.1 255.4,21.1 256.3,22.6 257.2,24.8 258.1,28.2 259.0,30.3 259.9,31.9 260.8,32.6 261.7,33.3 262.6,33.3 263.5,32.3 264.4,30.3 265.2,29.0 266.1,25.4 267.0,23.6 267.9,20.5 268.8,19.2 269.7,18.2 270.6,18.3 271.5,19.1 272.4,21.1 273.3,22.8 274.2,25.1 275.1,28.2 276.0,30.5 276.9,32.0 277.8,33.1" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="277.8" cy="33.1" r="3" fill="var(--ink)"/><line x1="64.0" y1="124" x2="64.0" y2="128" stroke="var(--line)"/><text x="64.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">18:00</text><line x1="225.0" y1="124" x2="225.0" y2="128" stroke="var(--line)"/><text x="225.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">21:00</text><line x1="386.0" y1="124" x2="386.0" y2="128" stroke="var(--line)"/><text x="386.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">00:00</text><line x1="547.0" y1="124" x2="547.0" y2="128" stroke="var(--line)"/><text x="547.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">03:00</text><line x1="708.0" y1="124" x2="708.0" y2="128" stroke="var(--line)"/><text x="708.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">06:00</text><line x1="64" y1="10" x2="64" y2="124" stroke="var(--line)"/><line x1="64" y1="124" x2="708" y2="124" stroke="var(--line)"/><line class="cur" x1="0" y1="10" x2="0" y2="124" stroke="var(--accent)" stroke-width="1" style="display:none"/><circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg><div class="muted" style="font-size:13px;margin-top:3px">근무 구간 전체 · 음영 = 감지 구간 · 감지 구간 ±30분 최저 98.8 · 최고 99.4</div><div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div></div><div class="why"><b>감지 근거</b> — AI-707(LP O2 순도) 하강 추세 — 0.5375%/시간, 구간 변화 -0.5331% (정상범위 폭의 59%, 평소 흔들림의 17.7배)</div>
+<div class="sug"><span class="lb">과거 조치 — 확정 일지 1건 <span class="muted">— 주간 근무 기록이 같은 태그·거의 같은 폭(18분 동안 0.5319%)의 짧은 하강이라 증상은 맞지만, 원인 구분이 안 된 상태로 넘긴 기록이고 현장 조치 내용은 없음.</span></span><ul style="margin:4px 0 0 16px;font-size:12px"><li>2026-09-14-day 2026-09-14 — AI-707(LP O2 순도) 18분 동안 0.5319% 하강 AI-707(LP O2 순도) 18분 사이에 … <button type="button" onclick="use(this,&quot;AI-707(LP O2 순도) 18분 동안 0.5319% 하강 AI-707(LP O2 순도) 18분 사이에 0.5319% 떨어짐(정상범위 폭의 59%). 한계 99.0% 까지 남은 시간은 계산되지 않아 현재값이 한계에서 얼마나 떨어져 있는지 바로 확인 필요. 짧은 구간에서 급하게 바뀐 거라 분석기 순간 이상값인지 실제 순도 하강인지 아직 구분 안 됨. 교대 시점 값과 원래대로 돌아왔는지 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인&quot;)">코멘트로 사용</button><details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">원문 보기 — 앞 근무자가 직접 쓴 문장</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">AI-707(LP O2 순도) 18분 동안 0.5319% 하강 AI-707(LP O2 순도) 18분 사이에 0.5319% 떨어짐(정상범위 폭의 59%). 한계 99.0% 까지 남은 시간은 계산되지 않아 현재값이 한계에서 얼마나 떨어져 있는지 바로 확인 필요. 짧은 구간에서 급하게 바뀐 거라 분석기 순간 이상값인지 실제 순도 하강인지 아직 구분 안 됨. 교대 시점 값과 원래대로 돌아왔는지 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인</pre></details></li></ul></div>
+<div class="st"><span class="lb">상태</span><label><input type="radio" name="status_5" value="완료" onchange="this.closest('.item,.ci').classList.remove('need')">완료</label><label><input type="radio" name="status_5" value="진행중" onchange="this.closest('.item,.ci').classList.remove('need')">진행중</label></div><textarea name="comment_5" placeholder="코멘트 (선택)"></textarea>
+</div></div><div class="item">
+<div class="row1"><input type="checkbox" name="item" value="6" checked onchange="tg(this)">
+<div class="ttl">MI-302(A탑 후단 수분) 68.5분 동안 3.83ppm 상승 — 한계 3.0ppm 초과 가능성</div></div>
+<div class="meta">MI-302 · MI-302(A탑 후단 수분) 68.5분 동안 시간당 1.92ppm씩 올라 3.83ppm 상승함(정상범위 폭의 202%). 오른 폭만 해도 한계 3.0ppm보다 커서 이미 한계를 넘었을 가능성 있음. 현재값 바로 확인 필요. A탑 수분 파과 의심됨. 주간 근무에도 69분 동안 3.83ppm 상승이 기록돼 두 근무 연속 같은 폭으로 오름.</div>
+<div class="body">
+<div class="trend" data-trend='{&quot;t0&quot;:&quot;2026-09-14T18:00:00&quot;,&quot;span_m&quot;:720,&quot;L&quot;:64,&quot;pw&quot;:644,&quot;unit&quot;:&quot;&quot;,&quot;m&quot;:[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,176,177,178,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239],&quot;y&quot;:[114.6,114.2,114.0,113.7,113.6,113.7,113.8,114.0,114.5,114.7,115.3,115.6,115.8,116.0,116.0,115.9,115.7,115.3,114.9,114.5,114.2,113.8,113.7,113.6,113.7,113.8,114.1,114.5,114.9,115.3,115.7,115.9,116.0,115.9,115.8,115.6,115.3,114.8,114.5,114.0,113.8,113.6,113.6,113.6,113.8,114.2,114.6,115.0,115.3,115.7,116.0,116.0,116.0,115.7,115.6,115.3,114.7,114.4,114.0,113.7,113.5,113.5,113.7,114.0,114.3,114.6,115.0,115.4,115.7,116.0,116.1,116.0,115.8,115.5,115.2,114.7,114.4,114.1,113.7,113.7,113.5,113.7,113.9,114.3,114.7,115.0,115.4,115.7,116.0,116.1,115.9,115.9,115.5,115.2,114.6,114.2,114.0,113.7,113.7,113.6,113.7,114.0,114.3,114.7,115.1,115.4,115.8,115.9,116.0,115.9,115.6,115.4,115.0,114.6,114.2,113.9,113.7,113.6,113.6,113.7,114.0,114.4,114.7,115.2,115.6,115.9,116.0,116.1,115.9,115.8,115.4,115.0,114.6,114.2,113.8,113.7,113.5,113.6,113.9,114.1,114.4,114.9,115.3,115.5,115.9,116.0,116.0,115.8,115.4,115.0,114.4,114.0,113.4,112.8,112.5,112.2,111.8,111.9,111.8,111.9,112.0,112.0,111.9,111.8,111.5,111.0,110.3,109.7,108.8,107.9,106.9,105.9,105.2,104.1,103.5,102.9,102.5,102.1,101.8,101.4,101.2,100.4,100.0,99.2,98.4,97.3,96.2,94.8,93.4,92.2,90.8,89.5,88.4,87.2,86.2,85.4,84.6,83.8,83.1,82.3,81.4,80.5,79.2,77.8,76.5,74.8,73.2,71.3,69.6,67.9,66.1,64.5,63.0,61.7,60.5,59.4,58.1,57.0,55.7,54.5,52.9,51.3,49.6,47.8,45.7,43.6,41.4,39.3,37.1,35.1,33.0,31.2,29.4,27.8,26.2,24.6,23.1,21.4,19.7,17.9],&quot;v&quot;:[&quot;0.8097&quot;,&quot;0.8234&quot;,&quot;0.8340&quot;,&quot;0.8452&quot;,&quot;0.8490&quot;,&quot;0.8442&quot;,&quot;0.8406&quot;,&quot;0.8311&quot;,&quot;0.8117&quot;,&quot;0.8028&quot;,&quot;0.7813&quot;,&quot;0.7679&quot;,&quot;0.7592&quot;,&quot;0.7499&quot;,&quot;0.7511&quot;,&quot;0.7555&quot;,&quot;0.7638&quot;,&quot;0.7805&quot;,&quot;0.7941&quot;,&quot;0.8136&quot;,&quot;0.8256&quot;,&quot;0.8390&quot;,&quot;0.8445&quot;,&quot;0.8484&quot;,&quot;0.8455&quot;,&quot;0.8397&quot;,&quot;0.8299&quot;,&quot;0.8117&quot;,&quot;0.7962&quot;,&quot;0.7815&quot;,&quot;0.7639&quot;,&quot;0.7545&quot;,&quot;0.7523&quot;,&quot;0.7550&quot;,&quot;0.7591&quot;,&quot;0.7659&quot;,&quot;0.7799&quot;,&quot;0.7981&quot;,&quot;0.8121&quot;,&quot;0.8303&quot;,&quot;0.8400&quot;,&quot;0.8476&quot;,&quot;0.8466&quot;,&quot;0.8479&quot;,&quot;0.8394&quot;,&quot;0.8262&quot;,&quot;0.8098&quot;,&quot;0.7921&quot;,&quot;0.7811&quot;,&quot;0.7638&quot;,&quot;0.7531&quot;,&quot;0.7514&quot;,&quot;0.7500&quot;,&quot;0.7637&quot;,&quot;0.7680&quot;,&quot;0.7813&quot;,&quot;0.8038&quot;,&quot;0.8171&quot;,&quot;0.8309&quot;,&quot;0.8426&quot;,&quot;0.8507&quot;,&quot;0.8542&quot;,&quot;0.8441&quot;,&quot;0.8342&quot;,&quot;0.8212&quot;,&quot;0.8068&quot;,&quot;0.7923&quot;,&quot;0.7768&quot;,&quot;0.7634&quot;,&quot;0.7535&quot;,&quot;0.7487&quot;,&quot;0.7518&quot;,&quot;0.7579&quot;,&quot;0.7722&quot;,&quot;0.7829&quot;,&quot;0.8053&quot;,&quot;0.8173&quot;,&quot;0.8286&quot;,&quot;0.8445&quot;,&quot;0.8458&quot;,&quot;0.8515&quot;,&quot;0.8445&quot;,&quot;0.8369&quot;,&quot;0.8198&quot;,&quot;0.8041&quot;,&quot;0.7921&quot;,&quot;0.7744&quot;,&quot;0.7642&quot;,&quot;0.7532&quot;,&quot;0.7460&quot;,&quot;0.7568&quot;,&quot;0.7566&quot;,&quot;0.7708&quot;,&quot;0.7832&quot;,&quot;0.8062&quot;,&quot;0.8246&quot;,&quot;0.8312&quot;,&quot;0.8449&quot;,&quot;0.8450&quot;,&quot;0.8491&quot;,&quot;0.8426&quot;,&quot;0.8338&quot;,&quot;0.8192&quot;,&quot;0.8050&quot;,&quot;0.7887&quot;,&quot;0.7741&quot;,&quot;0.7597&quot;,&quot;0.7545&quot;,&quot;0.7500&quot;,&quot;0.7542&quot;,&quot;0.7664&quot;,&quot;0.7753&quot;,&quot;0.7920&quot;,&quot;0.8085&quot;,&quot;0.8255&quot;,&quot;0.8344&quot;,&quot;0.8455&quot;,&quot;0.8496&quot;,&quot;0.8484&quot;,&quot;0.8448&quot;,&quot;0.8317&quot;,&quot;0.8176&quot;,&quot;0.8036&quot;,&quot;0.7837&quot;,&quot;0.7677&quot;,&quot;0.7574&quot;,&quot;0.7525&quot;,&quot;0.7476&quot;,&quot;0.7547&quot;,&quot;0.7601&quot;,&quot;0.7750&quot;,&quot;0.7912&quot;,&quot;0.8092&quot;,&quot;0.8252&quot;,&quot;0.8386&quot;,&quot;0.8462&quot;,&quot;0.8510&quot;,&quot;0.8493&quot;,&quot;0.8380&quot;,&quot;0.8278&quot;,&quot;0.8147&quot;,&quot;0.7978&quot;,&quot;0.7809&quot;,&quot;0.7708&quot;,&quot;0.7566&quot;,&quot;0.7511&quot;,&quot;0.7513&quot;,&quot;0.7599&quot;,&quot;0.7760&quot;,&quot;0.7931&quot;,&quot;0.8152&quot;,&quot;0.8336&quot;,&quot;0.8582&quot;,&quot;0.8799&quot;,&quot;0.8937&quot;,&quot;0.9068&quot;,&quot;0.9193&quot;,&quot;0.9156&quot;,&quot;0.9194&quot;,&quot;0.9167&quot;,&quot;0.9119&quot;,&quot;0.9129&quot;,&quot;0.9167&quot;,&quot;0.9195&quot;,&quot;0.9337&quot;,&quot;0.9518&quot;,&quot;0.9801&quot;,&quot;1.0056&quot;,&quot;1.0440&quot;,&quot;1.0797&quot;,&quot;1.1191&quot;,&quot;1.1583&quot;,&quot;1.1884&quot;,&quot;1.2297&quot;,&quot;1.2547&quot;,&quot;1.2821&quot;,&quot;1.2977&quot;,&quot;1.3124&quot;,&quot;1.3262&quot;,&quot;1.3413&quot;,&quot;1.3500&quot;,&quot;1.3805&quot;,&quot;1.3991&quot;,&quot;1.4280&quot;,&quot;1.4601&quot;,&quot;1.5061&quot;,&quot;1.5516&quot;,&quot;1.6083&quot;,&quot;1.6617&quot;,&quot;1.7128&quot;,&quot;1.7697&quot;,&quot;1.8214&quot;,&quot;1.8668&quot;,&quot;1.9138&quot;,&quot;1.9554&quot;,&quot;1.9847&quot;,&quot;2.0165&quot;,&quot;2.0506&quot;,&quot;2.0794&quot;,&quot;2.1119&quot;,&quot;2.1472&quot;,&quot;2.1836&quot;,&quot;2.2350&quot;,&quot;2.2927&quot;,&quot;2.3442&quot;,&quot;2.4140&quot;,&quot;2.4792&quot;,&quot;2.5553&quot;,&quot;2.6256&quot;,&quot;2.6925&quot;,&quot;2.7658&quot;,&quot;2.8291&quot;,&quot;2.8888&quot;,&quot;2.9428&quot;,&quot;2.9897&quot;,&quot;3.0349&quot;,&quot;3.0861&quot;,&quot;3.1331&quot;,&quot;3.1859&quot;,&quot;3.2316&quot;,&quot;3.2967&quot;,&quot;3.3616&quot;,&quot;3.4320&quot;,&quot;3.5038&quot;,&quot;3.5870&quot;,&quot;3.6738&quot;,&quot;3.7632&quot;,&quot;3.8462&quot;,&quot;3.9361&quot;,&quot;4.0167&quot;,&quot;4.0991&quot;,&quot;4.1711&quot;,&quot;4.2448&quot;,&quot;4.3093&quot;,&quot;4.3745&quot;,&quot;4.4388&quot;,&quot;4.4993&quot;,&quot;4.5663&quot;,&quot;4.6366&quot;,&quot;4.7110&quot;]}' style="position:relative;margin-bottom:10px"><svg viewBox="0 0 720 150" style="display:block;width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:8px"><line x1="64" y1="124.0" x2="708" y2="124.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="127.5" font-size="10" text-anchor="end" fill="var(--sub)">0.4288</text><line x1="64" y1="86.0" x2="708" y2="86.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="89.5" font-size="10" text-anchor="end" fill="var(--sub)">1.9619</text><line x1="64" y1="48.0" x2="708" y2="48.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="51.5" font-size="10" text-anchor="end" fill="var(--sub)">3.4951</text><line x1="64" y1="10.0" x2="708" y2="10.0" stroke="var(--line)" stroke-dasharray="2 3"/><text x="58" y="13.5" font-size="10" text-anchor="end" fill="var(--sub)">5.0282</text><rect x="217.4" y="10" width="61.3" height="114" fill="var(--accent)" opacity=".13"/><polyline points="64.0,114.6 64.9,114.2 65.8,114.0 66.7,113.7 67.6,113.6 68.5,113.7 69.4,113.8 70.3,114.0 71.2,114.5 72.0,114.7 72.9,115.3 73.8,115.6 74.7,115.8 75.6,116.0 76.5,116.0 77.4,115.9 78.3,115.7 79.2,115.3 80.1,114.9 81.0,114.5 81.9,114.2 82.8,113.8 83.7,113.7 84.6,113.6 85.5,113.7 86.4,113.8 87.3,114.1 88.2,114.5 89.0,114.9 89.9,115.3 90.8,115.7 91.7,115.9 92.6,116.0 93.5,115.9 94.4,115.8 95.3,115.6 96.2,115.3 97.1,114.8 98.0,114.5 98.9,114.0 99.8,113.8 100.7,113.6 101.6,113.6 102.5,113.6 103.4,113.8 104.2,114.2 105.1,114.6 106.0,115.0 106.9,115.3 107.8,115.7 108.7,116.0 109.6,116.0 110.5,116.0 111.4,115.7 112.3,115.6 113.2,115.3 114.1,114.7 115.0,114.4 115.9,114.0 116.8,113.7 117.7,113.5 118.6,113.5 119.5,113.7 120.3,114.0 121.2,114.3 122.1,114.6 123.0,115.0 123.9,115.4 124.8,115.7 125.7,116.0 126.6,116.1 127.5,116.0 128.4,115.8 129.3,115.5 130.2,115.2 131.1,114.7 132.0,114.4 132.9,114.1 133.8,113.7 134.7,113.7 135.6,113.5 136.4,113.7 137.3,113.9 138.2,114.3 139.1,114.7 140.0,115.0 140.9,115.4 141.8,115.7 142.7,116.0 143.6,116.1 144.5,115.9 145.4,115.9 146.3,115.5 147.2,115.2 148.1,114.6 149.0,114.2 149.9,114.0 150.8,113.7 151.7,113.7 152.6,113.6 153.4,113.7 154.3,114.0 155.2,114.3 156.1,114.7 157.0,115.1 157.9,115.4 158.8,115.8 159.7,115.9 160.6,116.0 161.5,115.9 162.4,115.6 163.3,115.4 164.2,115.0 165.1,114.6 166.0,114.2 166.9,113.9 167.8,113.7 168.7,113.6 169.5,113.6 170.4,113.7 171.3,114.0 172.2,114.4 173.1,114.7 174.0,115.2 174.9,115.6 175.8,115.9 176.7,116.0 177.6,116.1 178.5,115.9 179.4,115.8 180.3,115.4 181.2,115.0 182.1,114.6 183.0,114.2 183.9,113.8 184.8,113.7 185.6,113.5 186.5,113.6 187.4,113.9 188.3,114.1 189.2,114.4 190.1,114.9 191.0,115.3 191.9,115.5 192.8,115.9 193.7,116.0 194.6,116.0 195.5,115.8 196.4,115.4 197.3,115.0 198.2,114.4 199.1,114.0 200.0,113.4 200.8,112.8 201.7,112.5 202.6,112.2 203.5,111.8 204.4,111.9 205.3,111.8 206.2,111.9 207.1,112.0 208.0,112.0 208.9,111.9 209.8,111.8 210.7,111.5 211.6,111.0 212.5,110.3 213.4,109.7 214.3,108.8 215.2,107.9 216.1,106.9 216.9,105.9 217.8,105.2 218.7,104.1 219.6,103.5 220.5,102.9 221.4,102.5 222.3,102.1 223.2,101.8 224.1,101.4 225.0,101.2 225.9,100.4 226.8,100.0 227.7,99.2 228.6,98.4 229.5,97.3 230.4,96.2 231.3,94.8 232.2,93.4 233.1,92.2 233.9,90.8 234.8,89.5 235.7,88.4 236.6,87.2 237.5,86.2 238.4,85.4 239.3,84.6 240.2,83.8 241.1,83.1 242.0,82.3 242.9,81.4 243.8,80.5 244.7,79.2 245.6,77.8 246.5,76.5 247.4,74.8 248.3,73.2 249.1,71.3 250.0,69.6 250.9,67.9 251.8,66.1 252.7,64.5 253.6,63.0 254.5,61.7 255.4,60.5 256.3,59.4 257.2,58.1 258.1,57.0 259.0,55.7 259.9,54.5 260.8,52.9 261.7,51.3 262.6,49.6 263.5,47.8 264.4,45.7 265.2,43.6 266.1,41.4 267.0,39.3 267.9,37.1 268.8,35.1 269.7,33.0 270.6,31.2 271.5,29.4 272.4,27.8 273.3,26.2 274.2,24.6 275.1,23.1 276.0,21.4 276.9,19.7 277.8,17.9" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="277.8" cy="17.9" r="3" fill="var(--ink)"/><line x1="64.0" y1="124" x2="64.0" y2="128" stroke="var(--line)"/><text x="64.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">18:00</text><line x1="225.0" y1="124" x2="225.0" y2="128" stroke="var(--line)"/><text x="225.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">21:00</text><line x1="386.0" y1="124" x2="386.0" y2="128" stroke="var(--line)"/><text x="386.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">00:00</text><line x1="547.0" y1="124" x2="547.0" y2="128" stroke="var(--line)"/><text x="547.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">03:00</text><line x1="708.0" y1="124" x2="708.0" y2="128" stroke="var(--line)"/><text x="708.0" y="142" font-size="10" text-anchor="middle" fill="var(--sub)">06:00</text><line x1="64" y1="10" x2="64" y2="124" stroke="var(--line)"/><line x1="64" y1="124" x2="708" y2="124" stroke="var(--line)"/><line class="cur" x1="0" y1="10" x2="0" y2="124" stroke="var(--accent)" stroke-width="1" style="display:none"/><circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg><div class="muted" style="font-size:13px;margin-top:3px">근무 구간 전체 · 음영 = 감지 구간 · 감지 구간 ±30분 최저 0.736 · 최고 4.74</div><div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div></div><div class="why"><b>감지 근거</b> — MI-302(A탑 후단 수분) 상승 추세 — 1.92ppm/시간, 구간 변화 3.83ppm (정상범위 폭의 202%, 평소 흔들림의 5.2배)</div>
+<div class="sug"><span class="lb">과거 조치 — 확정 일지 1건 <span class="muted">— 주간 근무 기록이 같은 태그·같은 상승폭(69분 동안 3.83ppm)과 A탑 수분 파과 의심이라 증상은 맞지만, 남아 있는 내용에 현장 조치는 없음.</span></span><ul style="margin:4px 0 0 16px;font-size:12px"><li>2026-09-14-day 2026-09-14 — MI-302(A탑 후단 수분) 69분 동안 3.83ppm 상승 — 한계 3.0ppm 넘었을 가능성 MI-30… <button type="button" onclick="use(this,&quot;MI-302(A탑 후단 수분) 69분 동안 3.83ppm 상승 — 한계 3.0ppm 넘었을 가능성 MI-302(A탑 후단 수분) 69분 동안 시간당 1.92ppm 씩 올라 3.83ppm 상승함(정상범위 폭의 202%). 오른 폭만 해도 한계 3.0ppm 보다 커서 이미 한계를 넘었을 가능성이 있음 — 현재값 바로 확인 필요. A탑 수분 파과 의심됨. 콜드박스로 수분이 넘어가는지, 같은 시간대에 AI-707 순도가 떨어진 것과 겹치는지 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인&quot;)">코멘트로 사용</button><details style="margin-top:3px"><summary class="muted" style="cursor:pointer;font-size:11.5px">원문 보기 — 앞 근무자가 직접 쓴 문장</summary><pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0 0">MI-302(A탑 후단 수분) 69분 동안 3.83ppm 상승 — 한계 3.0ppm 넘었을 가능성 MI-302(A탑 후단 수분) 69분 동안 시간당 1.92ppm 씩 올라 3.83ppm 상승함(정상범위 폭의 202%). 오른 폭만 해도 한계 3.0ppm 보다 커서 이미 한계를 넘었을 가능성이 있음 — 현재값 바로 확인 필요. A탑 수분 파과 의심됨. 콜드박스로 수분이 넘어가는지, 같은 시간대에 AI-707 순도가 떨어진 것과 겹치는지 확인 필요. 샘플링 재확인 결과 정상. 분석기 셀 청소 후 안정화 확인</pre></details></li></ul></div>
+<div class="st"><span class="lb">상태</span><label><input type="radio" name="status_6" value="완료" onchange="this.closest('.item,.ci').classList.remove('need')">완료</label><label><input type="radio" name="status_6" value="진행중" onchange="this.closest('.item,.ci').classList.remove('need')">진행중</label></div><textarea name="comment_6" placeholder="코멘트 (선택)"></textarea>
+</div></div>
+
+<div id="mans"></div>
+<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다. 여러 건을 넣을 수 있습니다.</span><button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div><div class="bar"><div class="cnt">채택 <b id="n">3</b> / <span>3</span>건<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> <span id="need" class="need"></span></div><span class="muted" style="font-size:12px">승인 버튼은 실제 프로토타입에서 동작합니다</span></div></form></section></div>
+</main><script>
 function tg(cb){cb.closest('.item').classList.toggle('off',!cb.checked);cnt()}
 function cnt(){
   var b=document.querySelectorAll('.item:not(.man) input[type=checkbox]');
@@ -128,10 +230,102 @@ function addMan(){
   d.innerHTML='<div class="row1"><input type="checkbox" checked disabled>'+
     '<input class="tin" name="manual_title" placeholder="제목 — 예: 3번 압축기 소음 증가" required>'+
     '<button type="button" class="del" onclick="this.closest(\'.item\').remove()">삭제</button></div>'+
-    '<div class="body" style="margin-top:6px"><textarea name="manual_body" '+
+    '<div class="body" style="margin-top:6px">'+
+    // 직접 추가도 상태가 있어야 한다. 라디오 이름은 항목마다 다르고, 서버에는 제목·내용과 같은 순서로 나란히 가는 숨은 칸으로 보낸다
+    '<div class="st"><span class="lb">상태</span>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="완료" onchange="mst(this)">완료</label>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="진행중" onchange="mst(this)">진행중</label>'+
+    '<input type="hidden" name="manual_status" value=""></div>'+
+    '<textarea name="manual_body" '+
     'placeholder="내용 — 언제부터, 무엇을, 다음 근무가 무엇을 봐야 하는지"></textarea></div>';
   document.getElementById('mans').appendChild(d);
   d.querySelector('.tin').focus();
 }
+function mst(r){ r.closest('.st').querySelector('[name=manual_status]').value=r.value; r.closest('.item').classList.remove('need'); }
+// 채택했는데 완료/진행중이 빈 항목이 하나라도 있으면 보내지 않고 그 항목을 짚는다.
+// 서버도 같은 검사를 한다(approve.decide) — 여기는 왕복을 줄이는 것뿐이다.
+function chk(f){
+  var bad=[];
+  f.querySelectorAll('.item:not(.man)').forEach(function(it){
+    var cb=it.querySelector('input[type=checkbox][name=item]'); if(!cb||!cb.checked){it.classList.remove('need');return;}
+    var on=it.querySelector('input[type=radio][name=status_'+cb.value+']:checked');
+    it.classList.toggle('need',!on); if(!on)bad.push(it);
+  });
+  f.querySelectorAll('.item.man').forEach(function(it){
+    var h=it.querySelector('[name=manual_status]'); var ok=h&&h.value;
+    it.classList.toggle('need',!ok); if(!ok)bad.push(it);
+  });
+  var m=document.getElementById('need');
+  if(bad.length){ if(m)m.textContent='완료/진행중이 빈 채택 항목 '+bad.length+'건'; bad[0].scrollIntoView({behavior:'smooth',block:'center'}); return false; }
+  if(m)m.textContent=''; return true;
+}
 document.addEventListener('DOMContentLoaded',cnt);
+</script><script>
+function upCheck(f){
+  var fs=f.querySelector('input[type=file]').files, m=f.querySelector('.upmsg');
+  if(!fs.length){m.textContent='파일을 고르세요'; return false;}
+  upSend(f, fs, m); return false;   // 폼 제출 대신 XHR — 진행률을 보이고, 끝날 때까지 화면 이동을 막는다
+}
+function upLock(on){
+  document.body.classList.toggle('uploading', on);
+  document.querySelectorAll('button, input[type=file]').forEach(function(b){
+    if(on){ if(!b.disabled){ b.disabled=true; b.dataset.uplock='1'; } }
+    else if(b.dataset.uplock){ b.disabled=false; delete b.dataset.uplock; }   // 원래 꺼져 있던 버튼(실행 중 생성 등)은 그대로
+  });
+  window.onbeforeunload = on ? function(){return '업로드 중입니다';} : null;
+  window.__uploading = on;   // 실행 중 5초 새로고침이 업로드를 끊지 않게
+}
+async function upSend(f, fs, m){
+  var max=+f.dataset.max, mb=function(n){return (n/1048576).toFixed(1)+'MB';};
+  upLock(true);
+  try{
+    var fd=new FormData(), tot=0, raw=0, gz=(typeof CompressionStream!=='undefined');
+    for(var i=0;i<fs.length;i++){
+      var file=fs[i]; raw+=file.size;
+      if(gz && file.size>1048576){
+        m.textContent='압축 중… '+file.name+' ('+mb(file.size)+')';
+        var blob=await new Response(file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+        fd.append('files', blob, file.name+'.gz'); tot+=blob.size;
+      }else{ fd.append('files', file, file.name); tot+=file.size; }
+    }
+    if(tot>max){ m.textContent='압축해도 '+mb(tot)+' — 한 번에 '+mb(max)+' 까지. 근무 하나씩 올리세요'; upLock(false); return; }
+    var xhr=new XMLHttpRequest(); xhr.open('POST','/pipeline/upload');
+    xhr.upload.onprogress=function(e){ if(e.lengthComputable) m.textContent='올리는 중 '+Math.round(100*e.loaded/e.total)+'% ('+mb(e.loaded)+'/'+mb(e.total)+(gz?' · 원본 '+mb(raw):'')+')'; };
+    xhr.upload.onload=function(){ m.textContent='서버에서 푸는 중… (원본 '+mb(raw)+')'; };
+    xhr.onload=function(){
+      if(xhr.status<400){ window.onbeforeunload=null; location.replace('/admin'); return; }
+      var d=new DOMParser().parseFromString(xhr.responseText,'text/html'), t=d.querySelector('.empty');
+      m.textContent='실패 '+xhr.status+' — '+(t?t.textContent:''); upLock(false);
+    };
+    xhr.onerror=function(){ m.textContent='연결이 끊겼습니다. 다시 올려 주세요'; upLock(false); };
+    xhr.send(fd);
+  }catch(e){ m.textContent='실패 — '+e; upLock(false); }
+}
+document.querySelectorAll('.trend[data-trend]').forEach(function(box){
+  // 근무 구간 전체 그래프의 호버. 1분 평균은 원본이 빈 곳에서 간격이 벌어지므로, 마우스 가로 위치에서 가장 가까운
+  // 실제 점을 찾아 그 점의 시각·값을 띄운다(없는 값을 만들지 않는다). 값은 서버가 화면 표기(쉼표·지수 없음)로 보낸다.
+  var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
+  var svg=box.querySelector('svg'), cur=svg.querySelector('.cur'), dot=svg.querySelector('.dot'), tip=box.querySelector('.tip');
+  var n=d.m.length, t0=Date.parse(d.t0);
+  if(n<2) return;
+  function hm(ms){ var x=new Date(ms); return ('0'+x.getHours()).slice(-2)+':'+('0'+x.getMinutes()).slice(-2); }
+  function near(mm){
+    var lo=0, hi=n-1;
+    while(hi-lo>1){ var mid=(lo+hi)>>1; if(d.m[mid]<mm) lo=mid; else hi=mid; }
+    return (Math.abs(d.m[hi]-mm)<Math.abs(mm-d.m[lo]))?hi:lo;
+  }
+  function move(ev){
+    var r=svg.getBoundingClientRect(), sc=r.width/720;
+    var x=((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)/sc;
+    if(x<d.L-4||x>d.L+d.pw+4){ out(); return; }
+    var i=near((x-d.L)/d.pw*d.span_m), px=d.L+d.m[i]/d.span_m*d.pw;
+    cur.setAttribute('x1',px); cur.setAttribute('x2',px); cur.style.display='';
+    dot.setAttribute('cx',px); dot.setAttribute('cy',d.y[i]); dot.style.display='';
+    tip.textContent=hm(t0+d.m[i]*60000)+'  '+d.v[i]+(d.unit?' '+d.unit:'');
+    tip.style.left=(px*sc)+'px'; tip.style.display='';
+  }
+  function out(){ cur.style.display='none'; dot.style.display='none'; tip.style.display='none'; }
+  svg.addEventListener('mousemove',move); svg.addEventListener('mouseleave',out);
+  svg.addEventListener('touchstart',move,{passive:true}); svg.addEventListener('touchmove',move,{passive:true}); svg.addEventListener('touchend',out);
+});
 </script></html>

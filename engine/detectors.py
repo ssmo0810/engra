@@ -95,17 +95,28 @@ def _paren(*parts):
 
 
 def _fmt(v, unit=""):
-    """수치를 사람이 읽는 자리수로. 아주 작은 값이 0으로 보이지 않게 한다."""
+    """수치를 사람이 읽는 자리수로. 아주 작은 값이 0으로 보이지 않게 한다.
+
+    1,000 이상 쉼표 정수 · 10 이상 소수 1자리 · 1 이상 2자리 · 1 미만 유효숫자 4자리 고정소수 · 0 은 0.
+    1 미만을 `.4g` 로 찍던 때는 0.0001 보다 작은 값이 3.2e-05 같은 지수 표기로 근거 문장·화면·정적 스냅숏·AI 입력에 실렸다
+    (경모님 지적 2026-09-14). 규칙은 **반올림한 뒤의 크기**로 고른다 — 원래 값으로 고르면 0.99996 이 「1」, 999.95 가
+    「1000.0」 이 되어 같은 줄의 1.00 · 1,000 과 모양이 갈렸다(반증 워커). app/numfmt.fmt 와 같은 규칙이다.
+    """
     if v is None:
         return "?"
+    if v == 0:
+        return f"0{unit}"
     a = abs(v)
-    if a >= 1000:
-        return f"{v:,.0f}{unit}"
-    if a >= 10:
-        return f"{v:.1f}{unit}"
-    if a >= 1:
+    if a < 1:
+        d = 3 - math.floor(math.log10(a))
+        if round(a, d) < 1:
+            return f"{v:.{d}f}".rstrip("0").rstrip(".") + unit
+        a = 1.0                                   # 반올림하면 1 이 된다 — 1 이상 규칙으로
+    if a < 10 and round(a, 2) < 10:
         return f"{v:.2f}{unit}"
-    return f"{v:.4g}{unit}"
+    if a < 1000 and round(a, 1) < 1000:
+        return f"{v:.1f}{unit}"
+    return f"{v:,.0f}{unit}"
 
 
 def _event(view, i, j, kind, severity, score, metrics, evidence):

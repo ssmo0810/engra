@@ -136,7 +136,7 @@ def cmd_draft(args):
         print("  감지된 항목이 없습니다.")
     for it in d["items"]:
         mark = {1: "채택", 0: "제외"}.get(it["adopted"], "미결정")
-        print(f"\n  #{it['id']} [{it['severity'] or '-'}] {it['title']}   ({mark})")
+        print(f"\n  #{it['id']} {it['title']}   ({mark})")
         print(f"      {it['body']}")
         if it["evidence"]:
             print(f"      근거: {it['evidence']}")
@@ -151,6 +151,9 @@ def cmd_draft(args):
 
 
 def cmd_approve(args):
+    # 승인도 스키마 갱신부터 한다. 배포(rsync) 뒤 서버를 다시 켜기 전에 명령줄로 승인하면, 새 칸(curve_json)이 없는 DB 에
+    # 곡선을 저장하려다 승인 전체가 되돌아갔다(반증 워커 재현). cmd_run 과 같은 까닭이다.
+    db.init()
     with db.connect() as conn:
         d = db.load_draft(conn, args.shift_id)
         if d is None:

@@ -223,7 +223,8 @@ def _stop_question(events):
         "origin": "question",
         "tag": None,
         "severity": "상",
-        "title": "플랜트를 정지하셨습니까? — {} 경 {}개 태그가 동시에 이탈".format(when, burst),
+        # 시각은 엔진이 되짚은 드리프트 시작 추정이다(실제 Trip 군집과 몇 시간 어긋날 수 있다) — 제목에 그렇게 드러낸다
+        "title": "플랜트를 정지하셨습니까? — 태그 {}개가 함께 정상 범위를 벗어났습니다(검출 추정 시작 {})".format(burst, when),
         "body": body,
         "evidence": "10분 창 동시 이탈 {}/{} 태그 ({:.0f}%) · 문턱 {:.0f}%".format(
             burst, n_tags, pct, STOP_TAG_RATIO * 100),
