@@ -227,6 +227,17 @@ tr.em td{color:var(--ink)} tr.em td b{color:var(--sk)}
 .figs.sm .fig .d{font-size:.98cqw; margin-top:.3cqw}
 .final .figs.sm .fig .d{color:#8C94A0}
 .final .fko{margin-top:2.4cqw}
+/* 출처 링크 · 부록 */
+.src a,.refs a{color:inherit; text-decoration:underline; text-decoration-color:var(--faint); text-underline-offset:.22em}
+.src a:hover,.refs a:hover{text-decoration-color:var(--sk)}
+.src a:focus-visible,.refs a:focus-visible{outline:.16cqw solid var(--sk); outline-offset:.15cqw}
+.refs td{font-size:1.02cqw; padding:.66cqw 1.4cqw .66cqw 0; line-height:1.5}
+.refs td.n{font-family:"IBM Plex Mono",monospace; font-size:.9cqw; color:var(--muted); white-space:nowrap}
+.refs td.who{white-space:nowrap; color:var(--ink); font-weight:500}
+.refs td.who a{color:var(--ink)}
+.refs .grp{font-family:"IBM Plex Mono",monospace; font-size:.85cqw; letter-spacing:.12em; color:var(--sk); padding-top:1.1cqw; text-transform:uppercase}
+.mkt .sd .d .mono{font-size:.92cqw; color:var(--muted)}
+.three .ev{margin-top:.2cqw}
 .nav{position:fixed; right:14px; bottom:14px; background:var(--paper); border:1px solid var(--hair);
   padding:6px 11px; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
   box-shadow:0 1px 4px rgba(10,13,18,.1)}
@@ -318,35 +329,36 @@ tr.em td{color:var(--ink)} tr.em td b{color:var(--sk)}
 
 <!-- 10 -->
 <section class="slide mid">
-  <div class="eyebrow">4 · 투자성 — 제조업 시장 · TAM / SAM / SOM</div>
-  <h2 class="at">24시간 돌아가는 곳이면, <b>어디든.</b></h2>
-  <div class="body">
+  <div class="eyebrow">4 · 투자성 — 시장 · TAM / SAM / SOM <span class="tag on">v3 · 2026-09-15</span></div>
+  <h2 class="at">24시간 돌아가는 곳이면, <b>어디든.</b> 세계에 <b>1.2만 곳</b>입니다.</h2>
+  <div class="body" style="margin-top:2.2cqw; gap:1.5cqw">
     <div class="mkt">
-      <svg viewBox="0 0 440 440" role="img" aria-label="시장 규모 동심원">
+      <svg viewBox="0 0 440 440" role="img" aria-label="시장 규모 동심원 — TAM 글로벌 12,000 · SAM 아시아·태평양 2,300 · SOM 국내 400">
         <circle cx="220" cy="220" r="216" fill="none" stroke="#0A0D12" stroke-opacity="0.14" stroke-width="1.4"/>
-        <circle cx="220" cy="220" r="139" fill="none" stroke="#0A0D12" stroke-opacity="0.26" stroke-width="1.4"/>
-        <circle cx="220" cy="220" r="74" fill="#EA002C"/>
-        <text x="220" y="42" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">TAM</text>
-        <text x="220" y="82" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="40" font-weight="600" fill="#0A0D12" letter-spacing="-1.6">400개</text>
-        <text x="220" y="103" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12.5" fill="#4A515C">국내 연속공정 교대운전 사업장</text>
-        <text x="220" y="124" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">SAM</text>
-        <text x="220" y="162" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="37" font-weight="600" fill="#0A0D12" letter-spacing="-1.5">30개</text>
-        <text x="220" y="182" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12.5" fill="#4A515C">SK그룹 장치산업</text>
-        <text x="220" y="207" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="2.6" fill="#FFFFFF" fill-opacity="0.7">SOM · 1차 적용 대상</text>
-        <text x="220" y="245" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="36" font-weight="700" fill="#FFFFFF" letter-spacing="-1.4">4거점</text>
-        <text x="220" y="264" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="11.5" fill="#FFFFFF" fill-opacity="0.8">데모 서버 가동 중 · 현장 적용 전</text>
+        <circle cx="220" cy="220" r="146" fill="none" stroke="#0A0D12" stroke-opacity="0.26" stroke-width="1.4"/>
+        <circle cx="220" cy="220" r="78" fill="#EA002C"/>
+        <text x="220" y="40" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">TAM · 글로벌</text>
+        <text x="220" y="80" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="40" font-weight="600" fill="#0A0D12" letter-spacing="-1.6">12,000</text>
+        <text x="220" y="100" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12" fill="#4A515C">24시간 교대 · 고위험 연속공정 사업장</text>
+        <text x="220" y="122" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" letter-spacing="3" fill="#99A0AB">SAM · 아시아·태평양</text>
+        <text x="220" y="160" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="36" font-weight="600" fill="#0A0D12" letter-spacing="-1.5">2,300</text>
+        <text x="220" y="180" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="12" fill="#4A515C">한국 · 일본 · 인도 · 대만 · 아세안 · 호주</text>
+        <text x="220" y="205" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" letter-spacing="2.6" fill="#FFFFFF" fill-opacity="0.7">SOM · 국내</text>
+        <text x="220" y="244" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="38" font-weight="700" fill="#FFFFFF" letter-spacing="-1.5">400</text>
+        <text x="220" y="264" text-anchor="middle" font-family="IBM Plex Sans KR, sans-serif" font-size="11.5" fill="#FFFFFF" fill-opacity="0.85">PSM 2,000 × 20% · SK그룹 30부터</text>
       </svg>
       <div class="side">
-        <div class="sd"><span class="l">TAM</span><span class="t">PSM 대상 2,000개 중<br>24시간 교대 · 연속공정만 400개</span>
-          <span class="d">석유화학 175 · 발전 70 · 산업가스 45 · 시멘트·제지 45 · 철강 20 · 반도체 15 · 정유 7</span></div>
-        <div class="sd"><span class="l">SAM</span><span class="t">SK그룹 장치산업 30개</span>
-          <span class="d">에너지 · 지오센트릭 · 인천석유화학 · 멀티유틸리티 · 에어플러스 · 에어코어 · 하이닉스 유틸리티</span></div>
-        <div class="sd now"><span class="l">SOM · 1차 적용 대상</span><span class="t">에어플러스 + 에어코어 4거점</span>
-          <span class="d"><b>데모 서버 가동 중 · 현장 적용 전</b> · 거점당 <b>연 1.49억</b> <span class="tag">가정</span> — 전력비·재기동비 기준, 파일럿 전−후로 교체<br>공통점은 하나 — <b>DCS 기반 · 3~4조 교대 · 24시간 연속.</b></span></div>
+        <div class="sd"><span class="l">TAM · 글로벌</span><span class="t">12,000 사업장 — 매년 <b>3.7조</b>를 잃는 시장</span>
+          <span class="d">규제 등록 고위험 사업장 3.9만(EU Seveso 1.2만 · 미국 RMP 1.04만 · 중국 1.26만 · 인도 1,861 · 한국 PSM 2,000)에 국내와 같은 20% 필터 → 약 1만. 한국 정제·조강 세계 비중 3.3%로 400을 나누면 1.2만 — 교차. 구독 잠재 ARR <b>3,660억</b>($2.6B) <span class="mono">보수 8,000 / 앵커 25,000</span></span></div>
+        <div class="sd"><span class="l">SAM · 아시아·태평양</span><span class="t">2,300 사업장 — 연 7,000억 · ARR 잠재 700억</span>
+          <span class="d">한국 400 · 일본 ~1,000 · 인도 370 · 대만·아세안·호주 ~500 <span class="tag">가정</span> — 같은 태그 템플릿이 3일에 붙는 권역. 교대인계 SW 시장에서 <b>가장 빨리 크는 권역(CAGR 16.2%)</b>. 중국 2,500은 앵커에만</span></div>
+        <div class="sd now"><span class="l">SOM · 국내</span><span class="t">400 사업장 — 연 1,220억 · ARR 122억</span>
+          <span class="d">석유화학 175 · 발전 70 · 산업가스 45 · 시멘트·제지 45 · 철강 20 · 반도체 15 · 정유 7<br><b>1차 진입 — SK그룹 30 → 에어플러스+에어코어 4거점.</b> 데모 서버 가동 중 · 현장 적용 전 · 5년차 100거점 <b>ARR 30억</b></span></div>
       </div>
     </div>
-    <div class="kick" style="font-size:1.05cqw; max-width:100%; text-align:left">효율 저하 폭 1.5%·분기 1회·2년 1회 정지를 가정한 값이라 <b>「가정」으로 표시</b>했습니다.<br>PSM 수도권 614개 공개 수치에서 외삽 · 부문별 사업장 수는 자체 추정 · 4거점 연 5.95억 = 이천 전력비 363억(공시 역산) 기준</div>
+    <div class="kick" style="font-size:1.02cqw; max-width:100%">모든 숫자는 <b>보수 / 기준 / 앵커</b> 세 케이스로 냈고, 발표는 기준입니다. Siemens가 잰 세계 500대 기업 다운타임 손실 $1.4조의 <b>0.2%</b>가 우리 기준 TAM — 크게 부른 숫자가 아니라 필터를 세 번 건 숫자입니다.</div>
   </div>
+  <span class="src">출처 → 08 · <a href="https://www.lium-tech.com/en/2025/04/17/the-challenges-of-seveso-site-safety-in-europe/blog/">EU Seveso</a> · <a href="https://docs.house.gov/meetings/IF/IF00/20230207/115306/HHRG-118-IF00-20230207-SD008.pdf">EPA RMP</a> · <a href="https://www.sciencedirect.com/science/article/pii/S0925753520301387">중국 MEM</a> · <a href="https://www.insightsonindia.com/2026/02/07/chemical-gas-leak-in-india/">인도 NDMA</a> · <a href="https://www.reportlinker.com/dataset/ae0fc6da9582f1780442eea6ab7ff551a77c9959">한국 정제 비중</a></span>
   <span class="pg">05</span>
 </section>
 
@@ -355,18 +367,23 @@ tr.em td{color:var(--ink)} tr.em td b{color:var(--sk)}
   <div class="eyebrow">4 · 투자성 — 왜 지금</div>
   <div class="three">
     <div>
-      <h3>시장이<br><b>커지고</b></h3>
-      <p>24시간 돌아가는 설비가 계속 늘어납니다. 반도체·이차전지 증설이 그대로 <b>교대 운전 현장의 증가</b>입니다.</p>
+      <h3>잃는 돈이<br><b>커지고</b></h3>
+      <p>Siemens 2024 — 세계 500대 기업 무계획 정지 손실 <b>연 $1.4조, 매출의 11%</b>(2019년 8%). 5년 새 <b>+62%</b>. 사고 건수는 줄었는데 손실은 늘었습니다.</p>
+      <span class="ev">ABB · 산업기업 2/3가 월 1회 이상 정지 · 시간당 $125k</span>
     </div>
     <div>
-      <h3>문제가<br><b>심해지고</b></h3>
-      <p>베테랑 운전원이 은퇴하고 있습니다. <b>"이 값이 이렇게 움직이면 위험하다"는 감은 기록에 없고, 그 사람과 함께 퇴사합니다.</b> 남은 사람은 같은 화면에서 위험을 읽지 못합니다.</p>
+      <h3>사람이<br><b>빠져나가고</b></h3>
+      <p>미국 제조업 2033년까지 <b>190만 명 미충원</b>(Deloitte·MI). 석유·가스 숙련 인력 <b>50%가 10년 내 은퇴</b>. "이 값이 이렇게 움직이면 위험하다"는 감은 기록에 없고, 그 사람과 함께 퇴사합니다.</p>
+      <span class="ev">교대인계 SW 시장 성장 동인 — 은퇴 운전원의 지식 보존</span>
     </div>
     <div>
-      <h3>붙일 곳이<br><b>늘어납니다</b></h3>
-      <p>신규 플랜트는 <b>베이스라인도 경험칙도 없습니다.</b> 가장 필요한 시점이 지금 열립니다. <b>제조업도 변해야만 미래를 도모할 수 있습니다.</b></p>
+      <h3>거인들이<br><b>들어왔습니다</b></h3>
+      <p>Honeywell이 2026년 3월 제어실 AI를 상용화했습니다(Chevron·TotalEnergies 파일럿). 예측은 <b>알람 12분 전</b>. Gartner는 2027년 전력·유틸리티 <b>40%</b>가 제어실 AI를 쓴다고 봅니다.</p>
+      <span class="ev">ENGRA 실측 최대 616분 — 같은 시장, 인계라는 다른 층</span>
     </div>
   </div>
+  <div class="kick" style="margin-top:3cqw; font-size:1.3cqw; max-width:100%">교대인계 SW 시장 $1.2B → $3.6~3.8B(2033) · CAGR 13.4~13.7% · <b>아시아·태평양 16.2%</b> 최고 성장. 카테고리는 열렸고, 층이 다릅니다.</div>
+  <span class="src">출처 → 08 · <a href="https://www.acronis.com/en/blog/posts/how-unplanned-ot-downtime-is-silently-draining-industrial-profits/">Siemens</a> · <a href="https://new.abb.com/news/detail/107660/abb-survey-reveals-unplanned-downtime-costs-125-000-per-hour">ABB</a> · <a href="https://themanufacturinginstitute.org/manufacturers-need-as-many-as-3-8-million-new-employees-by-2033/">Deloitte·MI</a> · <a href="https://www.honeywell.com/us/en/news/press-releases/2026/03/honeywell-unveils-commercial-launch-of-ai-powered-control-room-assistant-following-successful-pilot">Honeywell</a> · <a href="https://www.gartner.com/en/newsroom/press-releases/2025-01-15-gartner-predicts-ai-adoption-in-40-percent-of-power-and-utilities-control-rooms-by-2027">Gartner</a> · <a href="https://dataintelo.com/report/shift-handover-software-market">Dataintelo</a></span>
   <span class="pg">06</span>
 </section>
 
@@ -376,6 +393,32 @@ tr.em td{color:var(--ink)} tr.em td b{color:var(--sk)}
 <section class="slide break">
   <p style="font-size:9cqw; letter-spacing:-.04em">Q&amp;A<b>.</b></p>
   <span class="pg">07</span>
+</section>
+
+<!-- 15 · 부록 — 판단 근거 -->
+<section class="slide refs">
+  <div class="eyebrow">부록 · 판단 근거 — 출처와 한 줄</div>
+  <h2 class="at" style="font-size:2.4cqw">숫자마다 어디서 왔는지.</h2>
+  <div class="body" style="margin-top:1.6cqw; gap:0">
+    <table>
+      <tr><td class="grp" colspan="3">시장이 커지고 있다</td></tr>
+      <tr><td class="n">01</td><td class="who"><a href="https://www.acronis.com/en/blog/posts/how-unplanned-ot-downtime-is-silently-draining-industrial-profits/">Siemens · True Cost of Downtime 2024</a></td><td>세계 500대 기업 무계획 정지 손실 연 $1.4조 · 매출의 11%(2019년 8%) · 5년 새 +62% · 재가동 81분(49분)</td></tr>
+      <tr><td class="n">02</td><td class="who"><a href="https://new.abb.com/news/detail/107660/abb-survey-reveals-unplanned-downtime-costs-125-000-per-hour">ABB · Value of Reliability</a></td><td>12개 산업 3,215명 — 2/3가 월 1회 이상 무계획 정지 · 시간당 $125,000 (<a href="https://new.abb.com/news/detail/129763/industrial-downtime-costs-up-to-500000-per-hour-and-can-happen-every-week">2025년 후속</a>: 최대 $500,000)</td></tr>
+      <tr><td class="n">03</td><td class="who"><a href="https://themanufacturinginstitute.org/manufacturers-need-as-many-as-3-8-million-new-employees-by-2033/">Deloitte · Manufacturing Institute 2024</a></td><td>미국 제조업 2033년까지 380만 명 필요, 그중 190만 명 미충원 — 숙련 운전원 공백이 인계 위험이 된다</td></tr>
+      <tr><td class="n">04</td><td class="who"><a href="https://www.honeywell.com/us/en/news/press-releases/2026/03/honeywell-unveils-commercial-launch-of-ai-powered-control-room-assistant-following-successful-pilot">Honeywell 2026-03 · Experion Operations Assistant</a></td><td>Chevron·TotalEnergies 파일럿 후 상용 출시 · 알람 5~12분 전 예측 — 제어실 AI 카테고리가 열렸다</td></tr>
+      <tr><td class="n">05</td><td class="who"><a href="https://www.gartner.com/en/newsroom/press-releases/2025-01-15-gartner-predicts-ai-adoption-in-40-percent-of-power-and-utilities-control-rooms-by-2027">Gartner 2025-01</a></td><td>2027년까지 전력·유틸리티 40%가 제어실에 AI 운전 보조를 배치</td></tr>
+      <tr><td class="n">06</td><td class="who"><a href="https://dataintelo.com/report/shift-handover-software-market">Dataintelo · Shift Handover Software Market</a></td><td>$1.12B(2024) → $3.62B(2033) · CAGR 13.4% · 아시아·태평양 16.2% 최고 성장 · 성장 동인에 「은퇴 운전원 지식 보존」</td></tr>
+      <tr><td class="grp" colspan="3">TAM 12,000 — 규제 등록 사업장 × 20% 필터, 한국 비중으로 교차</td></tr>
+      <tr><td class="n">07</td><td class="who"><a href="https://www.lium-tech.com/en/2025/04/17/the-challenges-of-seveso-site-safety-in-europe/blog/">EU Seveso III</a></td><td>유럽 고위험 화학 사업장(상위+하위) 12,000개 이상 등록 (2024)</td></tr>
+      <tr><td class="n">08</td><td class="who"><a href="https://docs.house.gov/meetings/IF/IF00/20230207/115306/HHRG-118-IF00-20230207-SD008.pdf">미국 EPA RMP</a></td><td>위험관리계획(Risk Management Plan) 대상 시설 10,420개 — 한국 PSM에 해당</td></tr>
+      <tr><td class="n">09</td><td class="who"><a href="https://www.sciencedirect.com/science/article/pii/S0925753520301387">중국 MEM 위험화학품 생산기업</a></td><td>12,640개 (2020, 응급관리부) · <a href="https://www.insightsonindia.com/2026/02/07/chemical-gas-leak-in-india/">인도 NDMA MAH 사업장</a> 1,861개</td></tr>
+      <tr><td class="n">10</td><td class="who"><a href="https://www.reportlinker.com/dataset/ae0fc6da9582f1780442eea6ab7ff551a77c9959">한국 정제 비중 3.32%</a> · <a href="https://worldsteel.org/media/press-releases/2025/december-2024-crude-steel-production-and-2024-global-totals/">worldsteel 2024</a></td><td>정제 3.3% · 조강 3.4%(세계 6위) — 국내 400 ÷ 3.3% ≈ 12,000으로 톱다운 결과를 교차</td></tr>
+      <tr><td class="n">11</td><td class="who"><a href="https://www.statista.com/statistics/1445314/number-of-oil-refineries-worldwide/">Statista</a> · <a href="https://www.woodmac.com/news/opinion/which-global-steam-crackers-are-at-most-risk-of-closure/">Wood Mackenzie</a> · <a href="https://globalenergymonitor.org/research/pedal-metal-2026">GEM</a> · <a href="https://www.semi.org/en/products-services/market-data/world-fab-forecast">SEMI</a> · <a href="https://www.fs-elliott.com/industries/air-separation-units">FS-Elliott</a></td><td>정제소 825 · 크래커 330 · 제철소 1,293 · 팹 1,600 · ASU 7,500 — 산업별 보텀업 합계 ~25,000은 중복 포함 상한(앵커)</td></tr>
+      <tr><td class="n">12</td><td class="who"><a href="https://www.verdantis.com/cost-of-downtime/">Verdantis 2026</a></td><td>시간당 정지 손실 정유·가스 $250k · 화학 $190k — 국내 거점당 값(정유 60억/일)보다 커서 3.7조는 하한</td></tr>
+    </table>
+  </div>
+  <span class="src">국내 400 · 1,220억 · ARR은 결선_구독수익모델 v2 · 글로벌 산출은 결선_TAM-SAM-SOM v3 (2026-09-15)</span>
+  <span class="pg">08</span>
 </section>
 
 </div>
