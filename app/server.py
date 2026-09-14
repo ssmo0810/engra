@@ -688,6 +688,8 @@ def _pipeline_card(locked):
             + reload_js)
 
 
+LIVE_MAX_SPEED = 300     # 이 기계에서 12시간 창 틱 한 번이 1초 남짓 — 그보다 높이면 재생이 밀린다(지휘자 실측: 600배속 최대 지연 27초)
+LIVE_LATE_SEC = 5        # 이만큼 밀리면 상태 줄에 드러낸다
 _LIVE_PHASE = {"idle": "대기", "preparing": "준비 중", "running": "재생 중", "ended": "재생 끝", "stopped": "정지됨", "failed": "실패"}
 
 
@@ -701,6 +703,9 @@ def _live_line(st):
             parts.append("근무 시계 " + st["clock"][11:16])
         parts.append(f"관찰 중 {c.get('observing', 0)} · 서술 중 {c.get('writing', 0)} · 선택 가능 {c.get('ready', 0)}"
                      + (f" · AI 서술 실패 {c['ai_failed']}" if c.get("ai_failed") else ""))
+    late = (st.get("tick") or {}).get("late_sec") or 0
+    if late >= LIVE_LATE_SEC:      # 틱 한 번이 1초 남짓이라 배속을 높이면 밀린다 — 밀리는 중임을 드러낸다
+        parts.append(f"따라잡는 중(늦음 {late:.0f}초)")
     parts += [str(st[k]) for k in ("window_note", "phase_note", "error") if st.get(k)]
     return " · ".join(parts)
 
@@ -717,8 +722,9 @@ def _live_card(locked):
     일괄 실행·리셋·업로드 적재가 기존 거부 문구로 막힌다."""
     st = live.status()
     up = Path(jobs.UPLOAD_DIR)
-    names = sorted(x.name for x in up.glob("*.csv")) if up.is_dir() else []
     sid_of = {str(x.get("source") or "")[4:]: x["shift_id"] for x in jobs.sources() if str(x.get("source") or "").startswith("csv:")}
+    # 근무 시각순으로 세운다 — 여러 개를 고르면 그 순서가 곧 이어 재생할 순서다(이어짐은 live 가 다시 검사한다)
+    names = sorted((x.name for x in up.glob("*.csv")), key=lambda n: (sid_of.get(n, "~"), n)) if up.is_dir() else []
     running = st["phase"] in ("preparing", "running")
 
     def opts(blank=None):
@@ -735,9 +741,13 @@ def _live_card(locked):
             '<p class="note" style="margin:0 0 10px">앞 근무 CSV 를 고르면 먼저 적재해 최근 12시간 창으로 검출한다. 쌓이는 구간은 근무 일지에 LIVE 로 보인다.</p>'
             '<form method="post" action="/live/start" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
             f'<select name="prev" {sel}>{opts("앞 근무 CSV 없음")}</select>'
-            f'<select name="csv" {sel}>{opts()}</select>'
+            f'<select name="csv" {sel} multiple size="4" title="여러 근무를 고르면 시각순으로 이어서 재생한다">{opts()}</select>'
+            f'<input type="number" name="speed" value="100" min="1" max="{LIVE_MAX_SPEED}" step="10" class="pill" '
+            'style="font-size:13px;padding:6px 10px;width:92px" title="배속">'
             '<label style="font-size:12.5px;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" name="replace" value="1">확정 안 된 초안 교체</label>'
             + button("재생 시작", running or not names) + '</form>'
+            '<p class="note muted" style="margin:0 0 8px;font-size:12px">여러 근무를 고르면 정지할 때까지 시각순으로 이어서 재생한다. '
+            f'배속은 100~200 을 권한다 — 틱 한 번이 1초 남짓이라 그보다 높이면 밀린다(상한 {LIVE_MAX_SPEED}).</p>'
             '<form method="post" action="/live/stop" style="margin:0 0 8px">' + button("정지", not running, ' style="background:var(--sub)"') + '</form>'
             f'<div id="livestate" class="mono" style="font-size:12px;color:var(--sub)">{esc(_live_line(st))}</div>'
             + _LIVE_POLL_JS + '</div>')
@@ -761,6 +771,8 @@ def _one_page(sel):
     only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed", "live")]
     live_rows = [r for r in rows if r["draft_status"] == "live"]   # 이름이 live 면 실시간 모듈(import live)을 가린다
     rest = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다"
+    running_sid = (live.status() or {}).get("shift_id")
+    live_rows.sort(key=lambda r: (r["id"] != running_sid, r["id"]))     # 지금 쌓는 구간이 맨 위
     listed = live_rows + rest
     if sel is None and listed:
         sel = listed[0]["id"]      # 쌓이는 중이면 그것, 아니면 가장 최근 근무 (빈 화면을 만들지 않는다)
@@ -1222,8 +1234,9 @@ def live_cards(shift_id, have=()):
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
     st = live.status()
+    same = st.get("shift_id") == shift_id            # 지금 쌓는 근무인가 — 아니면 개수·시계는 이 줄의 것이 아니다
     out = {"draft": (draft or {}).get("status"), "lock": live.approve_lock(shift_id),
-           "counts": st.get("counts") or {}, "clock": st.get("clock") if st.get("shift_id") == shift_id else None,
+           "counts": (st.get("counts") or {}) if same else {}, "clock": st.get("clock") if same else None,
            "cards": []}
     if draft is None or draft.get("status") != "live":
         return out
@@ -1263,8 +1276,8 @@ function tick(){
   var lk=document.getElementById('approvelock'), btn=document.getElementById('approve');
   if(lk) lk.textContent=j.lock||'';
   if(btn) btn.disabled=!!j.lock;
-  var cntEl=document.querySelector('.nrow.live .livecnt');
-  if(cntEl&&j.counts) cntEl.textContent=(j.clock?j.clock.slice(11,16)+' · ':'')+'관찰 중 '+(j.counts.observing||0)+' · 초안 '+(j.counts.ready||0);
+  var cntEl=document.querySelector('.nrow.live[data-shift="'+sid+'"] .livecnt');
+  if(cntEl&&j.counts&&Object.keys(j.counts).length) cntEl.textContent=(j.clock?j.clock.slice(11,16)+' · ':'')+'관찰 중 '+(j.counts.observing||0)+' · 초안 '+(j.counts.ready||0);
   if(window.cnt) window.cnt();      /* 채택 수를 다시 센다 */
   if(j.draft==='live') setTimeout(tick,2000);
  }).catch(function(){setTimeout(tick,5000);});
@@ -1304,7 +1317,9 @@ def _view_pending(shift_id, draft):
         if _item_on(it):
             on_n += 1
         wf, wm = waves.get(it.get("event_id")) or (None, {})
-        (low if pe else items).append(_item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=keys.get(it["id"])))
+        # 표식은 재생이 떠난 뒤에도 있어야 한다 — 없으면 폴링이 같은 카드를 못 알아보고 한 장 더 넣는다(실제 재생에서 봤다)
+        (low if pe else items).append(
+            _item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=keys.get(it["id"]) or f"i{it['id']}"))
     gray = [_live_gray_card(v) for v in sorted((v for v in lives if v["state"] in _LIVE_STATE),
                                                key=lambda v: v.get("first_seen") or "")]
 
@@ -1340,6 +1355,10 @@ def _view_pending(shift_id, draft):
     # 잠그는 것은 승인 버튼뿐이다(경모님 결정 §0). 폼을 우회한 제출은 approve.decide 가 막는다.
     # 잠금 문구는 live.approve_lock 이 정한다(쌓이는 중 · AI 서술 실패 남음 · 앞 근무가 아직 승인 대기 등).
     lock = live.approve_lock(shift_id)
+    # 쌓이는 중에는 「감지 N건」이 초안 표에 든 수라 화면의 회색 카드와 어긋난다(지휘자 실측: 회색 2장인데 「감지 0건」).
+    # 지금 보이는 것을 그대로 센다. 「전체 표시」는 마감 뒤 초안에서만 뜻이 있다.
+    summary = (f'관찰 중 <b style="color:var(--ink)">{len(gray)}</b> · 초안 <b style="color:var(--ink)">{n}</b>' if live_mode
+               else f'감지\n<b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)')
     head = ('<form method="post" action="/approve" onsubmit="return chk(this)">'
             f'<input type="hidden" name="shift_id" value="{esc(shift_id)}">')
     tail = ('<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;'
@@ -1365,10 +1384,8 @@ def _view_pending(shift_id, draft):
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
 인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2>
 <p class="note" style="margin:0">{lead}</p></div>
-<div class="muted" style="font-size:13px">감지
-<b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)
+<div class="muted" style="font-size:13px">{summary}
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}
-{f'<br><span style="font-size:11.5px">관찰 중 {len(gray)}건은 회색</span>' if gray else ""}
 </div>
 </div>
 {head}
@@ -1674,7 +1691,15 @@ class Handler(BaseHTTPRequestHandler):
             if path in ("/live/start", "/live/stop"):
                 try:
                     if path == "/live/start":
-                        live.start([(form.get("csv", [""])[0] or "").strip()],
+                        csvs = [x.strip() for x in form.get("csv", []) if x.strip()]      # 고른 순서 = 이어 재생 순서
+                        raw = (form.get("speed", ["100"])[0] or "100").strip()
+                        try:
+                            speed = float(raw)
+                        except ValueError:
+                            raise ValueError(f"배속은 숫자여야 합니다. 받은 것: {raw!r}") from None
+                        if speed > LIVE_MAX_SPEED:
+                            raise ValueError(f"배속은 {LIVE_MAX_SPEED} 이하로 주세요 — 틱 한 번이 1초 남짓이라 그보다 높이면 재생이 밀립니다.")
+                        live.start(csvs, speed=speed,
                                    prev_csv_name=(form.get("prev", [""])[0] or "").strip() or None,
                                    replace_unconfirmed=form.get("replace", ["0"])[0] == "1")
                     else:

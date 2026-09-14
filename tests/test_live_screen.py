@@ -282,5 +282,123 @@ class DcsLiveValues(unittest.TestCase):
         self.assertIn("txt('tv'", src, "그 안에 값 글자(text.tv)가 있어야 한다")
 
 
+class ChainAndSpeed(unittest.TestCase):
+    """이어서 재생 — 여러 근무를 시각순으로 골라 한 번에 틀고, 배속은 폼에서 받는다(경모님: start 하면 stop 할 때까지 연속)."""
+
+    def setUp(self):
+        H._fresh_db()
+        os.environ.pop("ENGRA_ADMIN_KEY", None)
+
+    def test_form_takes_several_shifts_and_a_speed(self):
+        _, names = H._uploads(H._csv(minutes=10), H._csv(minutes=10, start=H.WS + __import__("datetime").timedelta(hours=12)))
+        import server
+        body = server.view_admin()
+        self.assertRegex(body, r'<select name="csv"[^>]*multiple', "여러 근무를 고를 수 있어야 한다")
+        self.assertRegex(body, r'<input[^>]*name="speed"[^>]*value="100"', "배속 칸 기본 100")
+        self.assertRegex(body, r'<input[^>]*name="speed"[^>]*max="300"', "상한 300")
+        for n in names:
+            self.assertIn(f'value="{n}"', body)
+
+    def test_start_passes_the_chain_in_order_and_the_speed(self):
+        _, names = H._uploads(H._csv(minutes=10), H._csv(minutes=10, start=H.WS + __import__("datetime").timedelta(hours=12)))
+        import live
+        got = {}
+        live.start = lambda csvs, speed=100, prev_csv_name=None, replace_unconfirmed=False: (
+            got.update(csvs=list(csvs), speed=speed, prev=prev_csv_name), live.status())[1]
+        code, _ = _post("/live/start", [("csv", names[0]), ("csv", names[1]), ("speed", "200")])
+        self.assertEqual(code, 303)
+        self.assertEqual(got["csvs"], [names[0], names[1]], "고른 순서대로 넘긴다")
+        self.assertEqual(got["speed"], 200.0)
+
+    def test_speed_over_the_cap_is_refused_with_the_reason(self):
+        _, (name,) = H._uploads(H._csv(minutes=10))
+        code, body = _post("/live/start", [("csv", name), ("speed", "600")])
+        self.assertEqual(code, 400)
+        self.assertIn("300", body, "왜 막았는지 상한을 적는다")
+
+    def test_status_line_says_it_is_catching_up_when_ticks_fall_behind(self):
+        import server
+        st = dict(server.live.status(), phase="running", shift_id="2026-08-25-day", clock="2026-08-25T09:00:00",
+                  counts={"observing": 1, "writing": 0, "ready": 2}, tick={"t": "x", "n": 5, "of": 144, "events": 1,
+                                                                          "items": 1, "sec": 1.2, "late_sec": 22.0})
+        self.assertIn("따라잡는 중", server._live_line(st))
+        self.assertNotIn("따라잡는 중", server._live_line(dict(st, tick=dict(st["tick"], late_sec=0.4))))
+
+
+class LiveSummaryLine(unittest.TestCase):
+    """쌓이는 중 화면의 오른쪽 요약 — 「감지 0건」은 회색 카드가 보이는데 앞뒤가 안 맞는다(지휘자 실측)."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            db.open_live_draft(conn, H.SID, "live")
+
+    def test_live_summary_counts_cards_not_draft_rows(self):
+        import live
+        import server
+        view = {"key": "p2", "state": "observing", "origin": "detected", "confirm": None, "ongoing": None,
+                "not_in_close": False, "recurrence_of": None, "tag": "PI-201", "kind": "헌팅", "title": "PI-201 헌팅",
+                "severity": "중", "evidence": "지금 크기", "score": 1.0, "score_max": 1.0, "start": H.iso(H.T(0)),
+                "end": H.iso(H.T(10)), "members": [], "related_tags": [], "recurrences": [], "stop": None,
+                "first_seen": H.iso(H.T(5)), "confirmed": None, "ai_sec": None, "draft_item_id": None, "error": None}
+        live.items = lambda shift_id=None: [view, dict(view, key="p3", tag="TI-301", title="TI-301 드리프트")]
+        live.approve_lock = lambda shift_id: "06:00 마감 후 승인"
+        body = server.view_shift(H.SID)
+        self.assertRegex(body, r"관찰 중 <b[^>]*>2</b>", "지금 보이는 회색 카드 수를 그대로 센다")
+        self.assertNotRegex(body, r"감지\s*<b[^>]*>0</b>건", "초안 표의 0 을 「감지 0건」으로 내보이지 않는다")
+        self.assertNotIn("전체 표시 (걸러내지 않음)", body, "쌓이는 중에는 뜻이 없는 줄")
+
+    def test_closed_draft_still_shows_the_detection_count(self):
+        import db
+        import live
+        with db.connect() as conn:
+            conn.execute("UPDATE draft SET status = 'pending' WHERE shift_id = ?", (H.SID,))
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: None
+        import server
+        body = server.view_shift(H.SID)
+        self.assertIn("전체 표시 (걸러내지 않음)", body, "마감 뒤 초안에는 그대로 둔다")
+
+
+class StaleLiveDraftScreen(unittest.TestCase):
+    """재생이 이 근무를 떠난 뒤(체인이 다음 근무로 갔거나 멈춘 재생) 남은 'live' 초안 — 폴링이 같은 카드를 또 넣으면 안 된다."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            did = db.open_live_draft(conn, H.SID, "live")
+            self.item_id = db.add_live_item(
+                conn, did,
+                {"origin": "detected", "tag": "TI-101", "title": "TI-101 드리프트", "body": "문장",
+                 "evidence": "근거", "severity": "중", "live": {"key": "p1"}},
+                [H.ev("TI-101", "드리프트", 0, 30, 1)], "engine")
+
+    def test_cards_keep_their_key_even_when_the_replay_left_the_shift(self):
+        import live
+        import server
+        live.items = lambda shift_id=None: []          # 이 재생은 다른 근무를 쌓고 있다(또는 멈췄다)
+        live.approve_lock = lambda shift_id: "재생이 중단된 구간 — 다시 재생하거나 일괄 실행한 뒤 승인"
+        body = server.view_shift(H.SID)
+        self.assertRegex(body, r'data-state="ready"[^>]*data-key="i%d"' % self.item_id,
+                         "화면 카드에도 표식이 있어야 폴링이 같은 카드를 또 넣지 않는다")
+        code, raw = _get(f"/api/live/cards?shift={H.SID}&have=i{self.item_id}")
+        self.assertEqual(code, 200)
+        self.assertEqual([c["key"] for c in json.loads(raw)["cards"]], [], "이미 그린 카드는 다시 내려보내지 않는다")
+
+    def test_counts_belong_to_the_shift_that_is_being_replayed(self):
+        import live
+        import server
+        live.status = lambda: dict(server.live._IDLE, phase="running", shift_id="2026-08-26-day",
+                                   clock="2026-08-26T07:00:00", counts={"observing": 9, "writing": 0, "ready": 3})
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: None
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual((j["counts"], j["clock"]), ({}, None), "다른 근무의 개수를 이 줄에 넣지 않는다")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
