@@ -379,7 +379,11 @@ def page(title, body):
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>{STYLE}</style>
 <header class="top"><span class="brand">ENGRA</span><span class="ttl">{html.escape(title)}</span>
-<span class="sys">엔진 {ports.engine_source()} · {llm.status()}</span></header>
+<span class="sys">엔진 {ports.engine_source()} · {llm.status()} · <span id="wallclock" class="mono"></span></span></header>
+<script>(function(){{var e=document.getElementById('wallclock');
+function z(n){{return (n<10?'0':'')+n}}
+function t(){{var d=new Date();e.textContent=d.getFullYear()+'.'+z(d.getMonth()+1)+'.'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds())}}
+t();setInterval(t,1000);}})();</script>
 <main class="wrap">
 {body}
 </main><script>{SCRIPT}</script><script>{TREND_JS}</script></html>"""
@@ -473,7 +477,32 @@ def view_dcs():
     """DCS 개요 — 원본 파일 그대로 + 전체 화면 CSS + 재생 중 숫자 갱신."""
     if not ASU_FILE.exists():
         return view_asu()
-    return ASU_FILE.read_text(encoding="utf-8") + _DCS_FULL_CSS + _DCS_LIVE_JS
+    return ASU_FILE.read_text(encoding="utf-8") + _DCS_FULL_CSS + _DCS_LIVE_JS + _DCS_CLOCK
+
+
+# DCS 화면은 원본 파일 그대로라 머리말이 없다 — 현재 시각과 재생 시각을 오른쪽 위에 얹는다.
+# 「서버에서 실제로 돌고 있다」가 이 화면에서도 보여야 한다(경모님 2026-09-15).
+_DCS_CLOCK = """<div id="clockbox" style="position:fixed;top:10px;right:14px;z-index:99;text-align:right;
+ font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#5f6672;background:rgba(255,255,255,.88);
+ border:1px solid #e4e1dc;border-radius:8px;padding:5px 9px">
+<div id="wallclock"></div><div class="rclock" style="color:#0b62c4"></div></div>
+<script>(function(){
+function z(n){return (n<10?'0':'')+n}
+function stamp(ms){var d=new Date(ms);
+ return d.getFullYear()+'.'+z(d.getMonth()+1)+'.'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds())}
+var w=document.getElementById('wallclock'), r=document.querySelector('#clockbox .rclock');
+var rc={ms:null,speed:1,run:false,at:0};
+setInterval(function(){
+ w.textContent=stamp(Date.now());
+ r.textContent=(rc.ms===null)?'':('재생 '+stamp(rc.ms+(rc.run?(Date.now()-rc.at)*rc.speed:0))+(rc.run?'':' (멈춤)'));
+},250);
+function pull(){fetch('/api/live').then(function(x){return x.json()}).then(function(j){
+ var s=j.status||{};
+ if(s.clock){rc.ms=Date.parse(s.clock);rc.speed=s.speed||1;rc.run=(s.phase==='running');rc.at=Date.now()}
+ else {rc.ms=null}
+ setTimeout(pull,2000);
+}).catch(function(){setTimeout(pull,5000)})}
+pull();})();</script>"""
 
 
 def _score_html():
@@ -750,6 +779,14 @@ LIVE_LATE_SEC = 5        # 이만큼 밀리면 상태 줄에 드러낸다
 _LIVE_PHASE = {"idle": "대기", "preparing": "준비 중", "running": "재생 중", "ended": "재생 끝", "stopped": "정지됨", "failed": "실패"}
 
 
+def _clock_text(iso):
+    """재생 중인 근무 시각 — 경모님이 정한 형식 2026.09.21 19:43:34. 초가 없으면 00 으로 채운다."""
+    t = str(iso or "")
+    if len(t) < 16:
+        return ""
+    return f"{t[0:4]}.{t[5:7]}.{t[8:10]} {t[11:16]}:{t[17:19] or '00'}"
+
+
 def _live_line(st):
     """재생 상태 한 줄 — 관리 화면과 /api/live 가 같은 글자를 쓴다."""
     parts = [_LIVE_PHASE.get(st["phase"], st["phase"])]
@@ -757,7 +794,7 @@ def _live_line(st):
         c = st.get("counts") or {}
         parts.append(st["shift_id"])
         if st.get("clock"):
-            parts.append("근무 시계 " + st["clock"][11:16])
+            parts.append("근무 시계 " + _clock_text(st["clock"]))
         parts.append(f"관찰 중 {c.get('observing', 0)} · 서술 중 {c.get('writing', 0)} · 선택 가능 {c.get('ready', 0)}"
                      + (f" · AI 서술 실패 {c['ai_failed']}" if c.get("ai_failed") else ""))
     late = (st.get("tick") or {}).get("late_sec") or 0
@@ -802,10 +839,15 @@ def _live_card(locked):
     names = sorted((x.name for x in up.glob("*.csv")), key=lambda n: (sid_of.get(n, "~"), n)) if up.is_dir() else []
     running = st["phase"] in ("preparing", "running")
 
-    def opts(blank=None):
+    # 아무것도 고르지 않고 「재생 시작」만 눌러도 되게 미리 골라 둔다 — 가장 이른 근무가 앞 근무(기준선),
+    # 나머지 전부가 시각순 이어 재생이다(경모님이 직접 누르신다).
+    first = names[0] if names else None
+    rest = names[1:]
+
+    def opts(blank=None, pick=()):
         head = f'<option value="">{esc(blank)}</option>' if blank else ""
-        return head + "".join(f'<option value="{esc(n)}">{esc(n)}' + (f" · {esc(sid_of[n])}" if n in sid_of else "") + "</option>"
-                              for n in names)
+        return head + "".join(f'<option value="{esc(n)}"{" selected" if n in pick else ""}>{esc(n)}'
+                              + (f" · {esc(sid_of[n])}" if n in sid_of else "") + "</option>" for n in names)
 
     def button(label, off, extra=""):
         why = ' title="열쇠 필요"' if locked else ""
@@ -815,12 +857,17 @@ def _live_card(locked):
     return ('<div class="card"><h2>실시간 재생 <span class="muted" style="font-weight:400;font-size:12px">올린 근무 CSV 를 근무 시계로 흘려 초안을 쌓는다 · 100배속</span></h2>'
             '<p class="note" style="margin:0 0 10px">앞 근무 CSV 를 고르면 먼저 적재해 최근 12시간 창으로 검출한다. 쌓이는 구간은 근무 일지에 LIVE 로 보인다.</p>'
             '<form method="post" action="/live/start" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
-            f'<select name="prev" {sel}>{opts("앞 근무 CSV 없음")}</select>'
-            f'<select name="csv" {sel} multiple size="4" title="여러 근무를 고르면 시각순으로 이어서 재생한다">{opts()}</select>'
+            f'<select name="prev" {sel}>{opts("앞 근무 CSV 없음", pick=([first] if first else []))}</select>'
+            f'<select name="csv" {sel} multiple size="8" title="여러 근무를 고르면 시각순으로 이어서 재생한다">{opts(pick=rest)}</select>'
             f'<input type="number" name="speed" value="100" min="1" max="{LIVE_MAX_SPEED}" step="10" class="pill" '
             'style="font-size:13px;padding:6px 10px;width:92px" title="배속">'
             '<label style="font-size:12.5px;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" name="replace" value="1">확정 안 된 초안 교체</label>'
-            + button("재생 시작", running or not names) + '</form>'
+            + button("재생 시작", running or not names)
+            + '<input type="hidden" name="sure" value="0">'
+            + button("처음부터 다시 돌리기", not names,
+                     ' formaction="/live/restart" style="background:var(--sub)"'
+                     " onclick=\"if(!window.confirm('데모를 기준선 8근무로 되돌리고 고른 근무를 처음부터 다시 재생합니다.')){return false;} this.form.sure.value='1'\"")
+            + '</form>'
             '<p class="note muted" style="margin:0 0 8px;font-size:12px">여러 근무를 고르면 정지할 때까지 시각순으로 이어서 재생한다. '
             f'배속은 100~200 을 권한다 — 틱 한 번이 1초 남짓이라 그보다 높이면 밀린다(상한 {LIVE_MAX_SPEED}).</p>'
             '<form method="post" action="/live/stop" style="margin:0 0 8px">' + button("정지", not running, ' style="background:var(--sub)"') + '</form>'
@@ -863,11 +910,14 @@ def _nav_html(sel):
 
     def live_state(r):
         """LIVE 줄 — 근무 시계와 지금 개수. 폴링이 같은 자리를 글자만 바꾼다."""
-        c = (st.get("counts") or {}) if st.get("shift_id") == r["id"] else {}
-        clock = (st.get("clock") or "")[11:16] if st.get("shift_id") == r["id"] else ""
-        txt = ((clock + " · ") if clock else "") + f"관찰 중 {c.get('observing', 0)} · 초안 {c.get('ready', 0)}"
-        return ('<span class="pill live">LIVE · 쌓이는 중</span>'
-                f'<span class="livecnt muted" style="font-size:11.5px">{esc(txt)}</span>')
+        mine = st.get("shift_id") == r["id"]
+        c = (st.get("counts") or {}) if mine else {}
+        txt = f"관찰 중 {c.get('observing', 0)} · 초안 {c.get('ready', 0)}"
+        # 재생 시계는 화면이 초 단위로 이어 돌린다 — 폴링은 2초에 한 번뿐이라 서버 값만 쓰면 뚝뚝 끊긴다
+        clk = (f'<span class="rclock mono" style="font-size:11px;color:var(--live)">{esc(_clock_text(st.get("clock")))}</span>'
+               if mine and st.get("clock") else "")
+        return ('<span class="pill live">LIVE · 쌓이는 중</span>' + clk
+                + f'<span class="livecnt muted" style="font-size:11.5px">{esc(txt)}</span>')
 
     nav = [row(r, live_state(r), " live") for r in live_rows]
     nav += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
@@ -1403,6 +1453,7 @@ def live_cards(shift_id):
     same = st.get("shift_id") == shift_id            # 지금 쌓는 근무인가 — 아니면 개수·시계는 이 줄의 것이 아니다
     out = {"draft": (draft or {}).get("status"), "lock": live.approve_lock(shift_id),
            "counts": (st.get("counts") or {}) if same else {}, "clock": st.get("clock") if same else None,
+           "phase": st.get("phase"), "speed": st.get("speed"),
            "nav": _nav_html(shift_id)[0], "cards": [], "order": [], "total": 0, "summary": ""}
     if draft is None or draft.get("status") == "confirmed":
         return out
@@ -1442,8 +1493,22 @@ function put(el,o){
  el.querySelectorAll('textarea').forEach(function(x){if(o.ta[x.name]!==undefined) x.value=o.ta[x.name]});
  el.querySelectorAll('details').forEach(function(x,i){if(o.dt[i]!==undefined) x.open=o.dt[i]});
 }
+/* 재생 시계 — 폴링은 2초에 한 번이라, 그 사이는 배속만큼 이어 돌리고 새 값이 오면 맞춘다.
+   멈춘 재생은 시계도 멈춘다(그 사실이 화면에 그대로 드러나야 한다). */
+var rc={ms:null,speed:1,run:false,at:0};
+function z(n){return (n<10?'0':'')+n}
+function stamp(ms){var d=new Date(ms);
+ return d.getFullYear()+'.'+z(d.getMonth()+1)+'.'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes())+':'+z(d.getSeconds())}
+function paintClock(){
+ if(rc.ms===null) return;
+ var t=rc.ms+(rc.run?(Date.now()-rc.at)*rc.speed:0), s=stamp(t);
+ Array.prototype.forEach.call(document.querySelectorAll('.rclock'),function(e){e.textContent=s});
+}
+setInterval(paintClock,250);
 function tick(){
  fetch('/api/live/cards?shift='+encodeURIComponent(sid)).then(function(r){return r.json()}).then(function(j){
+  if(j.clock){rc.ms=Date.parse(j.clock);rc.speed=j.speed||1;rc.run=(j.phase==='running');rc.at=Date.now();paintClock()}
+  else {rc.ms=null}
   var nav=document.getElementById('shiftnav');
   if(nav&&j.nav&&!busy(nav)) nav.innerHTML=j.nav;
   /* 목록을 서버가 실제로 그려 준 경우에만 카드를 건드린다 — 빈 응답과 「빈 목록」은 다르다(codex 반증 4차).
@@ -1578,6 +1643,11 @@ def _view_pending(shift_id, draft):
     # 잠그는 것은 승인 버튼뿐이다(경모님 결정 §0). 폼을 우회한 제출은 approve.decide 가 막는다.
     # 잠금 문구는 live.approve_lock 이 정한다(쌓이는 중 · AI 서술 실패 남음 · 앞 근무가 아직 승인 대기 등).
     lock = live.approve_lock(shift_id)
+    lst = live.status()
+    live_pill = ('<span class="pill live">LIVE · 쌓이는 중</span>'
+                 + (f'<span class="rclock mono" style="margin-left:8px;font-size:13px;color:var(--live)">'
+                    f'{esc(_clock_text(lst.get("clock")))}</span>' if lst.get("shift_id") == shift_id and lst.get("clock") else "")
+                 ) if live_mode else ""
     # 쌓이는 중에는 「감지 N건」이 초안 표에 든 수라 화면의 회색 카드와 어긋난다(지휘자 실측: 회색 2장인데 「감지 0건」).
     # 지금 보이는 것을 그대로 센다. 「전체 표시」는 마감 뒤 초안에서만 뜻이 있다.
     summary = _live_summary(rows) if live_mode else f'감지 <b style="color:var(--ink)">{n}</b>건'
@@ -1597,7 +1667,7 @@ def _view_pending(shift_id, draft):
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
-인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2></div>
+인수인계 초안 {live_pill}</h2></div>
 <div class="muted" style="font-size:13px" id="summary">{summary}
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}
 </div>
@@ -1854,7 +1924,7 @@ class Handler(BaseHTTPRequestHandler):
                     secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""   # Caddy 뒤에서만 — 로컬 http 시험은 그대로
                     self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200{secure}")
                 self.end_headers(); return
-            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset", "/live/start", "/live/stop", "/live/retry") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
+            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset", "/live/start", "/live/stop", "/live/retry", "/live/restart") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
                 if not _admin_ok(self):
                     self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>')); return
             if path == "/admin/ai_check":
@@ -1901,26 +1971,53 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
                 return
-            if path in ("/live/start", "/live/stop", "/live/retry"):
+            if path in ("/live/start", "/live/stop", "/live/retry", "/live/restart"):
                 try:
-                    if path == "/live/start":
-                        csvs = [x.strip() for x in form.get("csv", []) if x.strip()]      # 고른 순서 = 이어 재생 순서
-                        raw = (form.get("speed", ["100"])[0] or "100").strip()
+                    csvs = [x.strip() for x in form.get("csv", []) if x.strip()]      # 고른 순서 = 이어 재생 순서
+                    prev_name = (form.get("prev", [""])[0] or "").strip() or None
+                    raw = (form.get("speed", ["100"])[0] or "100").strip()
+                    try:
+                        speed = float(raw)
+                    except ValueError:
+                        raise ValueError(f"배속은 숫자여야 합니다. 받은 것: {raw!r}") from None
+                    if speed > LIVE_MAX_SPEED:
+                        raise ValueError(f"배속은 {LIVE_MAX_SPEED} 이하로 주세요 — 틱 한 번이 1초 남짓이라 그보다 높이면 재생이 밀립니다.")
+                    if path == "/live/restart":
+                        # 경모님이 누르는 단추는 둘뿐이다 — 「재생 시작」, 막히면 「처음부터 다시 돌리기」.
+                        # 지금까지 사람이 서버에서 세 단계로 하던 것(정지 → 기준선 복원 → 재생)을 한 번으로 묶는다.
+                        if form.get("sure", ["0"])[0] != "1":
+                            self._send(400, page("확인 필요", '<div class="card"><div class="empty">화면의 확인 대화상자를 거쳐야 합니다.</div></div>')); return
+                        # 고른 파일이 실제로 있는지 먼저 본다 — 뒤에서 재생이 거절되면 되돌리기만 되고 재생은 안 된 상태가 남는다
+                        up_dir = Path(jobs.UPLOAD_DIR)
+                        have = {x.name for x in up_dir.glob("*.csv")} if up_dir.is_dir() else set()
+                        unknown = [c for c in csvs + ([prev_name] if prev_name else []) if c not in have]
+                        if unknown:
+                            raise ValueError(f"업로드 폴더에 없는 파일입니다: {unknown[0]!r}")
                         try:
-                            speed = float(raw)
+                            live.stop()
                         except ValueError:
-                            raise ValueError(f"배속은 숫자여야 합니다. 받은 것: {raw!r}") from None
-                        if speed > LIVE_MAX_SPEED:
-                            raise ValueError(f"배속은 {LIVE_MAX_SPEED} 이하로 주세요 — 틱 한 번이 1초 남짓이라 그보다 높이면 재생이 밀립니다.")
-                        live.start(csvs, speed=speed,
-                                   prev_csv_name=(form.get("prev", [""])[0] or "").strip() or None,
+                            pass                      # 안 돌고 있으면 그대로 다음 단계로
+                        held = jobs.hold()
+                        if held is None:
+                            self._send(409, page("실행 중", '<div class="card"><div class="empty">적재·검출 작업이 돌고 있습니다. 끝난 뒤 다시 누르세요.</div></div>')); return
+                        try:
+                            jobs.mark_qa_active()
+                            db.reset(empty=False)     # 기준선이 없으면 FileNotFoundError — 조용히 빈 상태로 가지 않는다
+                        except (FileNotFoundError, ValueError) as exc:
+                            self._send(400, page("기준선 없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
+                        finally:
+                            jobs.release_hold(held)
+                    if path in ("/live/start", "/live/restart"):
+                        live.start(csvs, speed=speed, prev_csv_name=prev_name,
                                    replace_unconfirmed=form.get("replace", ["0"])[0] == "1")
                     elif path == "/live/stop":
                         live.stop()
                     else:
                         live.retry((form.get("key", [""])[0] or "").strip())
                 except ValueError as exc:      # 사용자 잘못(이름·순서·재생 중 아님 등) — live 의 문장을 그대로 보인다
-                    self._send(400, page("재생", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
+                    hint = ('<br><span class="muted">관리 화면에서 <b>처음부터 다시 돌리기</b> 를 누르면 기준선으로 되돌리고 바로 재생합니다.</span>'
+                            if "초안" in str(exc) else "")
+                    self._send(400, page("재생", '<div class="card"><div class="empty">' + esc(exc) + hint + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/reopen":
                 # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.

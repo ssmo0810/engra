@@ -247,18 +247,38 @@ def reset(empty=False):
     empty=True : 완전 빈 저장소. "처음부터 쌓기" 를 보고 싶을 때.
     시드 파일이 없으면 empty 만 가능하고, 그 사실을 올린다 — 조용히 빈 상태로 가지 않는다.
     """
+    import os
     import shutil
     from config import SEED_DB
-    for suffix in ("", "-wal", "-shm"):
-        p = DB_PATH.parent / (DB_PATH.name + suffix)
-        if p.exists():
-            p.unlink()
+    # 지우기 **전에** 시드를 확인한다. 순서가 반대였을 때, 시드가 없으면 거절은 하되 있던 데모 데이터는 이미
+    # 사라져 반쯤 되돌아간 상태가 됐다 — 관리 화면의 「처음부터 다시 돌리기」 한 번으로 닿는 자리다(codex 반증 2026-09-15).
+    if not empty and not SEED_DB.exists():
+        raise FileNotFoundError(f"기준선 시드가 없습니다: {SEED_DB}. `python3 tools/seed.py` 로 만들거나 빈 상태 리셋을 쓰세요.")
+    def drop(*suffixes):
+        for suffix in suffixes:
+            p = DB_PATH.parent / (DB_PATH.name + suffix)
+            if p.exists():
+                p.unlink()
+
     if empty:
+        drop("", "-wal", "-shm")
         init()
         return "빈 상태"
-    if not SEED_DB.exists():
-        raise FileNotFoundError(f"기준선 시드가 없습니다: {SEED_DB}. `python3 tools/seed.py` 로 만들거나 빈 상태 리셋을 쓰세요.")
-    shutil.copyfile(SEED_DB, DB_PATH)
+    # 시드를 옆에 먼저 복사해 두고 마지막에 한 번에 갈아 끼운다 — 본파일을 지웠다가 복사하면 그 사이에
+    # 실패하거나 프로세스가 끊길 때 저장소가 아예 없는 상태로 남는다(codex 반증 2026-09-15).
+    # os.replace 는 원자적이라 경로가 한순간도 비지 않는다. 낡은 WAL 은 새 본파일에 섞이면 안 되니 먼저 지운다.
+    tmp = DB_PATH.parent / (DB_PATH.name + ".new")
+    shutil.copyfile(SEED_DB, tmp)
+    try:        # 잘린 시드(실패한 복사·전송)로 멀쩡한 데모를 덮지 않는다 — 표가 있는지만 본다
+        with sqlite3.connect(f"file:{tmp}?mode=ro", uri=True) as probe:
+            ok = probe.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='shift'").fetchone()
+    except sqlite3.DatabaseError:
+        ok = None
+    if not ok:
+        tmp.unlink()
+        raise ValueError(f"기준선 시드가 비었거나 깨졌습니다: {SEED_DB}. 지금 저장소는 그대로 둡니다.")
+    drop("-wal", "-shm")
+    os.replace(tmp, DB_PATH)
     init()          # 스키마 마이그레이션까지
     return "기준선(팀 정본 8근무)"
 

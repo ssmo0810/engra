@@ -10,6 +10,7 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import sys
 import unittest
 from urllib.parse import urlencode
@@ -767,6 +768,190 @@ class PollSafety(unittest.TestCase):
         for t in ts:
             t.join()
         self.assertEqual(bad, [], "동시에 불러도 서로를 망치지 않는다")
+
+
+class OneClickAdmin(unittest.TestCase):
+    """경모님이 관리 화면에서 직접 누르신다 — 「재생 시작」 한 번, 막히면 「처음부터 다시 돌리기」 한 번.
+    그 밖의 조작이 필요하면 안 된다."""
+
+    def setUp(self):
+        H._fresh_db()
+        os.environ.pop("ENGRA_ADMIN_KEY", None)
+        self.up, self.names = H._uploads(H._csv(minutes=10), H._csv(minutes=10), H._csv(minutes=10))
+
+    def tearDown(self):
+        os.environ.pop("ENGRA_ADMIN_KEY", None)
+
+    def test_start_form_is_ready_without_choosing_anything(self):
+        import server
+        body = server.view_admin()
+        first = sorted(self.names)[0]
+        self.assertRegex(body, r'<option value="%s"[^>]*selected' % re.escape(first),
+                         "앞 근무는 가장 이른 것이 미리 골라져 있다")
+        for n in sorted(self.names)[1:]:
+            self.assertRegex(body, r'<option value="%s"[^>]*selected' % re.escape(n),
+                             "나머지 근무는 시각순으로 전부 골라져 있다")
+        self.assertRegex(body, r'name="speed"[^>]*value="100"', "배속 100")
+
+    def test_restart_restores_the_baseline_and_starts_the_replay(self):
+        import config
+        import db
+        import live
+        import shutil
+        with db.connect() as conn:      # 기준선에 들어 있는 근무
+            H._shift_row(conn, "2026-08-20-day", H.WS, H.T(720))
+        seed = pathlib.Path(self.up) / "seed.db"
+        with db.connect() as conn:      # WAL 을 본파일에 합치고 복사한다 — 안 하면 방금 넣은 근무가 시드에 없다
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        shutil.copyfile(config.DB_PATH, seed)
+        with db.connect() as conn:      # 기준선에 없는 근무 — 되돌리면 사라져야 한다
+            H._shift_row(conn, "2026-08-25-night", H.WS, H.T(720))
+        config.SEED_DB = seed
+        called = {}
+        live.start = lambda csvs, **kw: called.update(csvs=csvs, **kw)
+        live.stop = lambda: called.update(stopped=True)
+        live.status = lambda: dict(server.live._IDLE, phase="running")
+        import server
+        code, _ = _post("/live/restart", [("csv", self.names[0]), ("speed", "100"), ("sure", "1")])
+        self.assertEqual(code, 303)
+        with db.connect() as conn:
+            ids = [r[0] for r in conn.execute("SELECT id FROM shift ORDER BY id")]
+        self.assertEqual(ids, ["2026-08-20-day"], "기준선으로 되돌린다")
+        self.assertEqual(called.get("csvs"), [self.names[0]], "누른 폼의 근무를 그대로 재생한다")
+        self.assertEqual(called.get("speed"), 100.0)
+        self.assertTrue(called.get("stopped"), "돌던 재생을 먼저 멈춘다")
+
+    def test_restart_refuses_clearly_without_a_baseline(self):
+        """기준선이 없으면 거절한다 — 그리고 있던 것을 지우지 않는다.
+        db.reset 이 시드 확인보다 파일 삭제를 먼저 해서, 거절은 하되 데모 데이터는 이미 사라졌다(codex 반증)."""
+        import config
+        import db
+        import live
+        with db.connect() as conn:
+            H._shift_row(conn, "2026-08-20-day", H.WS, H.T(720))
+        config.SEED_DB = pathlib.Path(self.up) / "없는파일.db"
+        live.stop = lambda: None
+        live.start = lambda *a, **k: self.fail("기준선이 없으면 재생을 시작하면 안 된다")
+        live.status = lambda: dict(__import__("live")._IDLE)
+        code, body = _post("/live/restart", [("csv", self.names[0]), ("sure", "1")])
+        self.assertEqual(code, 400)
+        self.assertIn("기준선", body, "왜 안 되는지 그대로 보인다")
+        with db.connect() as conn:
+            ids = [r[0] for r in conn.execute("SELECT id FROM shift")]
+        self.assertEqual(ids, ["2026-08-20-day"], "되돌릴 수 없으면 있던 것을 그대로 둔다")
+
+    def test_restart_checks_the_files_before_touching_the_demo(self):
+        """없는 파일을 고른 채 누르면, 되돌리기만 되고 재생은 안 된 상태가 남는다 — 그 전에 막는다(codex 반증)."""
+        import db
+        import live
+        with db.connect() as conn:
+            H._shift_row(conn, "2026-08-20-day", H.WS, H.T(720))
+        live.stop = lambda: self.fail("파일이 없으면 재생을 멈추지도 않는다")
+        live.start = lambda *a, **k: self.fail("파일이 없으면 시작하지 않는다")
+        code, body = _post("/live/restart", [("csv", "없는파일.csv"), ("sure", "1")])
+        self.assertEqual(code, 400)
+        with db.connect() as conn:
+            self.assertEqual([r[0] for r in conn.execute("SELECT id FROM shift")], ["2026-08-20-day"],
+                             "데모를 건드리지 않는다")
+
+    def test_restart_keeps_the_demo_when_the_baseline_is_broken(self):
+        """잘린 시드(복사·전송이 실패한 파일)로 멀쩡한 데모를 덮지 않는다(codex 반증)."""
+        import config
+        import db
+        import live
+        with db.connect() as conn:
+            H._shift_row(conn, "2026-08-20-day", H.WS, H.T(720))
+        bad = pathlib.Path(self.up) / "깨진.db"
+        bad.write_bytes(b"SQLite format 3\x00" + b"\x00" * 64)
+        config.SEED_DB = bad
+        live.stop = lambda: None
+        live.start = lambda *a, **k: self.fail("깨진 기준선으로 재생을 시작하면 안 된다")
+        live.status = lambda: dict(__import__("live")._IDLE)
+        code, body = _post("/live/restart", [("csv", self.names[0]), ("sure", "1")])
+        self.assertEqual(code, 400)
+        self.assertIn("깨졌습니다", body)
+        with db.connect() as conn:
+            self.assertEqual([r[0] for r in conn.execute("SELECT id FROM shift")], ["2026-08-20-day"],
+                             "지금 저장소는 그대로 둔다")
+
+    def test_restart_needs_the_admin_key(self):
+        import live
+        os.environ["ENGRA_ADMIN_KEY"] = "열쇠"
+        live.start = lambda *a, **k: self.fail("열쇠 없이 되돌리면 안 된다")
+        code, _ = _post("/live/restart", [("csv", self.names[0]), ("sure", "1")])
+        self.assertEqual(code, 403)
+
+    def test_refusal_points_to_the_restart_button(self):
+        import live
+        live.start = _raise_value("2026-08-25-day 에는 이미 승인 대기 초안이 있습니다 — 다시 쌓으려면 확정 안 된 초안 교체를 켜세요.")
+        code, body = _post("/live/start", [("csv", self.names[0])])
+        self.assertEqual(code, 400)
+        self.assertIn("이미 승인 대기 초안이 있습니다", body, "거절 이유는 그대로")
+        self.assertIn("처음부터 다시 돌리기", body, "무엇을 누르면 되는지 알려 준다")
+
+
+def _raise_value(msg):
+    def go(*a, **k):
+        raise ValueError(msg)
+    return go
+
+
+class Clocks(unittest.TestCase):
+    """경모님 지시 — 시계 둘이 흘러야 「서버에서 진짜 돌고 있다」가 보인다."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            db.open_live_draft(conn, H.SID, "live")
+
+    def test_every_screen_has_a_running_wall_clock(self):
+        import server
+        body = server.page("제목", "<div></div>")
+        self.assertIn('id="wallclock"', body, "엔진·AI 표시 옆 현재 시각")
+        self.assertIn("setInterval", body, "1초마다 흐른다")
+
+    def test_the_admin_line_shows_seconds_too(self):
+        import server
+        line = server._live_line({"phase": "running", "shift_id": H.SID, "clock": "2026-09-21T19:43:34",
+                                  "counts": {"observing": 1}})
+        self.assertIn("2026.09.21 19:43:34", line, "관리 화면 상태 줄도 같은 형식")
+
+    def test_the_plant_screen_carries_both_clocks(self):
+        """DCS 는 원본 파일 그대로라 머리말이 없다 — 시계를 따로 얹는다."""
+        import server
+        body = server.view_dcs()
+        self.assertIn('id="wallclock"', body, "현재 시각")
+        self.assertIn("rclock", body, "재생 시각")
+        self.assertIn("/api/live", body, "재생 상태를 받아 온다")
+
+    def test_live_rows_carry_the_replay_clock(self):
+        import live
+        import server
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: None
+        live.values = lambda: {"clock": None, "values": {}}
+        live.status = lambda: dict(server.live._IDLE, phase="running", shift_id=H.SID,
+                                   clock="2026-09-21T19:43:34", speed=100.0,
+                                   counts={"observing": 2, "writing": 0, "ready": 0})
+        body = server.view_shift(H.SID)
+        self.assertIn("2026.09.21 19:43:34", body, "경모님이 정한 형식으로 초까지")
+        self.assertGreaterEqual(body.count('rclock'), 2, "왼쪽 목록 줄과 오른쪽 머리말 양쪽")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual((j["speed"], j["phase"]), (100.0, "running"),
+                         "폴링 사이를 배속만큼 이어 돌리려면 배속과 상태가 필요하다")
+
+    def test_a_stopped_replay_shows_a_stopped_clock(self):
+        import live
+        import server
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: None
+        live.values = lambda: {"clock": None, "values": {}}
+        live.status = lambda: dict(server.live._IDLE, phase="stopped", shift_id=H.SID,
+                                   clock="2026-09-21T19:43:34", speed=100.0, counts={})
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["phase"], "stopped", "멈췄으면 화면 시계도 멈춘다")
 
 
 if __name__ == "__main__":
