@@ -772,6 +772,43 @@ class PollSafety(unittest.TestCase):
         self.assertIn("ZZ-999", "".join(c["html"] for c in j["cards"]), "새 항목이 화면으로 내려간다")
         self.assertEqual(j["total"], 2, "채택 분모도 따라 는다")
 
+    def test_the_empty_notice_goes_away_when_cards_arrive(self):
+        """경모님 지적 — 재생 중간에 「감지된 항목이 없습니다」가 뜬다.
+        0건일 때 연 화면의 빈 안내에 표식이 없어 폴링이 지우지 못했다. 카드가 쌓여도 그 문구가 계속 남는다."""
+        import db
+        import live
+        import server
+        with db.connect() as conn:      # 항목이 없는 쌓이는 중 근무
+            conn.execute("DELETE FROM draft_item")
+            conn.execute("UPDATE draft SET status = 'live' WHERE shift_id = ?", (H.SID,))
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: None
+        live.values = lambda: {"clock": None, "values": {}}
+        body = server.view_shift(H.SID)
+        self.assertIn("감지된 항목이 없습니다", body, "정말 0건이면 그렇게 보인다")
+        self.assertIn('data-key="__empty"', body, "표식이 있어야 폴링이 걷어 낸다")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual([c["key"] for c in j["cards"]], ["__empty"], "0건이면 빈 안내를 내려보낸다")
+        with db.connect() as conn:      # 카드가 하나 생기면
+            did = conn.execute("SELECT id FROM draft WHERE shift_id = ?", (H.SID,)).fetchone()[0]
+            conn.execute("INSERT INTO draft_item (draft_id, seq, origin, tag, title, body, severity) "
+                         "VALUES (?,1,'detected','TI-101','TI-101 드리프트','문장','중')", (did,))
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        keys = [c["key"] for c in j["cards"]]
+        self.assertNotIn("__empty", keys, "카드가 있으면 빈 안내는 사라진다")
+        self.assertTrue([k for k in keys if not k.startswith("__")], "카드가 내려간다")
+
+    def test_the_empty_notice_follows_what_the_screen_shows(self):
+        """지난 근무에서 제외한 항목만 있는 초안은 목록이 비어도 빈 화면이 아니다 — 그 항목은 최하단 접힌 칸에 있다.
+        폴링이 화면과 다른 규칙으로 세면 목록만 비고 까닭이 없다(codex 반증)."""
+        import server
+        pe = {"id": 1, "origin": "detected", "tag": "PI-201", "event_id": None, "curve": None,
+              "prev_excluded": {"by": "앞 근무자", "shift_id": "2026-08-24-day", "at": "2026-08-24T18:00:00"}}
+        rows = server._live_rows(H.SID, {"items": [pe]}, [], False, heads=False)
+        self.assertEqual(rows, [], "최하단 칸이 보여 주므로 빈 안내를 붙이지 않는다")
+        rows = server._live_rows(H.SID, {"items": []}, [], False, heads=False)
+        self.assertEqual([r["key"] for r in rows], ["__empty"], "정말 아무것도 없으면 빈 안내를 준다")
+
     def test_left_list_and_full_page_do_not_collide(self):
         """화면 요청과 폴링이 동시에 들어온다(ThreadingHTTPServer). 목록 조각을 만드는 길이
         전체 화면 함수와 상태를 나눠 쓰면 둘이 섞여 반쪽 화면이 나간다(codex 반증)."""
@@ -780,16 +817,22 @@ class PollSafety(unittest.TestCase):
         bad = []
 
         def page():
-            for _ in range(40):
-                body = server.view_draft()
-                if not body.startswith("<!doctype") or "<section" not in body:
-                    bad.append(body[:80])
+            try:
+                for _ in range(40):
+                    body = server.view_draft()
+                    if not body.startswith("<!doctype") or "<section" not in body:
+                        bad.append(body[:80])
+            except Exception as exc:      # 스레드가 조용히 죽으면 시험이 헛돈다 — 죽은 것도 실패로 센다
+                bad.append(f"화면 스레드 예외: {exc!r}")
 
         def nav():
-            for _ in range(40):
-                frag = server._nav_html(H.SID)
-                if frag.startswith("<!doctype"):
-                    bad.append("조각 자리에 전체 화면")
+            try:
+                for _ in range(40):
+                    frag = server._nav_html(H.SID)[0]
+                    if frag.startswith("<!doctype"):
+                        bad.append("조각 자리에 전체 화면")
+            except Exception as exc:
+                bad.append(f"목록 스레드 예외: {exc!r}")
 
         ts = [threading.Thread(target=page), threading.Thread(target=nav),
               threading.Thread(target=page), threading.Thread(target=nav)]
