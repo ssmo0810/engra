@@ -1095,7 +1095,7 @@ class StatusSwitchAndCarry(unittest.TestCase):
         self.assertNotIn('action="/approve"', out)
         self.assertIn('<form onsubmit="return false">', out)
         with self.assertRaises(SystemExit):     # 치환이 못 잡는 POST 제출이 남으면 멈춘다
-            snap.to_static('<div class="top"></div><div class="card"><button formmethod="post" formaction="/reopen">x'
+            snap.to_static('<main class="wrap"><div class="card"><button formmethod="post" formaction="/reopen">x'
                            '</button></div>', "draft.html")
 
     def test_snapshot_neutralizes_every_post_form(self):
@@ -1116,10 +1116,27 @@ class StatusSwitchAndCarry(unittest.TestCase):
         snap = self._snapshot_tool()
         for attr in ('method="POST"', 'METHOD="post"', "method='post'", "method=post", 'method = "post"'):
             with self.subTest(attr=attr):
-                out = snap.to_static(f'<div class="top"></div><div class="card"><form {attr} action="/reopen">'
+                out = snap.to_static(f'<main class="wrap"><div class="card"><form {attr} action="/reopen">'
                                      '</form></div>', "handover.html")
                 self.assertIn('<form onsubmit="return false">', out)
                 self.assertIsNone(re.search(r'method\s*=\s*["\']?post\b', out, re.I), out)
+
+    def test_snapshot_banner_lands_in_the_new_page_shell(self):
+        """안내 배너가 index.html 에서 조용히 빠졌다(반증 워커 실측 — 삽입 False). 옛 page() 의 이동줄
+        `<div class="nav">…</div>` 을 앵커로 잡고 있었는데 새 page() 는 `<header class="top">…</header>
+        <main class="wrap">` 라 본문 앞에 `</div>` 가 없다. re.sub 는 매치가 0 이어도 예외를 내지 않아
+        빗나간 것이 안 보였다 — 앵커를 `<main class="wrap">` 으로 옮기고 못 넣으면 멈춘다."""
+        import server
+        snap = self._snapshot_tool()
+        for name in snap.PAGES:
+            with self.subTest(name=name):
+                out = snap.to_static(server.page("일지 목록", '<div class="card">본문</div>'), name)
+                self.assertTrue("실제로 돌아가는 프로토타입 화면입니다" in out, f"{name}: 안내 배너가 빠졌다")
+                self.assertTrue(snap.NOTES[name] in out, f"{name}: 화면별 설명이 빠졌다")
+                self.assertLess(out.index("실제로 돌아가는"), out.index('<div class="card">본문'),
+                                f"{name}: 배너는 본문 앞에 온다")
+        with self.assertRaises(SystemExit):     # 구조가 또 바뀌어 앵커를 못 찾으면 조용히 빠지지 말고 멈춘다
+            snap.to_static('<div class="card">앵커 없음</div>', "index.html")
 
     def test_reapproving_during_root_shift_review_keeps_carry_decision(self):
         """원 근무를 재검토로 되돌린 사이 뒤 근무를 재승인하면 원 항목이 open_items 에서 빠져, save_carried 가
@@ -1218,14 +1235,14 @@ class TwoScreens(unittest.TestCase):
         h.do_GET()
         return h.sent[-1] + (h.out,)
 
-    def _add(self, sid, start, end):
-        """근무 하나 + 항목 하나짜리 대기 초안. 항목 id."""
+    def _add(self, sid, start, end, status="pending"):
+        """근무 하나 + 항목 하나짜리 초안. 항목 id. status='live' 면 실시간으로 쌓이는 중인 구간."""
         import db
         with db.connect() as conn:
             conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
                          "VALUES (?,?,?,?,'test',?)", (sid, sid.rsplit("-", 1)[1], start, end, db.now()))
-            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'pending','test',?)",
-                               (sid, db.now())).lastrowid
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,?,'test',?)",
+                               (sid, status, db.now())).lastrowid
             return conn.execute("INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, severity) "
                                 "VALUES (?, NULL, 1, 'detected', 'TI-403', '항목', '본문', '중')", (did,)).lastrowid
 
@@ -1238,7 +1255,8 @@ class TwoScreens(unittest.TestCase):
             self.assertEqual((code, out.get("Location")), (303, new), old)
         code, body, _ = self._get("/nope")
         self.assertEqual(code, 404)
-        self.assertIn('class="nav"', body, "없는 주소로 들어와도 이동줄로 돌아갈 길이 있다")
+        self.assertNotIn('class="nav"', body, "이동줄은 없앴다 — 두 화면은 주소로 연다")
+        self.assertIn('href="/draft">일지 목록으로', body, "없는 주소로 들어와도 돌아갈 길 한 줄은 있다")
         self.assertNotIn('href="/admin"', body, "404 에도 관리 링크는 없다")
 
     def test_dcs_is_the_overview_alone(self):
@@ -1331,9 +1349,50 @@ class TwoScreens(unittest.TestCase):
             code, body, _ = self._get(f"/shift/{sid}")
             self.assertEqual(code, 200, sid)
             self.assertIn(mark, body, sid)
-            self.assertIn('<a class="back" href="/draft">‹ 목록으로</a>', body, sid)
+            self.assertIn('<a class="back" href="/draft">‹ 일지 목록</a>', body, sid)
             self.assertNotIn('href="/admin"', body, sid)
-            self.assertIn('class="on" href="/draft"', body, "상세에서도 초안 칸이 켜진다")
+            self.assertNotIn('class="nav"', body, "상세에도 이동줄은 없다")
+
+    def test_list_shows_state_labels(self):
+        """일지 목록의 표시 — 확정 전 「초안」 · 확정 「확정 · 채택 N건」 · 실시간으로 쌓이는 중 「LIVE · 쌓이는 중」(맨 위).
+        경모님 2026-09-14: 목록이 첫 화면이라 줄만 보고 무엇이 남았는지 알아야 한다."""
+        _fresh_db()
+        import approve
+        iid = self._add(*self.DAY)
+        approve.decide(self.DAY[0], {iid: {"adopted": True, "status": "완료"}})
+        self._add(*self.NIGHT)
+        self._add("2026-08-26-day", "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
+        code, body, _ = self._get("/draft")
+        self.assertEqual(code, 200)
+        self.assertIn("LIVE · 쌓이는 중", body, "쌓이는 구간 줄")
+        self.assertIn(">초안<", body, "확정 전 근무는 「초안」")
+        self.assertIn("확정 · 채택 1건", body, "확정된 근무는 채택 건수까지")
+        self.assertLess(body.index("LIVE · 쌓이는 중"), body.index(">초안<"), "쌓이는 구간이 맨 위")
+        self.assertIn("06:00–18:00", body, "구간 시각을 줄에 적는다")
+        self.assertNotIn('class="nav"', body, "이동줄 없음")
+
+    def test_live_shift_is_read_only(self):
+        """아직 쌓이는 중인 근무(status='live')를 누르면 승인 폼이 그대로 떴다(반증 워커) — view_shift 가
+        확정 일지 유무로만 갈라 live 를 pending 과 똑같이 다뤘다. 끝나지 않은 근무를 확정하면 뒤에 들어온
+        감지가 일지에 없는 채로 남는다. 화면에서 폼을 빼고, 폼을 우회한 제출도 승인에서 막는다."""
+        _fresh_db()
+        import approve
+        live = "2026-08-26-day"
+        iid = self._add(live, "2026-08-26T06:00:00", "2026-08-26T18:00:00", status="live")
+        code, body, _ = self._get(f"/shift/{live}")
+        self.assertEqual(code, 200)
+        self.assertFalse('action="/approve"' in body, "쌓이는 중인 근무에 승인 폼이 뜨면 안 된다")
+        self.assertFalse("승인하고 확정" in body, "승인 버튼도 없다")
+        self.assertTrue("근무가 끝나면 검토할 수 있습니다" in body, "왜 지금은 못 누르는지 한 줄 적는다")
+        self.assertTrue("TI-403" in body, "쌓인 항목은 읽을 수 있어야 한다 — 감추는 게 아니라 읽기 전용")
+        with self.assertRaises(ValueError):     # 폼을 우회한 POST
+            approve.decide(live, {iid: {"adopted": True, "status": "완료"}})
+
+        # 대조군 — 끝난 근무는 그대로 승인할 수 있어야 한다(위 검사가 공허하지 않음을 보인다)
+        done = self._add(*self.NIGHT)
+        _, body2, _ = self._get(f"/shift/{self.NIGHT[0]}")
+        self.assertTrue('action="/approve"' in body2, "끝난 근무의 승인 폼까지 사라지면 안 된다")
+        approve.decide(self.NIGHT[0], {done: {"adopted": True, "status": "완료"}})
 
     def test_admin_has_one_pipeline_card(self):
         """/pipeline 의 업로드·실행·진행과 관리의 정답지 업로드·다시 만들기가 한 카드로 — 같은 폼이 두 번 나오지 않는다."""
@@ -1579,8 +1638,8 @@ class SnapshotLinks(unittest.TestCase):
         바뀌며 치환이 빗나가 죽은 링크가 됐다(조각 1 반증 발견)."""
         sys.path.append(os.path.join(ROOT, "tools"))
         import snapshot
-        html = ('<style></style><div class="nav"><a class="on" href="/draft">초안</a></div>'
-                '<a class="back" href="/draft">‹ 목록으로</a><div class="card">본문</div>')
+        html = ('<style></style><main class="wrap"><a class="row" href="/draft">2026-09-14</a>'
+                '<a class="back" href="/draft">‹ 일지 목록</a><div class="card">본문</div>')
         out = snapshot.to_static(html, "handover.html")
         self.assertNotIn('href="/draft"', out, "/draft 링크가 정적본에 남으면 죽은 링크")
         self.assertIn('<a class="back" href="index.html">', out, "「‹ 목록으로」는 index.html 로")

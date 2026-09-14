@@ -32,6 +32,10 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         draft = db.load_draft(conn, shift_id)
         if draft is None:
             raise ValueError(f"{shift_id} 의 초안이 없습니다.")
+        # 아직 쌓이는 중인 근무는 확정할 수 없다 — 확정 뒤에 들어온 감지가 일지에 없는 채로 남는다.
+        # 화면에서 폼을 빼는 것으로는 우회 제출을 못 막는다. 검사는 여기서 한다(상태 검사와 같은 자리).
+        if draft.get("status") == "live":
+            raise ValueError(f"{shift_id} 는 아직 쌓이는 중입니다 — 근무가 끝나면 승인할 수 있습니다.")
 
         known = {it["id"] for it in draft["items"] if it["origin"] != "carried"}   # 이월 행은 이번 판단으로 다시 쓴다
         unknown = set(decisions) - known

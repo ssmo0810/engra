@@ -27,7 +27,7 @@ OUT = ROOT / "sample"
 # smoke.sh 에서 같은 병을 두 번 겪었다. 항상 보관 기간 안에 있는 오늘을 쓴다.
 DAY = _dt.date.today().isoformat()
 PAGES = {
-    "index.html": "/draft",   # 목록. / 는 /draft 로 303 이고, 화면의 「‹ 목록으로」·이동줄도 /draft 를 가리킨다
+    "index.html": "/draft",   # 목록. / 는 /draft 로 303 이고, 상세 화면의 「‹ 일지 목록」도 /draft 를 가리킨다(이동줄은 없앴다)
     "draft.html": f"/shift/{DAY}-night",
     "handover.html": f"/shift/{DAY}-day",
 }
@@ -136,9 +136,14 @@ def to_static(html, name):
     html = html.replace("</style>",
                         ".bar{position:static !important;bottom:auto !important}</style>", 1)
 
-    # 안내 배너를 헤더 바로 뒤에 넣는다
-    return re.sub(r"(</div>)(?=\s*<a class=\"back\"|\s*<div class=\"card\")",
-                  r"\1" + banner(NOTES[name]), html, count=1)
+    # 안내 배너를 본문 맨 앞에 넣는다. 앵커는 page() 의 본문 시작 태그다 —
+    # 옛 이동줄(<div class="nav">…</div>)의 닫는 태그를 앵커로 쓰다가, 이동줄을 없앤 새 page() 에서
+    # 매치가 0 이 되어 안내가 말없이 빠졌다(반증 워커 실측). re.sub 는 매치 0 을 알려주지 않으니 세고 멈춘다.
+    html, n = re.subn(r'<main class="wrap">',
+                      lambda m: m.group(0) + banner(NOTES[name]), html, count=1)
+    if n != 1:
+        raise SystemExit(f"{name}: 안내 배너를 넣을 자리를 못 찾았다 — app/server.py 의 page() 본문 태그가 바뀌었으면 여기 앵커도 고쳐라")
+    return html
 
 
 def main():

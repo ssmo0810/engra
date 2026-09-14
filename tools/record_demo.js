@@ -13,7 +13,7 @@ async (page) => {
   const log = []; const t0 = Date.now(); const mark = (s) => log.push(`${((Date.now() - t0) / 1000).toFixed(0)}s ${s}`);
   await p.goto(base + '/dcs'); await pause(2500); mark('DCS'); await pause(4800);   // 전체 화면이라 스크롤이 없다
   await p.goto(base + '/draft'); await pause(2500); mark('근무 목록');
-  await p.click('a.logrow:has(.pill.amber)'); await pause(3000); mark('초안');
+  await p.click('a.row:has(.pill.amber)'); await pause(3000); mark('초안');
   await scroll(900, 10, 900); await pause(2500);
   const sel = await p.$('select.sevsel');
   if (sel) { await sel.scrollIntoViewIfNeeded(); await pause(800); await sel.selectOption('중'); await pause(1500); mark('중요도 변경'); }

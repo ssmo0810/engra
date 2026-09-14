@@ -23,118 +23,144 @@ from config import DOCS_DIR
 
 # demo/index.html 에서 옮겨온 디자인 토큰과 컴포넌트
 STYLE = """
-:root{--ink:#14161a;--sub:#6b7280;--line:#e2e0dc;--bg:#f6f5f3;--card:#fff;
-      --accent:#EA002C;--ok:#1a7f37;--warn:#b45309}
+:root{--ink:#191b1f;--sub:#5f6672;--line:#e4e1dc;--bg:#f7f6f3;--card:#fff;
+      --accent:#EA002C;--ok:#1a6b3c;--warn:#8a5300;--bad:#b3261e;--chip:#f2f0ec}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--bg);
-     color:var(--ink);font-size:14px;line-height:1.6}
-.wrap{max-width:1180px;margin:0 auto;padding:22px 20px 70px}
-.top{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;flex-wrap:wrap}
-.nav{display:flex;gap:6px;margin:14px 0 18px;flex-wrap:wrap}
-.nav a{flex:1;min-width:150px;text-decoration:none;background:var(--card);
- border:1px solid var(--line);border-radius:8px;padding:9px 13px;color:var(--sub);
- font-size:13px;font-weight:600;transition:.12s}
-.nav a small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px}
-.nav a:hover{border-color:#c9c6c1}
-.nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
-.nav a.on small{color:#c9c6c1}
-.uploading .nav a{pointer-events:none;opacity:.45}
-.sc{border-collapse:collapse;width:100%;font-size:12.5px}.sc th,.sc td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.sc th{color:var(--sub);font-weight:600;font-size:11px}
-.top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
-.top span{font-size:12.5px;color:var(--sub)}
-.top .eng{margin-left:auto;font-size:11.5px}
-.disc{font-size:12px;color:var(--sub);background:#fff8e6;border:1px solid #f0e3bd;
-      padding:7px 11px;border-radius:6px;margin:12px 0 16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:9px;
-      padding:16px 18px;margin-bottom:14px}
-.card h2{font-size:14.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.pill{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;
-      background:#eceae6;color:var(--sub)}
-.pill.on{background:#dcefe2;color:var(--ok)}
-.pill.red{background:#ffe0e6;color:#b00020}.pill.amber{background:#fdf0d8;color:var(--warn)}
-.muted{color:var(--sub)}.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-.note{font-size:12.5px;color:var(--sub);margin-bottom:11px}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.65;
+     font-variant-numeric:tabular-nums}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-/* 초안 항목 */
-.item{border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:10px;
-      background:#fff;transition:.15s}
-.item.off{opacity:.5;background:#fafafa}
+/* 상단 얇은 바 — 워드마크·화면 이름은 왼쪽, 엔진·AI 상태는 오른쪽에 조용히.
+   이동줄은 없다: DCS 와 일지 목록은 각자 주소로 연다 (경모님 2026-09-14) */
+.top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:11px 20px;
+     background:var(--card);border-bottom:1px solid var(--line)}
+.top .brand{font-size:16px;font-weight:800;color:var(--accent);letter-spacing:-.02em}
+.top .ttl{font-size:13px;color:var(--sub)}
+.top .sys{margin-left:auto;font-size:13px;color:var(--sub)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 72px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+      padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h3,.det h3{font-size:20px;margin-bottom:4px;letter-spacing:-.02em}
+.det .sub{font-size:13px;color:var(--sub);margin-bottom:16px}
+.note{font-size:13px;color:var(--sub);margin-bottom:10px}
+.muted{color:var(--sub)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.empty{color:var(--sub);text-align:center;padding:32px 16px;font-size:14px}
+.back{display:inline-block;margin-bottom:14px;font-size:13px;font-weight:700;
+      color:var(--accent);text-decoration:none}
+.back:hover{text-decoration:underline}
+.disc{font-size:13px;color:var(--sub);background:#fff8e6;border:1px solid #efe2bd;
+      padding:9px 13px;border-radius:8px;margin-bottom:14px}
+.sc{border-collapse:collapse;width:100%;font-size:13px}
+.sc th,.sc td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
+.sc th{color:var(--sub);font-weight:600;font-size:13px}
+
+/* 상태 — 초안 호박 · 확정 초록 · 관찰 중 흐린 회색. 빨강은 워드마크·LIVE·주 버튼에만 */
+.pill{font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;
+      background:var(--chip);color:var(--sub);white-space:nowrap}
+.pill.on,.pill.done{background:#e4f1e8;color:var(--ok)}
+.pill.amber,.pill.going{background:#fbeed3;color:var(--warn)}
+.pill.red{background:#fde4e6;color:var(--bad)}
+.pill.live{background:var(--accent);color:#fff}
+
+/* 일지 목록 — [날짜 · 주간/야간 · 구간] [감지 요약] [상태] [›] */
+.row{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:8px;
+     background:var(--card);border:1px solid var(--line);border-radius:10px;
+     text-decoration:none;color:inherit;transition:border-color .12s}
+.row:hover{border-color:#c8c4bd}
+.row .when{display:flex;align-items:baseline;gap:8px;min-width:230px}
+.row .date{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.row .kind{font-size:13px;color:var(--sub)}
+.row .win{font-size:13px;color:var(--sub)}
+.row .gist{flex:1;min-width:0;font-size:13px;color:var(--sub);
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .arw{color:#bdb9b2;font-size:16px}
+.row.live{border-color:var(--accent)}
+@media (max-width:560px){
+  .row{flex-wrap:wrap;gap:6px 10px}
+  .row .when{width:100%;min-width:0}
+  .row .gist{flex:1 1 100%;white-space:normal}
+  .row .arw{margin-left:auto}
+}
+
+/* 초안 항목 — 왼쪽 띠가 중요도(상 빨강 · 중 호박 · 하 회색). 제목 → 본문 → 근거 순 */
+.item{border:1px solid var(--line);border-left:3px solid #cfcbc4;border-radius:10px;
+      padding:14px 16px;margin-bottom:10px;background:var(--card);transition:.15s}
+.item.sev-high{border-left-color:var(--accent)}
+.item.sev-mid{border-left-color:#d9a441}
+.item.off{opacity:.55;background:#fbfaf8}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
-.item input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
-.item .ttl{font-weight:700;font-size:13.5px;flex:1}
-.item .meta{font-size:11.5px;color:var(--sub);margin:3px 0 8px 27px}
-.item .body{margin-left:27px}
-.why{font-size:12px;background:#f7f6f4;border-left:3px solid #cfcdc8;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
+.item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+.item .ttl{font-weight:700;font-size:16px;flex:1;letter-spacing:-.01em}
+.item .meta{font-size:13px;color:var(--sub);margin:4px 0 10px 28px}
+.item .body{margin-left:28px}
+.why{font-size:13px;background:#f6f5f2;border-left:3px solid #d5d1ca;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
 .why b{color:var(--ink)}
-.sug{font-size:12px;background:#f2f7f3;border-left:3px solid #a8ceb5;padding:6px 10px;
-     border-radius:0 5px 5px 0;margin-bottom:8px}
-.sug .lb{font-size:10.5px;font-weight:700;color:var(--ok);display:block;margin-bottom:2px}
-.sug button{font:inherit;font-size:11px;border:1px solid #a8ceb5;background:#fff;color:var(--ok);
-            border-radius:4px;padding:1px 7px;cursor:pointer;margin-left:6px}
-textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:inherit;
-         font-size:12.5px;resize:vertical;min-height:34px}
-.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;
-     background:#fff;border:1px solid var(--line);border-radius:9px;position:sticky;bottom:12px;
-     flex-wrap:wrap}
-.bar .cnt{font-size:13px}.bar .cnt b{color:var(--accent);font-size:16px}
-.btn{font:inherit;font-weight:700;font-size:13.5px;padding:9px 22px;border-radius:7px;border:none;
+.sug{font-size:13px;background:#f1f6f2;border-left:3px solid #a9cdb6;padding:8px 12px;
+     border-radius:0 6px 6px 0;margin-bottom:10px}
+.sug .lb{font-size:13px;font-weight:700;color:var(--ok);display:block;margin-bottom:3px}
+.sug button{font:inherit;font-size:13px;border:1px solid #a9cdb6;background:var(--card);
+            color:var(--ok);border-radius:6px;padding:2px 9px;cursor:pointer;margin-left:6px}
+textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;
+         font-size:14px;resize:vertical;min-height:38px;background:var(--card);color:inherit}
+
+/* 승인 영역 — 화면 아래에 붙어 늘 보인다 */
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+     padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+     position:sticky;bottom:12px}
+.bar .cnt{font-size:14px}
+.bar .cnt b{color:var(--accent);font-size:20px}
+.bar .need{color:var(--accent);font-size:13px;font-weight:700}
+.btn{font:inherit;font-weight:700;font-size:14px;padding:10px 22px;border-radius:8px;border:none;
      cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
-.btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
+.btn:disabled{background:#c9c5be;cursor:not-allowed}
+.btn.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
 
 /* 완료 / 진행중 — 기본 선택 없음. 고르지 않으면 승인이 막힌다 */
-.st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;margin:0 0 8px}
-.st label{border:1px solid var(--line);border-radius:14px;padding:2px 10px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;margin:0 0 10px}
+.st label{border:1px solid var(--line);border-radius:999px;padding:3px 12px;cursor:pointer;
+          display:inline-flex;gap:6px;align-items:center}
 .st input[type=radio]{accent-color:var(--accent);margin:0}
 .st label:has(input:checked){border-color:var(--ink);background:var(--ink);color:#fff}
-.st .lb{font-size:10.5px;font-weight:700;color:var(--sub)}
-.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #ffe0e6}
+.st .lb{font-size:13px;font-weight:700;color:var(--sub)}
+.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #fde4e6}
 .item.need .st .lb{color:var(--accent)}
 .item.need .st .lb::after{content:" — 골라야 승인됩니다"}
-.bar .need{color:var(--accent);font-size:12.5px;font-weight:700}
-.pill.done{background:#dcefe2;color:var(--ok)}.pill.going{background:#fdf0d8;color:var(--warn)}
 
-/* 이월 항목 묶음 — 본문 항목과 섞지 않는다 */
-.carry{border-left:3px solid var(--warn)}
-.carry .ci{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-top:8px;background:#fff}
-.carry .ci .t{font-weight:700;font-size:13px}
-.carry .ci .m{font-size:11.5px;color:var(--sub);margin:2px 0 6px}
-.carry .ci .c{font-size:12.5px;background:#f7f6f4;padding:5px 10px;border-radius:5px;margin-bottom:8px}
+/* 이월 항목 묶음 — 접힌 채로 두고 본문 항목과 섞지 않는다 */
+.carry{border-left:3px solid #d9a441}
+.carry .ci{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:10px;background:var(--card)}
+.carry .ci .t{font-weight:700;font-size:14px}
+.carry .ci .m{font-size:13px;color:var(--sub);margin:3px 0 7px}
+.carry .ci .c{font-size:13px;background:#f6f5f2;padding:7px 11px;border-radius:6px;margin-bottom:10px}
 
 /* 수동 추가 */
 .item.man{border-style:dashed}
-.item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;
-           border-bottom:1px solid var(--line);padding:1px 2px;background:none}
+.item .tin{flex:1;font:inherit;font-weight:700;font-size:16px;border:none;
+           border-bottom:1px solid var(--line);padding:2px;background:none;color:inherit}
 .item .tin:focus{outline:none;border-bottom-color:var(--accent)}
-.item .min{width:100%;font:inherit;font-size:11.5px;color:var(--sub);border:none;
-           border-bottom:1px dashed var(--line);padding:1px 2px;margin-bottom:8px;background:none}
+.item .min{width:100%;font:inherit;font-size:13px;color:var(--sub);border:none;
+           border-bottom:1px dashed var(--line);padding:2px;margin-bottom:10px;background:none}
 .item .min:focus{outline:none;border-bottom-color:var(--accent)}
-.del{font:inherit;font-size:11.5px;background:none;border:1px solid var(--line);color:var(--sub);
-     border-radius:5px;padding:2px 9px;cursor:pointer}
+.del{font:inherit;font-size:13px;background:none;border:1px solid var(--line);color:var(--sub);
+     border-radius:6px;padding:3px 10px;cursor:pointer}
 .del:hover{border-color:var(--accent);color:var(--accent)}
 
-/* 근무 목록 · 확정 일지 */
-.logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);
-        border-radius:8px;background:#fff;margin-bottom:8px;transition:.12s;
-        text-decoration:none;color:inherit}
-.logrow:hover{border-color:var(--accent);background:#fffafb}
-.logrow .d{font-family:ui-monospace,Menlo,monospace;font-size:13px;font-weight:700;width:104px}
-.logrow .s{font-size:12.5px;width:52px;color:var(--sub)}
-.logrow .x{flex:1;font-size:12.5px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;
-           white-space:nowrap}
-.logrow .c{font-size:11.5px}
-.logrow .arw{color:#c9c7c2;font-size:15px}
-.det h3{font-size:15px;margin-bottom:2px}
-.det .sub{font-size:12px;color:var(--sub);margin-bottom:14px}
-.ent{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:14px}
-.ent .t{font-weight:700;font-size:13px}
-.ent .m{font-size:11.5px;color:var(--sub);margin-bottom:4px}
-.ent .c{font-size:12.5px;background:#f7f6f4;padding:6px 10px;border-radius:5px}
-.ex{border-left:3px solid #d8d6d1;padding:2px 0 2px 12px;margin-bottom:9px;opacity:.72}
-.ex .t{font-size:12.5px}
-.back{font:inherit;font-size:12.5px;color:var(--accent);text-decoration:none;
-      display:inline-block;margin-bottom:12px;font-weight:700}
-.empty{color:var(--sub);text-align:center;padding:28px;font-size:13px}
+/* 확정 일지 */
+.ent{border-left:3px solid #cfcbc4;padding:2px 0 2px 14px;margin-bottom:16px}
+.ent.sev-high{border-left-color:var(--accent)}
+.ent.sev-mid{border-left-color:#d9a441}
+.ent .t{font-weight:700;font-size:14px}
+.ent .m{font-size:13px;color:var(--sub);margin-bottom:5px}
+.ent .c{font-size:13px;background:#f6f5f2;padding:8px 12px;border-radius:6px}
+.ex{border-left:3px solid #d9d5ce;padding:2px 0 2px 14px;margin-bottom:10px;opacity:.75}
+.ex .t{font-size:13px}
 """
 
 # 트렌드 호버. 목업(demo/index.html)의 move()/out() 을 서버 차트 좌표계로 옮겼다.
@@ -253,40 +279,24 @@ document.addEventListener('DOMContentLoaded',cnt);
 """
 
 
-# 결선 심사위원들이 「DCS → RTDB → 파이프라인 → 초안 → 일지」 다섯 칸을 따라가기 힘들어했다 → 두 칸.
-# 관리(/admin)는 주소를 아는 사람만 쓴다 — 어느 화면에서도 잇지 않는다.
-NAV = (
-    ("/dcs", "DCS", "실시간 감시 · 기존 시스템"),
-    ("/draft", "초안", "검토·승인 → 확정 일지"),
-)
-
 # 옛 화면 주소 → 새 화면. 공개 소개 페이지(docs/intro.html 「파이프라인 열기」)·발표 PC 북마크가 아직 옛 주소를 써서
 # 404 가 됐다(조각 1 반증). /pipeline 의 기능은 관리로 갔지만 공개 링크로 관리가 새면 안 되므로 초안으로 보낸다.
 OLD_PATHS = {"/": "/draft", "/pipeline": "/draft", "/rtdb": "/dcs"}
 
 
-def _nav(active):
-    out = []
-    for href, label, sub in NAV:
-        on = " on" if href == active else ""
-        out.append(f'<a class="{on.strip() or ""}" href="{href}">{label}<small>{sub}</small></a>')
-    return f'<div class="nav">{"".join(out)}</div>'
-
-
-def page(title, body, active=None):
+def page(title, body):
+    """화면 한 장. 위에는 얇은 바(워드마크 · 화면 이름 · 엔진·AI 상태)만 두고 이동줄은 없다 —
+    DCS 와 일지 목록은 각자 주소로 연다(경모님 2026-09-14). 돌아갈 길은 화면 안의 「‹ 일지 목록」이다."""
     return f"""<!doctype html><html lang="ko"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)} · ENGRA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23EA002C'/><text x='16' y='23' font-size='19' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'>E</text></svg>">
 <style>{STYLE}</style>
-<div class="wrap">
-<div class="top"><h1><b>ENGRA</b> 교대 인수인계</h1>
-<span>운전 데이터가 먼저 쓰고, 근무자가 마무리합니다</span>
-<span class="eng pill{' on' if ports.engine_source() == 'engine' else ''}">엔진 {ports.engine_source()}</span>
-<span class="pill{' on' if llm.mode() != 'off' else ' red'}">{llm.status()}</span></div>
-{_nav(active)}
+<header class="top"><span class="brand">ENGRA</span><span class="ttl">{html.escape(title)}</span>
+<span class="sys">엔진 {ports.engine_source()} · {llm.status()}</span></header>
+<main class="wrap">
 {body}
-</div><script>{SCRIPT}</script><script>{TREND_JS}</script></html>"""
+</main><script>{SCRIPT}</script><script>{TREND_JS}</script></html>"""
 
 
 def esc(v):
@@ -296,6 +306,16 @@ def esc(v):
 def _span(ts):
     """2026-08-24T06:00:00 -> 08-24 06:00"""
     return (ts or "")[5:16].replace("T", " ")
+
+
+def _hhmm(ts):
+    """2026-08-24T06:00:00 -> 06:00"""
+    return (ts or "")[11:16]
+
+
+def _sev_class(sev):
+    """초안 항목 왼쪽 띠 — 상 빨강 · 중 호박 · 하 회색(기본)."""
+    return {"상": " sev-high", "중": " sev-mid"}.get(sev, "")
 
 
 def _sev_pill(sev):
@@ -417,16 +437,17 @@ def _score_html():
                  + str(T["inj"] - T["hit"]) + '</td><td class="muted">' + (str(T.get("trk", 0)) or '') + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
         head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 돌리면 여기서 바로 채점됩니다') + '</span>'; total = ''
-    legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
+    legend = ('<details style="margin:10px 0 0"><summary style="cursor:pointer;font-size:13px;color:var(--sub)">읽는 법</summary>'
+              '<p class="note" style="margin:8px 0 0">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
               '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>추적 중</b>: 근무 끝까지 이어지는 이상을 이 근무에서 못 잡은 것 — 다음 근무(이어받은 항목)에서 판정하므로 놓침도 주입 수에도 넣지 않는다. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
-              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. <b>대조 시점</b>: 정답지 파일이 초안 생성 뒤에 올라왔으면 「사후 ✓」 — 검출·초안이 정답지를 볼 수 없었다는 순서 근거. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p>')
+              '한 이상을 여러 이벤트가 잡을 수 있어 탐지 성공(이상 수)과 맞게 잡음(이벤트 수)은 다른 숫자다. <b>대조 시점</b>: 정답지 파일이 초안 생성 뒤에 올라왔으면 「사후 ✓」 — 검출·초안이 정답지를 볼 수 없었다는 순서 근거. 근무를 누르면 이상별로 무엇을 잡고 놓쳤는지 보인다.</p></details>')
     missed_html = ''
     if missed:
         missed_html = ('<p class="note" style="margin-top:8px"><b>놓친 이상</b></p><ul style="margin:4px 0 0 18px;font-size:12.5px">'
                        + "".join('<li>' + esc(sid) + ' #' + str(no) + ' ' + esc(name) + ' <span class="mono">' + esc(tag) + '</span> ' + esc(s_) + '~' + esc(e_) + '</li>'
                                  for sid, no, name, tag, s_, e_ in sorted(missed)) + '</ul>')
-    return ('<div class="card" style="padding:14px 18px">'
+    return ('<div class="card">'
             '<h2 style="font-size:15px">정답지 대조 <span class="muted" style="font-weight:400;font-size:12px"><b>검출·초안 생성은 정답지를 읽지 않습니다</b> — 정답지는 여기 채점에만 쓰입니다</span></h2>'
             '<p class="note" style="margin:4px 0 8px">' + head + '</p>'
             '<div style="overflow-x:auto"><table class="sc"><tr><th rowspan="2">근무</th><th rowspan="2">정답지</th><th rowspan="2" title="정답지가 초안 생성 뒤에 올라왔으면 사후">대조 시점</th><th colspan="4" style="text-align:center">정답지가 주입한 이상</th><th colspan="3" style="text-align:center">엔진이 검출한 이벤트</th></tr>'
@@ -491,20 +512,21 @@ def view_admin(handler=None):
     운영 화면(DCS · 초안)은 여기를 잇지 않는다 — 주소를 아는 사람만 들어온다."""
     locked = not _admin_ok(handler) if handler is not None else False
     body = (_admin_gate_html(locked) + _pipeline_card(locked) + _score_html()
-            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
+            + '<div class="card"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
             '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
-            '<ol style="margin:0 0 6px 18px;font-size:12.5px;line-height:1.6">'
+            '<details style="margin:0 0 8px"><summary style="cursor:pointer;font-size:13px;color:var(--sub)">네 가지 — 펼쳐 보기</summary>'
+            '<ol style="margin:8px 0 0 18px">'
             '<li><b>서술</b> — 엔진의 근거 수치(σ, 기울기, 한계 대비, 지속 시간)를 근무자 말투의 문장으로. 근거에 있는 숫자만 쓴다.</li>'
             '<li><b>중요도 재판정</b> — 통계 크기가 매긴 상/중/하를 "놓치면 무엇이 일어나는가"(품질·안전·설비 직결 / 손실·비효율 / 후속 영향 작음)로 다시 매기고 이유를 쓴다. 규칙과 다르면 화면에 「통계 기준 → AI 판정」으로 드러나고 사람이 되돌릴 수 있다.</li>'
             '<li><b>전달 가치</b> — 외기(TI-101·MI-102) 하루 주기와 그에 따라 함께 움직인 완만한 변화는 정상 운전으로 보고 「전달 가치 낮음」. 한계 접근·다른 이상과 겹침이면 전달. 갈리면 전달(놓치는 쪽이 비싸다).</li>'
-            '<li><b>사례 적합성 · 연관</b> — 같은 태그의 확정 일지 중 이번 현상에 맞는 것만 남기고(기각 사유 기록), 태그 마스터 연결이 놓친 인과(예: 순도 하강 ↔ Cold end 온도)를 「함께 봐야 할 항목」으로 잇는다. 근거 없으면 잇지 않는다.</li></ol>'
+            '<li><b>사례 적합성 · 연관</b> — 같은 태그의 확정 일지 중 이번 현상에 맞는 것만 남기고(기각 사유 기록), 태그 마스터 연결이 놓친 인과(예: 순도 하강 ↔ Cold end 온도)를 「함께 봐야 할 항목」으로 잇는다. 근거 없으면 잇지 않는다.</li></ol></details>'
             '<form method="post" action="/admin/ai_check" style="margin:6px 0 10px"><button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">AI 연결 점검 — 실제로 한 번 호출(수 초)</button>'
             + (('<span class="pill' + (' on' if _ai_check[0] else ' red') + '" style="margin-left:8px">' + esc(_ai_check[1]) + '</span>') if _ai_check[1] else '') + '</form>'
             '<p class="note muted" style="margin:0;font-size:12px">AI 가 아는 것 = 공기분리장치 공정 일반 지식 + 태그 마스터 설명 + 이번 근무의 근거 수치 + 과거 확정 일지. 이 공장의 절차·이력은 모른다 — 그래서 조치는 확정 일지에서만 오고, 원본 결측이 있으면 그 사실을 받아 신뢰도를 낮게 적는다. 기준 원문: <span class="mono">app/llm.py SYSTEM</span>.</p></div>'
-            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">처음부터</h2>'
+            + '<div class="card"><h2 style="font-size:15px">처음부터</h2>'
             '<p class="note" style="margin:0 0 8px">근무·초안·확정 이력·정답지 대조가 전부 지워진다. 빈 상태에서 한 근무를 돌리면 과거 조치가 없고, 두 번째 근무부터 앞 근무의 확정 코멘트가 회수되는 것을 볼 수 있다. '
             '매시 정각에도 자동으로 비워진다(최근 2시간 안에 화면에서 실행·리셋을 눌렀으면 건너뜀).</p>' + _reset_bar() + '</div>')
-    return page("관리", body, active="/admin")
+    return page("관리", body)
 
 
 def view_answer(shift_id):
@@ -515,13 +537,13 @@ def view_answer(shift_id):
     """
     sh = jobs.KEYS.get(shift_id)
     if not sh:
-        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다 — 관리에서 생성기의 asu_answer_*.json 을 올리면 여기서 볼 수 있습니다.</div></div>', active="/admin")
+        return page("없음", '<div class="card"><div class="empty">그 근무의 정답지가 없습니다 — 관리에서 생성기의 asu_answer_*.json 을 올리면 여기서 볼 수 있습니다.</div></div>')
     r = jobs.score_mod.score_shifts([sh])
     sh = next(x for x in r["shift_list"] if x["shift_id"] == shift_id)
     d = r["detail"].get(shift_id)
     kind = "주간" if sh.get("kind") == "day" else "야간"
     head = (f'<a class="back" href="/admin">‹ 관리로</a>'
-            f'<div class="card" style="padding:14px 18px"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
+            f'<div class="card"><h2>정답지 — {esc(shift_id)} ({kind})</h2>'
             f'<p class="note" style="margin:4px 0">파일 <span class="mono">{esc((jobs.csv_for(shift_id) or Path("—")).name)}</span> · 정답지 <span class="mono">{esc(sh.get("key_file", ""))}</span> · {esc(sh["from"][11:16])} ~ {esc(sh["to"][11:16])} · '
             f'태그 {sh.get("tag_count","?")}점 · {sh.get("rows",0):,}행 · 주입 <b>{len(sh["injected"])}건</b>'
             + (f' · 동시 발생 {len(sh.get("overlaps") or [])}건' if sh.get("overlaps") else "") + '</p>')
@@ -547,7 +569,7 @@ def view_answer(shift_id):
                           for m in inj.get("matched", []))
         flags_html = ('<span class="muted" style="font-size:12px">· ' + " · ".join(flags) + '</span>') if flags else ""
         matched_html = ('<div style="margin-top:6px;font-size:12.5px"><b>잡은 이벤트</b><ul style="margin:4px 0 0 18px">' + matched + '</ul></div>') if matched else ""
-        rows.append(f'''<div class="card" style="padding:12px 16px">
+        rows.append(f'''<div class="card">
 <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap"><b>#{inj["scenario_id"]} {esc(inj["name"])}</b> {st}
 <span class="mono muted" style="font-size:12px">{esc(inj["trigger_tag"])} · {esc(inj["start"][11:16])}~{esc(inj["end"][11:16])} · {inj.get("minutes","?")}분</span>
 <span class="muted" style="font-size:12px">알람 {alarm}</span>{flags_html}</div>
@@ -557,16 +579,16 @@ def view_answer(shift_id):
 </div>''')
     fp_html = ""
     if d and d["fp"]:
-        fp_html = ('<div class="card" style="padding:12px 16px"><h2 style="font-size:15px">오탐 — 어느 주입과도 겹치지 않는 검출 ' + str(len(d["fp"])) + '건</h2>'
+        fp_html = ('<div class="card"><h2 style="font-size:15px">오탐 — 어느 주입과도 겹치지 않는 검출 ' + str(len(d["fp"])) + '건</h2>'
                    '<ul style="margin:6px 0 0 18px;font-size:12.5px">'
                    + "".join(f'<li><span class="mono">{esc(f["tag"])}</span> {esc(f["kind"])} {esc(f["start"])}~{esc(f["end"])} <span class="muted">— {esc(f["evidence"] or "")[:90]}</span></li>' for f in d["fp"])
                    + '</ul><p class="note" style="margin-top:8px">오탐이 전부 12시간 전구간 드리프트면 외기 일주기 오인이다 (#13). 단일 태그 전구간 드리프트가 정상인지는 정답지가 아니라 현장 판단이다.</p></div>')
     ov_html = ""
     if sh.get("overlaps"):
-        ov_html = ('<div class="card" style="padding:12px 16px"><h2 style="font-size:15px">동시 발생</h2><ul style="margin:6px 0 0 18px;font-size:12.5px">'
+        ov_html = ('<div class="card"><h2 style="font-size:15px">동시 발생</h2><ul style="margin:6px 0 0 18px;font-size:12.5px">'
                    + "".join(f'<li>#{o["a"]} × #{o["b"]} — <span class="mono">{esc(", ".join(o.get("tags", [])))}</span> {esc(o["from"][11:16])}~{esc(o["to"][11:16])} ({o.get("minutes","?")}분)</li>' for o in sh["overlaps"])
                    + '</ul><p class="note" style="margin-top:6px">겹친 구간에서는 한 시나리오의 알람이 다른 시나리오 때문일 수 있다. 어느 쪽에 붙어도 탐지로 인정한다.</p></div>')
-    return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html, active="/admin")
+    return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html)
 
 
 def _pipeline_card(locked):
@@ -605,11 +627,9 @@ def _pipeline_card(locked):
                  'var p=document.getElementById("jobpill");if(p){p.textContent="완료";p.classList.remove("on");}var d=document.getElementById("jobdone");if(d)d.style.display="inline";return;}'
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
     lock = ' disabled title="열쇠 필요"' if locked else ''
-    return ('<div class="card" style="padding:14px 18px"><h2>관리 — 근무 올리기 · 검출 + AI 초안 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 운영 화면(DCS · 초안)에는 없는 기능만 모았다</span></h2>'
-            '<p class="note" style="margin:0 0 10px">생성기(<a href="/asu#rtdb">RTDB 탭</a>)에서 내려받은 근무 CSV 를 올리면 바로 적재돼 아래 목록에 뜬다 → 「검출 + AI 초안」 → 초안 화면에서 승인·확정. '
-            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. '
-            '<b>정답지</b>(생성기가 CSV 와 함께 내려준 asu_answer_*.json)를 올리면 아래 대조표가 그 근무에서 엔진이 잡은 것과 심어 둔 이상을 대조한다 — '
-            '초안을 먼저 만든 뒤 올리면 「사후 ✓」(검출이 정답지를 볼 수 없었다는 순서 근거).</p>'
+    return ('<div class="card"><h2>관리 — 근무 올리기 · 검출 + AI 초안 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 운영 화면(DCS · 초안)에는 없는 기능만 모았다</span></h2>'
+            '<p class="note" style="margin:0 0 12px">생성기(<a href="/asu#rtdb">RTDB 탭</a>)에서 받은 근무 CSV 를 올리고 「검출 + AI 초안」을 누르면 초안 화면에서 승인·확정한다. '
+            '정답지(asu_answer_*.json)를 함께 올리면 아래 대조표에서 채점한다 — 초안을 먼저 만든 뒤 올리면 「사후 ✓」.</p>'
             '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>파일 올리기</b></div>'
             f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
             '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
@@ -645,38 +665,33 @@ def view_draft():
             r["id"]: [e["tag"] for e in db.load_events(conn, r["id"])] for r in rows
         }
 
-    only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed")]
-    rows = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다" — 초안·확정만
-    if not rows:
+    # 'live' = 실시간으로 쌓이는 중(조각 2 의 재생이 만든다). 맨 위에 따로 세운다.
+    only_ingested = [r["id"] for r in rows if r["draft_status"] not in ("pending", "confirmed", "live")]
+    live = [r for r in rows if r["draft_status"] == "live"]
+    rows = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다"
+    if not rows and not live:
         why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
-        return page("초안", '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>', active="/draft")
+        return page("일지 목록", '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>')
 
-    out = []
-    for r in rows:
+    def row(r, state, extra=""):
         tags = summaries.get(r["id"]) or []
         gist = " · ".join(tags[:3]) + (f" 외 {len(tags) - 3}건" if len(tags) > 3 else "")
-        status = r["draft_status"] or ""
-        if status == "confirmed":
-            badge = f'<span class="pill on">채택 {r["adopted_count"]}건</span>'
-        elif status == "pending":
-            badge = '<span class="pill amber">승인 대기</span>'
-        else:
-            badge = '<span class="pill">미생성</span>'
         date, kind = r["id"].rsplit("-", 1)
-        out.append(
-            f'<a class="logrow" href="/shift/{esc(r["id"])}">'
-            f'<span class="d">{esc(date)}</span>'
-            f'<span class="s">{"주간" if kind == "day" else "야간"}</span>'
-            f'<span class="x">{esc(gist) or "감지 항목 없음"}</span>'
-            f'<span class="c">{badge}</span><span class="arw">›</span></a>'
-        )
+        return (f'<a class="row{extra}" href="/shift/{esc(r["id"])}">'
+                f'<span class="when"><span class="date">{esc(date)}</span>'
+                f'<span class="kind">{"주간" if kind == "day" else "야간"}</span>'
+                f'<span class="win">{esc(_hhmm(r["window_start"]))}–{esc(_hhmm(r["window_end"]))}</span></span>'
+                f'<span class="gist">{esc(gist) or "감지 항목 없음"}</span>'
+                f'{state}<span class="arw">›</span></a>')
 
-    body = (f'<div class="card" style="padding:14px 18px">'
-            f'<h2>초안 · 근무 일지</h2>'
-            f'<p class="note" style="margin:0">근무를 누르면 승인 대기 초안의 검토 또는 확정 일지로 들어갑니다. '
-            f'분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>'
-            f'{"".join(out)}')
-    return page("초안", body, active="/draft")
+    out = [row(r, '<span class="pill live">LIVE · 쌓이는 중</span>', extra=" live") for r in live]
+    out += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
+                if r["draft_status"] == "confirmed" else '<span class="pill amber">초안</span>') for r in rows]
+
+    body = ('<div class="card"><h2>근무 일지</h2>'
+            '<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
+            '구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>' + "".join(out))
+    return page("일지 목록", body)
 
 
 def _rounds_html(shift_id):
@@ -696,7 +711,7 @@ def _rounds_html(shift_id):
     return "".join(parts)
 
 
-def _view_confirmed(shift_id, draft, handover, active="/draft"):
+def _view_confirmed(shift_id, draft, handover):
     own = [i for i in draft["items"] if i["origin"] != "carried"]      # 이월 판단 행은 위 묶음에서 보인다
     adopted = [i for i in own if i["adopted"] == 1]
     excluded = [i for i in own if i["adopted"] == 0]
@@ -712,7 +727,7 @@ def _view_confirmed(shift_id, draft, handover, active="/draft"):
                    if it.get("comment")
                    else '<div class="c muted">코멘트 없음</div>')
         ents.append(
-            f'<div class="ent"><div class="t">{esc(it["title"])} {_sev_pill(it["severity"])} {_status_pill(it.get("status"))}{man}</div>'
+            f'<div class="ent{_sev_class(it["severity"])}"><div class="t">{esc(it["title"])} {_sev_pill(it["severity"])} {_status_pill(it.get("status"))}{man}</div>'
             f'<div class="m">{esc(it["evidence"] or it["body"])}</div>{comment}</div>'
         )
     if not ents:
@@ -732,7 +747,7 @@ def _view_confirmed(shift_id, draft, handover, active="/draft"):
               f'같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>')
 
     date, kind = shift_id.rsplit("-", 1)
-    return page(shift_id, f"""<a class="back" href="/draft">‹ 목록으로</a>
+    return page(shift_id, f"""<a class="back" href="/draft">‹ 일지 목록</a>
 {_carry_box(opened, choices, editable=False)}
 <div class="card det">
 <h3>{esc(date)} {"주간조" if kind == "day" else "야간조"} 인수인계서</h3>
@@ -746,10 +761,10 @@ def _view_confirmed(shift_id, draft, handover, active="/draft"):
 <input type="hidden" name="shift_id" value="{esc(shift_id)}">
 <input class="tin" name="reason" placeholder="재검토 사유 (선택) — 예: 3번 항목 코멘트 오기" style="flex:1;min-width:260px">
 <button class="btn" style="background:var(--sub)">재검토</button>
-<span class="muted" style="font-size:11.5px">확정 후 잘못 적은 것을 고칠 때. 채택·코멘트는 그대로 두고 초안 상태로 돌아갑니다</span>
+<span class="muted" style="font-size:13px">확정 후 잘못 적은 것을 고칠 때 — 채택·코멘트는 그대로</span>
 </form>
 {"".join(ents)}{ex}
-</div>""", active=active)
+</div>""")
 
 
 def _status_pill(status):
@@ -810,83 +825,133 @@ def _sev_select(it):
     return f'<select name="sev_{it["id"]}" class="pill sevsel" title="중요도를 바꿀 수 있습니다">{opts}</select>'
 
 
-def _spark(w, metrics=None, unit=""):
-    """이벤트 파형 → 인라인 SVG 차트.
+def _frac(t0, t1, t):
+    """t0~t1 안에서 t 의 가로 위치(0~1)."""
+    from datetime import datetime as _d
+    try:
+        a, b, x = _d.fromisoformat(t0), _d.fromisoformat(t1), _d.fromisoformat(t)
+    except (TypeError, ValueError):
+        return 0.0
+    span = (b - a).total_seconds() or 1
+    return max(0.0, min(1.0, (x - a).total_seconds() / span))
 
-    경모님 지적(2026-08-27) "trend 가 보기 불편하다, 자리를 더 써도 되니 제대로" — 46px 스트레치
-    폴리라인을 버리고 y 눈금·한계선·시각 눈금·감지 구간 음영이 있는 차트로. 외부 라이브러리 없음.
+
+def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=False, ticks=5, gap=0.0, note=""):
+    """(가로 위치 0~1, 값) 점들 → 인라인 SVG 한 장. 외부 라이브러리 없음.
+
+    band=(f0,f1) 는 감지 구간 음영, gap 보다 벌어진 자리는 선을 끊는다(원본이 빈 구간). hover 면 마우스 툴팁 데이터를 붙인다
+    (TREND_JS 가 .trend[data-trend] 를 찾는다 — 표본이 고르게 놓인 확대 그래프에만 붙인다).
     """
-    if not w or not w.get("v") or len(w["v"]) < 2:
+    if len(pts) < 2:
         return ""
-    v = w["v"]; n = len(v)
-    lo, hi = min(v), max(v)
-    limit = (metrics or {}).get("limit")
-    # y 범위: 데이터 ± 8% 여유, 한계선이 가까우면 포함
+    vals = [v for _, v in pts]
+    lo, hi = min(vals), max(vals)
     ylo, yhi = lo, hi
     if isinstance(limit, (int, float)) and abs(limit - (lo + hi) / 2) < (hi - lo or 1) * 6:
         ylo, yhi = min(ylo, limit), max(yhi, limit)
-    pad_y = (yhi - ylo or 1.0) * 0.08
-    ylo -= pad_y; yhi += pad_y
+    pad = (yhi - ylo or 1.0) * 0.08
+    ylo -= pad
+    yhi += pad
     span = (yhi - ylo) or 1.0
-    W, H = 720, 150
+    W, H = 720, height
     L, R, T, B = 56, 12, 10, 26            # 축 여백
     pw, ph = W - L - R, H - T - B
-    def X(i): return L + i * (pw / (n - 1))
-    def Y(x): return T + ph - (x - ylo) / span * ph
-    pts = " ".join(f"{X(i):.1f},{Y(x):.1f}" for i, x in enumerate(v))
-    area = f"{L:.1f},{T+ph:.1f} " + pts + f" {X(n-1):.1f},{T+ph:.1f}"
-    # 감지 구간 음영
-    band = ""
+
+    def X(f):
+        return L + f * pw
+
+    def Y(v):
+        return T + ph - (v - ylo) / span * ph
+
+    segs, cur, prev = [], [], None
+    for f, v in pts:
+        if prev is not None and gap and (f - prev) > gap:
+            segs.append(cur)
+            cur = []
+        cur.append(f"{X(f):.1f},{Y(v):.1f}")
+        prev = f
+    segs.append(cur)
+    poly = "".join(f'<polyline points="{" ".join(s)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>'
+                   for s in segs if len(s) > 1)
+    yt = "".join(
+        f'<line x1="{L}" y1="{Y(ylo + span * k / 3):.1f}" x2="{W - R}" y2="{Y(ylo + span * k / 3):.1f}" stroke="var(--line)" stroke-dasharray="2 3"/>'
+        f'<text x="{L - 6}" y="{Y(ylo + span * k / 3) + 3.5:.1f}" font-size="10" text-anchor="end" fill="var(--sub)">{ylo + span * k / 3:.4g}</text>'
+        for k in range(4))
+    xt = ""
     try:
         from datetime import datetime as _d
-        t0, t1 = _d.fromisoformat(w["t0"]).timestamp(), _d.fromisoformat(w["t1"]).timestamp()
-        m0, m1 = _d.fromisoformat(w["mark"][0]).timestamp(), _d.fromisoformat(w["mark"][1]).timestamp()
-        f0 = max(0.0, (m0 - t0) / ((t1 - t0) or 1)); f1 = min(1.0, (m1 - t0) / ((t1 - t0) or 1))
-        band = (f'<rect x="{L + f0*pw:.1f}" y="{T}" width="{max(3.0, (f1-f0)*pw):.1f}" height="{ph}" '
-                f'fill="var(--accent)" opacity=".12"/>')
-        # 시각 눈금 5개
-        ticks = []
-        for k in range(5):
-            ts = t0 + (t1 - t0) * k / 4
-            hhmm = _d.fromtimestamp(ts).strftime("%H:%M")
-            x = L + pw * k / 4
-            ticks.append(f'<line x1="{x:.1f}" y1="{T+ph}" x2="{x:.1f}" y2="{T+ph+4}" stroke="var(--line)"/>'
-                         f'<text x="{x:.1f}" y="{H-8}" font-size="10" text-anchor="middle" fill="var(--sub)">{hhmm}</text>')
-        xt = "".join(ticks)
-    except Exception:
-        xt = ""
-    # y 눈금 4단 + 격자
-    yt = []
-    for k in range(4):
-        val = ylo + span * k / 3
-        y = Y(val)
-        yt.append(f'<line x1="{L}" y1="{y:.1f}" x2="{W-R}" y2="{y:.1f}" stroke="var(--line)" stroke-dasharray="2 3"/>'
-                  f'<text x="{L-6}" y="{y+3.5:.1f}" font-size="10" text-anchor="end" fill="var(--sub)">{val:.4g}</text>')
-    # 한계선
+        a, b = _d.fromisoformat(t0), _d.fromisoformat(t1)
+        xt = "".join(
+            f'<line x1="{X(k / (ticks - 1)):.1f}" y1="{T + ph}" x2="{X(k / (ticks - 1)):.1f}" y2="{T + ph + 4}" stroke="var(--line)"/>'
+            f'<text x="{X(k / (ticks - 1)):.1f}" y="{H - 8}" font-size="10" text-anchor="middle" fill="var(--sub)">'
+            f'{(a + (b - a) * k / (ticks - 1)).strftime("%H:%M")}</text>' for k in range(ticks))
+    except (TypeError, ValueError):
+        pass
+    shade = ""
+    if band:
+        f0, f1 = max(0.0, band[0]), min(1.0, band[1])
+        shade = f'<rect x="{X(f0):.1f}" y="{T}" width="{max(3.0, (f1 - f0) * pw):.1f}" height="{ph}" fill="var(--accent)" opacity=".13"/>'
     lim = ""
     if isinstance(limit, (int, float)) and ylo <= limit <= yhi:
-        y = Y(limit)
-        lim = (f'<line x1="{L}" y1="{y:.1f}" x2="{W-R}" y2="{y:.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
-               f'<text x="{W-R}" y="{y-4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {limit:g}{esc(unit)}</text>')
-    # 마지막 점 강조
-    end = f'<circle cx="{X(n-1):.1f}" cy="{Y(v[-1]):.1f}" r="3" fill="var(--ink)"/>'
-    # 호버용 데이터: 표본값 배열과 창 시각. JS 가 마우스 x → 가장 가까운 표본 → 값·시각 툴팁.
-    hover = json.dumps({"v": v, "t0": w["t0"], "t1": w["t1"], "L": L, "pw": pw, "T": T, "ph": ph, "ylo": ylo, "span": span, "unit": unit}, ensure_ascii=False)
-    return (f'<div class="trend" data-trend=\'{esc(hover)}\' style="position:relative">'
+        lim = (f'<line x1="{L}" y1="{Y(limit):.1f}" x2="{W - R}" y2="{Y(limit):.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
+               f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {limit:g}{esc(unit)}</text>')
+    end = f'<circle cx="{X(pts[-1][0]):.1f}" cy="{Y(pts[-1][1]):.1f}" r="3" fill="var(--ink)"/>'
+    data = ""
+    if hover:
+        data = " data-trend='" + esc(json.dumps({"v": vals, "t0": t0, "t1": t1, "L": L, "pw": pw, "T": T, "ph": ph,
+                                                 "ylo": ylo, "span": span, "unit": unit}, ensure_ascii=False)) + "'"
+    return (f'<div class="trend"{data} style="position:relative;margin-bottom:10px">'
             f'<svg viewBox="0 0 {W} {H}" style="display:block;width:100%;height:auto;background:var(--card);'
-            f'border:1px solid var(--line);border-radius:8px">'
-            f'{"".join(yt)}{band}<polygon points="{area}" fill="var(--ink)" opacity=".05"/>'
-            f'<polyline points="{pts}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>'
-            f'{lim}{end}{xt}'
-            f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T+ph}" stroke="var(--line)"/>'
-            f'<line x1="{L}" y1="{T+ph}" x2="{W-R}" y2="{T+ph}" stroke="var(--line)"/>'
-            f'<line class="cur" x1="0" y1="{T}" x2="0" y2="{T+ph}" stroke="var(--accent)" stroke-width="1" style="display:none"/>'
+            f'border:1px solid var(--line);border-radius:8px">{yt}{shade}{poly}{lim}{end}{xt}'
+            f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T + ph}" stroke="var(--line)"/>'
+            f'<line x1="{L}" y1="{T + ph}" x2="{W - R}" y2="{T + ph}" stroke="var(--line)"/>'
+            f'<line class="cur" x1="0" y1="{T}" x2="0" y2="{T + ph}" stroke="var(--accent)" stroke-width="1" style="display:none"/>'
             f'<circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg>'
-            f'<div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;'
-            f'font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div>'
-            f'<div class="muted" style="font-size:11px;margin-top:3px">감지 구간 ±30분 · 최저 {lo:g} · 최고 {hi:g}{(" " + esc(unit)) if unit else ""} · 음영 = 감지 구간'
-            f'{" · 빨간 점선 = 알람 한계" if lim else ""}</div></div>')
+            + (f'<div class="muted" style="font-size:13px;margin-top:3px">{note}</div>' if note else "")
+            + '<div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;'
+              'font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div></div>')
 
+
+def _shift_curve(shift_id, tag):
+    """근무 구간 전체의 태그 곡선 — 원본 표본을 1분 평균으로 줄여 읽는다(12시간이면 720점). 원본이 회전돼 없으면 None.
+
+    감지 구간 ±30분만 그리니 12시간 근무의 어디쯤이었는지 알 수 없었다(경모님 2026-09-14).
+    """
+    with db.connect() as conn:
+        row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
+        if not row:
+            return None
+        rows = conn.execute(
+            "SELECT substr(ts, 1, 16) AS m, AVG(value) FROM raw_sample "
+            "WHERE tag = ? AND ts >= ? AND ts < ? GROUP BY m ORDER BY m",
+            (tag, row["window_start"], row["window_end"])).fetchall()
+    pts = [(_frac(row["window_start"], row["window_end"], m + ":00"), float(v)) for m, v in rows if v is not None]
+    return {"pts": pts, "t0": row["window_start"], "t1": row["window_end"]} if len(pts) >= 2 else None
+
+
+def _spark(w, metrics=None, unit="", full=None):
+    """항목 그래프 — 위는 근무 구간 전체(감지 구간 음영), 아래는 그 구간 확대(마우스 호버로 값·시각).
+
+    경모님 지적(2026-08-27) "trend 가 보기 불편하다, 자리를 더 써도 되니 제대로" → 눈금·한계선·음영이 있는 차트로,
+    (2026-09-14) "근무 어디쯤이었는지 알 수 없다" → 근무 구간 전체를 먼저 보이고 확대를 아래에 붙였다.
+    """
+    limit = (metrics or {}).get("limit")
+    out = ""
+    if full and len(full.get("pts") or []) >= 2:
+        band = None
+        if w and w.get("mark"):
+            band = (_frac(full["t0"], full["t1"], w["mark"][0]), _frac(full["t0"], full["t1"], w["mark"][1]))
+        out += _curve(full["pts"], full["t0"], full["t1"], band=band, limit=limit, unit=unit, gap=0.01,
+                      note="근무 구간 전체 · 음영 = 감지 구간" + (" · 빨간 점선 = 알람 한계" if isinstance(limit, (int, float)) else ""))
+    if w and w.get("v") and len(w["v"]) >= 2:
+        v = w["v"]
+        n = len(v)
+        pts = [(i / (n - 1), x) for i, x in enumerate(v)]
+        band = (_frac(w["t0"], w["t1"], w["mark"][0]), _frac(w["t0"], w["t1"], w["mark"][1])) if w.get("mark") else None
+        out += _curve(pts, w["t0"], w["t1"], height=110 if out else 150, band=band, limit=limit, unit=unit, hover=True,
+                      note=("감지 구간 확대 ±30분" if out else "감지 구간 ±30분")
+                           + f" · 최저 {min(v):g} · 최고 {max(v):g}{(' ' + esc(unit)) if unit else ''}")
+    return out
 
 def _waves(shift_id):
     """근무의 이벤트 파형·지표를 event_id → (파형, metrics) 로."""
@@ -917,8 +982,16 @@ def _prev_ex_note(pe):
             + rep + tail + '</div>')
 
 
-def _view_pending(shift_id, draft, active="/draft"):
+def _view_pending(shift_id, draft):
     waves = _waves(shift_id)
+    curves = {}
+
+    def curve(tag):
+        """근무 구간 전체 곡선 — 같은 태그를 여러 항목이 쓰면 한 번만 읽는다."""
+        if tag not in curves:
+            curves[tag] = _shift_curve(shift_id, tag)
+        return curves[tag]
+
     items = []
     low = []            # 지난 근무에서 제외한 것 — 지우지 않고 최하단으로 내린다 (#30)
     low_hi = 0          # 그중 중요도 '상' 건수
@@ -990,12 +1063,21 @@ def _view_pending(shift_id, draft, active="/draft"):
             on_n += 1
         if pe and it.get("severity") == "상":
             low_hi += 1
-        (low if pe else items).append(f"""<div class="item{"" if on else " off"}">
+        # 설명은 사람이 읽는 문장만, 수치는 「감지 근거」 칸에만 — 엔진이 만든 body 가 문장 + 태그별 근거 줄이라
+        # 두 자리에 같은 숫자가 나왔다(경모님 2026-09-14). AI 가 서술을 다시 쓰면 body 는 문장뿐이라 그대로 보인다.
+        lines = [ln.strip() for ln in (it["body"] or "").split("\n") if ln.strip()]
+        say = " ".join(ln for ln in lines if not ln.startswith("·"))
+        ev = (it["evidence"] or "").strip()
+        nums = [n for n in (ln.lstrip("·").strip() for ln in lines if ln.startswith("·")) if n and n != ev]
+        why = ('<div class="why"><b>감지 근거</b> — ' + esc(ev)
+               + "".join(f'<div style="margin-top:5px">{esc(n)}</div>' for n in nums) + '</div>')
+        wf, wm = waves.get(it.get("event_id")) or (None, {})
+        (low if pe else items).append(f"""<div class="item{_sev_class(it['severity'])}{"" if on else " off"}">
 <div class="row1"><input type="checkbox" name="item" value="{it['id']}"{" checked" if on else ""} onchange="tg(this)">
 <div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
-<div class="meta">{esc(it['tag'])} · {esc(it['body'])}</div>
+<div class="meta">{esc(it['tag'])}{(" · " + esc(say)) if say else ""}</div>
 <div class="body">
-{_spark(*(waves.get(it.get("event_id")) or (None, {})), unit=((waves.get(it.get("event_id")) or (None, {}))[1] or {}).get("unit", ""))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
+{_spark(wf, wm, unit=(wm or {}).get("unit", ""), full=curve(it["tag"]))}{why}
 {judged}{sug}
 {_status_radios(f"status_{it['id']}", it.get("status"))}<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
@@ -1031,37 +1113,49 @@ def _view_pending(shift_id, draft, active="/draft"):
 
     date, kind = shift_id.rsplit("-", 1)
     n = len(own)
-    return page(shift_id, f"""<a class="back" href="/draft">‹ 목록으로</a>
+
+    # 아직 쌓이는 중인 근무(status='live')는 읽기 전용이다. 끝나지 않은 근무를 확정하면 그 뒤에 들어온
+    # 감지가 일지에 없는 채로 남는다 — 여기서 폼을 빼고, 폼을 우회한 제출은 approve.decide 가 막는다.
+    # <fieldset disabled> 는 안의 입력을 전부 잠근다(JS 없이). 제출 경로 자체가 없다.
+    live = draft.get("status") == "live"
+    head = ('<fieldset disabled style="border:0;padding:0;margin:0">' if live else
+            '<form method="post" action="/approve" onsubmit="return chk(this)">'
+            f'<input type="hidden" name="shift_id" value="{esc(shift_id)}">')
+    tail = ('</fieldset>' if live else
+            '<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;'
+            'gap:12px;flex-wrap:wrap;align-items:center">'
+            '<span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다. '
+            '여러 건을 넣을 수 있습니다.</span>'
+            '<button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>'
+            f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건'
+            '<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> '
+            '<span id="need" class="need"></span></div>'
+            '<button type="submit" class="btn">승인하고 확정</button></div></form>')
+    lead = ('감지가 지금도 쌓이고 있습니다. <b style="color:var(--ink)">근무가 끝나면 검토할 수 있습니다.</b>' if live else
+            '감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다. '
+            '적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. '
+            '진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.')
+    return page(shift_id, f"""<a class="back" href="/draft">‹ 일지 목록</a>
 {disc}
 {qbanner}
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
-인수인계 초안</h2>
-<p class="note" style="margin:0">감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다.
-적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. 진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.</p></div>
-<div class="muted" style="font-size:12px;text-align:right">감지
+인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live else ""}</h2>
+<p class="note" style="margin:0">{lead}</p></div>
+<div class="muted" style="font-size:13px">감지
 <b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}</div>
 </div>
-<form method="post" action="/approve" onsubmit="return chk(this)">
-<input type="hidden" name="shift_id" value="{esc(shift_id)}">
+{head}
 {_carry_box(opened, choices, editable=True)}
 {"".join(items)}
 {lowbox}
 <div id="mans"></div>
-<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;
-     gap:12px;flex-wrap:wrap;align-items:center">
-<span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다.
-여러 건을 넣을 수 있습니다.</span>
-<button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>
-<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건
-<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> <span id="need" class="need"></span></div>
-<button type="submit" class="btn">승인하고 확정</button></div>
-</form>""", active=active)
+{tail}""")
 
 
-def view_shift(shift_id, active="/draft"):
+def view_shift(shift_id):
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
         handover = db.load_handover(conn, shift_id)
@@ -1070,15 +1164,15 @@ def view_shift(shift_id, active="/draft"):
         ).fetchone()
 
     if draft is None:
-        return page(shift_id, f'<a class="back" href="/draft">‹ 목록으로</a>'
+        return page(shift_id, f'<a class="back" href="/draft">‹ 일지 목록</a>'
                               f'<div class="card"><div class="empty">{esc(shift_id)} 의 초안이 '
                               f'없습니다.<br><code class="mono">python3 app/cli.py run '
-                              f'{esc(shift_id)}</code></div></div>', active=active)
+                              f'{esc(shift_id)}</code></div></div>')
 
     draft["window_start"] = row["window_start"] if row else None
     if handover:
-        return _view_confirmed(shift_id, draft, handover, active)
-    return _view_pending(shift_id, draft, active)
+        return _view_confirmed(shift_id, draft, handover)
+    return _view_pending(shift_id, draft)
 
 
 # --- 서버 -------------------------------------------------------------
@@ -1127,11 +1221,13 @@ class Handler(BaseHTTPRequestHandler):
                 with db.connect() as conn:
                     self._json(db.load_draft(conn, path[len("/api/draft/"):]))
             else:
-                self._send(404, page("없음", '<div class="card"><div class="empty">'
-                                             '없는 주소입니다.</div></div>'))
+                self._send(404, page("없음", '<div class="card"><div class="empty">없는 주소입니다.'
+                                             '<br><a class="back" style="margin-top:12px" href="/draft">일지 목록으로</a>'
+                                             '</div></div>'))
         except Exception as exc:  # 화면에 그대로 드러낸다 — 조용히 넘기지 않는다
             self._send(500, page("오류", f'<div class="card"><h2>오류</h2>'
-                                        f'<pre class="mono">{esc(exc)}</pre></div>'))
+                                        f'<pre class="mono">{esc(exc)}</pre>'
+                                        f'<a class="back" style="margin-top:12px" href="/draft">일지 목록으로</a></div>'))
 
     MAX_BODY = 256 * 1024           # 승인·리셋 폼. 코멘트 수십 개라도 수십 KB
     MAX_UPLOAD = 48 * 1024 * 1024   # 생성기 12h CSV 35.8MB + 정답지 = 근무 하나. 라이브 실측: 37.5MB 업로드에 MemoryPeak 420MB(email 파서 ~11배) — MemoryMax 700MB 라 96MB 면 OOM (Codex 반증 2026-08-27)
@@ -1146,7 +1242,7 @@ class Handler(BaseHTTPRequestHandler):
         cap = self.MAX_UPLOAD if is_upload else self.MAX_BODY
         if length < 0 or length > cap:
             self._send(413, page("요청이 너무 큽니다", f'<div class="card"><div class="empty">'
-                                                  f'본문 {length:,}B — 허용 {cap:,}B</div></div>', active="/admin"))
+                                                  f'본문 {length:,}B — 허용 {cap:,}B</div></div>'))
             return
         if is_upload:
             # 한 번에 하나만 — 본문을 읽기 전에 줄을 서므로 두 번째 업로드는 메모리를 안 먹고 기다린다.
@@ -1184,7 +1280,7 @@ class Handler(BaseHTTPRequestHandler):
             print(f"  UPLOAD 시간 초과 {len(buf):,}/{length:,}B")
             self.connection.settimeout(self.UPLOAD_STALL_S)   # 마지막 반복의 극소 timeout 이 응답 전송까지 남지 않게 (Codex 4차)
             try:
-                self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>', active="/admin"))
+                self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>'))
             except OSError:
                 pass
             return None
@@ -1257,14 +1353,14 @@ class Handler(BaseHTTPRequestHandler):
         rejected += [f"같은 이름으로 저장될 파일이 둘: {name} ← {' , '.join(src)}" for name, src in names.values() if len(src) > 1]
         if rejected:
             self._send(400, page("업로드 실패", '<div class="card"><div class="empty">아무 파일도 저장하지 않았습니다 — '
-                                             + esc(" · ".join(rejected)) + '</div></div>', active="/admin"))
+                                             + esc(" · ".join(rejected)) + '</div></div>'))
             return
         try:
             paths, key_sids = jobs.save_uploads(self._upload_file(part) for part in parts)
         except Exception as exc:   # 검사를 통과한 뒤의 실패 = 서버 쪽 문제. 경로 같은 자세한 내용은 로그에만 — 응답에 서버 절대 경로가 나갔다(조각 1 2차 재반증)
             print(f"  !! UPLOAD 저장 실패: {type(exc).__name__}: {exc}")
             self._send(500, page("업로드 실패", '<div class="card"><div class="empty">업로드를 끝내지 못했습니다 — 서버 오류('
-                                             + esc(type(exc).__name__) + '). 자세한 내용은 서버 로그에 있습니다.</div></div>', active="/admin"))
+                                             + esc(type(exc).__name__) + '). 자세한 내용은 서버 로그에 있습니다.</div></div>'))
             return
         saved = [p.name for p in paths]
         print("  UPLOAD " + str(saved))
@@ -1287,7 +1383,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers(); return
             if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
                 if not _admin_ok(self):
-                    self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>', active="/admin")); return
+                    self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>')); return
             if path == "/admin/ai_check":
                 global _ai_check
                 import time as _t
@@ -1299,13 +1395,13 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     started = jobs.ingest_skip(form.get("file", [""])[0])
                 except FileNotFoundError as exc:
-                    self._send(400, page("없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin")); return
+                    self._send(400, page("없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/pipeline/run":
                 sid = form["shift_id"][0]
                 redo = form.get("redo", ["0"])[0] == "1"
                 if not any(x["shift_id"] == sid for x in jobs.sources()):
-                    self._send(400, page("없음", '<div class="card"><div class="empty">적재된 근무가 아닙니다. 먼저 CSV 를 올리세요.</div></div>', active="/admin")); return
+                    self._send(400, page("없음", '<div class="card"><div class="empty">적재된 근무가 아닙니다. 먼저 CSV 를 올리세요.</div></div>')); return
                 with db.connect() as conn:
                     row = conn.execute("SELECT ingested_at FROM shift WHERE id = ?", (sid,)).fetchone()
                     confirmed = db.load_handover(conn, sid) is not None
@@ -1320,16 +1416,16 @@ class Handler(BaseHTTPRequestHandler):
                     except (OSError, TypeError, ValueError):
                         newer = False
                 if confirmed and not redo:   # 확정 근무는 제품 흐름에서 다시 돌리지 않는다 — 비동기 실패 대신 바로 안내
-                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무입니다. 다시 만들려면 <a href="/admin">관리</a>에서 「확정돼 있어도 다시 만들기」를 켜고 실행하세요.</div></div>', active="/admin")); return
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무입니다. 다시 만들려면 <a href="/admin">관리</a>에서 「확정돼 있어도 다시 만들기」를 켜고 실행하세요.</div></div>')); return
                 if (newer or stale) and csv is None:
-                    self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>', active="/admin")); return
+                    self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>')); return
                 if (newer or stale) and confirmed and not redo:   # 재적재 뒤 비동기로 "확정된 근무" 실패하지 않게 먼저 막는다 (Codex)
-                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 원본을 다시 적재해야 합니다. 새로 만들려면 「확정돼 있어도 다시 만들기」를 켜세요.</div></div>', active="/admin")); return
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 원본을 다시 적재해야 합니다. 새로 만들려면 「확정돼 있어도 다시 만들기」를 켜세요.</div></div>')); return
                 try:
                     jobs.run_async(sid, csv_path=str(csv) if (newer or stale) else None, redo=redo,
                                    reingest=(newer or stale), why=("새 파일" if newer else "보관 기간(3일)이 지나 원본이 정리됨") if (newer or stale) else None)
                 except RuntimeError as exc:
-                    self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin")); return
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
                 return
             if path == "/reopen":
@@ -1368,7 +1464,9 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"  RESET → {what}")
                 return
             if path != "/approve":
-                self._send(404, page("없음", '<div class="card">없는 주소입니다.</div>'))
+                self._send(404, page("없음", '<div class="card"><div class="empty">없는 주소입니다.'
+                                             '<br><a class="back" style="margin-top:12px" href="/draft">일지 목록으로</a>'
+                                             '</div></div>'))
                 return
 
             shift_id = form["shift_id"][0]
@@ -1379,7 +1477,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, page("승인 안 됨", f'<div class="card"><h2>승인되지 않았습니다</h2>'
                                                   f'<p class="note">{esc(msg)}</p>'
                                                   + (f'<ul style="margin:0 0 10px 18px;font-size:13px">{lis}</ul>' if lis else "")
-                                                  + f'<a class="back" href="/shift/{esc(shift_id)}">‹ 초안으로 돌아가 상태를 고른다</a></div>', active="/draft"))
+                                                  + f'<a class="back" href="/shift/{esc(shift_id)}">‹ 초안으로 돌아가 상태를 고른다</a></div>'))
 
             try:
                 chosen = {int(v) for v in form.get("item", [])}
@@ -1434,7 +1532,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
         except Exception as exc:
             self._send(500, page("오류", f'<div class="card"><h2>오류</h2>'
-                                        f'<pre class="mono">{esc(exc)}</pre></div>'))
+                                        f'<pre class="mono">{esc(exc)}</pre>'
+                                        f'<a class="back" style="margin-top:12px" href="/draft">일지 목록으로</a></div>'))
 
 
 def serve(host, port):
