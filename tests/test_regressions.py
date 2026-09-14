@@ -537,7 +537,7 @@ class PrevExclusionParking(unittest.TestCase):
                       "미결정 + 이전 제외면 앞 근무자의 결정을 이어받아 꺼져 있어야 한다")
         self.assertIn('value="%d" checked onchange=' % ids[0], page,
                       "보통 항목은 그대로 켜져 있어야 한다")
-        self.assertIn('채택 <b id="n">1</b> / <span>2</span>건', page,
+        self.assertIn('채택 <b id="n">1</b> / <span id="tot">2</span>건', page,
                       "채택 카운터가 켜진 개수와 맞아야 한다")
 
     def test_worker_decision_beats_previous_shift(self):
@@ -2287,7 +2287,8 @@ class EditAndColors(unittest.TestCase):
                             band=(0.2, 0.5), limit=18.0, unit="℃")
         self.assertIn('stroke="var(--chart)"', svg, "선에 색")
         self.assertIn("var(--band)", svg, "감지 구간 음영에 색")
-        self.assertIn('stroke="var(--accent)"', svg, "한계선은 빨강 하나")
+        self.assertIn('stroke="var(--limit)"', svg, "한계선은 선과 다른 색 — 선이 SK 레드가 됐다")
+        self.assertNotIn('stroke="var(--accent)"', svg, "선과 한계선이 같은 색이면 구분이 안 된다")
 
 
     def test_graph_is_skipped_when_the_range_is_not_finite(self):

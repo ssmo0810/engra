@@ -225,7 +225,7 @@ class LiveDraftScreen(unittest.TestCase):
         j = json.loads(body)
         self.assertEqual(j["draft"], "live")
         self.assertEqual(j["lock"], self.LOCK)
-        got = {c["key"]: c for c in j["cards"]}
+        got = {c["key"]: c for c in j["cards"] if not c["key"].startswith("__")}
         self.assertEqual(sorted(got), ["p1", "p2"])
         self.assertEqual((got["p1"]["state"], got["p2"]["state"]), ("ready", "observing"))
         self.assertIn(f'name="status_{self.item_id}"', got["p1"]["html"])
@@ -386,9 +386,10 @@ class StaleLiveDraftScreen(unittest.TestCase):
         body = server.view_shift(H.SID)
         self.assertRegex(body, r'data-state="ready"[^>]*data-key="i%d"' % self.item_id,
                          "화면 카드에도 표식이 있어야 폴링이 같은 카드를 또 넣지 않는다")
-        code, raw = _get(f"/api/live/cards?shift={H.SID}&have=i{self.item_id}")
+        code, raw = _get(f"/api/live/cards?shift={H.SID}")
         self.assertEqual(code, 200)
-        self.assertEqual([c["key"] for c in json.loads(raw)["cards"]], [], "이미 그린 카드는 다시 내려보내지 않는다")
+        self.assertEqual([c["key"] for c in json.loads(raw)["cards"] if not c["key"].startswith("__")],
+                         [f"i{self.item_id}"], "같은 표식으로 다시 보낸다 — 화면은 끼워 넣지 않고 갈아 끼운다")
 
     def test_counts_belong_to_the_shift_that_is_being_replayed(self):
         import live
@@ -551,16 +552,18 @@ class LiveCardOrderAndRefresh(unittest.TestCase):
         self.assertEqual(sorted(pos, key=pos.get), ["p3", "p2", "p1"],
                          "관찰 중이 위(최근 것이 맨 위) · 선택 가능은 그 아래")
         j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
-        self.assertEqual(j["order"], ["p3", "p2", "p1"], "폴링도 같은 차례를 준다")
+        self.assertEqual([k for k in j["order"] if not k.startswith("__")], ["p3", "p2", "p1"],
+                         "폴링도 같은 차례를 준다")
 
     def test_observing_cards_are_sent_again_even_when_the_screen_has_them(self):
         import live
         ready, old, new = self._views()
         live.items = lambda shift_id=None: [ready, old, new]
         live.approve_lock = lambda shift_id: None
-        j = json.loads(_get(f"/api/live/cards?shift={H.SID}&have=p1,p2,p3")[1])
-        got = {c["key"] for c in j["cards"]}
-        self.assertEqual(got, {"p2", "p3"}, "관찰 카드는 매번 다시 보내 값이 움직이게 한다(선택 가능 카드는 그대로 둔다)")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        got = {c["key"] for c in j["cards"] if not c["key"].startswith("__")}
+        self.assertEqual(got, {"p1", "p2", "p3"},
+                         "화면에 있는 것을 전부 다시 보낸다 — 지키는 것은 근무자가 지금 입력 중인 카드뿐이다")
 
     def test_observing_card_shows_a_small_trend(self):
         import db
@@ -574,6 +577,183 @@ class LiveCardOrderAndRefresh(unittest.TestCase):
         live.approve_lock = lambda shift_id: None
         card = _card(server.view_shift(H.SID), "p2")
         self.assertIn("<svg", card, "관찰 중에도 추이가 보여야 한다")
+
+
+class WholeScreenLive(unittest.TestCase):
+    """경모님 지시 — 화면 전체가 2초마다 서버 값으로 다시 그려진다. 쌓이는 중 목록 차례는
+    AI 작성 중 → 관찰 중(최근 것 위) → 초안. 근무자가 지금 넣고 있는 것만 건드리지 않는다."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            self.did = db.open_live_draft(conn, H.SID, "live")
+            self.item_id = self._add(conn, "TI-101", "p1")
+
+    def _add(self, conn, tag, key):
+        import db
+        return db.add_live_item(
+            conn, self.did,
+            {"origin": "detected", "tag": tag, "title": f"{tag} 드리프트", "body": "문장",
+             "evidence": f"{tag} 근거", "severity": "중", "live": {"key": key}},
+            [H.ev(tag, "드리프트", 0, 30, 1)], "engine")
+
+    def _views(self):
+        base = {"origin": "detected", "confirm": "ended", "ongoing": False, "not_in_close": False,
+                "recurrence_of": None, "kind": "드리프트", "severity": "중", "score": 1.0, "score_max": 1.0,
+                "start": H.iso(H.T(0)), "end": H.iso(H.T(30)), "members": [], "related_tags": [],
+                "recurrences": [], "stop": None, "confirmed": H.iso(H.T(35)), "ai_sec": 1.0, "error": None}
+        ready = dict(base, key="p1", state="ready", tag="TI-101", title="TI-101 드리프트",
+                     evidence="TI-101 근거", first_seen=H.iso(H.T(5)), draft_item_id=self.item_id)
+        obs_old = dict(base, key="p2", state="observing", tag="PI-201", title="PI-201 헌팅", confirm=None,
+                       confirmed=None, draft_item_id=None, first_seen=H.iso(H.T(10)),
+                       evidence="PI-201(토출 압력) 상승 추세 — 0.08bar/시간, 구간 변화 0.26bar "
+                                "(정상범위 폭의 53%, 평소 흔들림의 3.7배) · 이 속도면 H 한계까지 약 2.3시간")
+        obs_new = dict(obs_old, key="p3", tag="MI-804", title="MI-804 이탈", first_seen=H.iso(H.T(200)))
+        writing = dict(obs_old, key="p4", state="writing", tag="FI-710", title="FI-710 드리프트",
+                       first_seen=H.iso(H.T(20)))
+        return ready, obs_old, obs_new, writing
+
+    def _live(self, views, lock=None):
+        import live
+        live.items = lambda shift_id=None: list(views)
+        live.approve_lock = lambda shift_id: lock
+        live.values = lambda: {"clock": H.iso(H.T(300)), "values": {"PI-201": [H.iso(H.T(300)), 5.84]}}
+        live.status = lambda: {"shift_id": H.SID, "phase": "running", "clock": H.iso(H.T(300)),
+                               "counts": {"observing": 2, "writing": 1, "ready": 1}}
+
+    def test_order_is_writing_then_observing_then_ready(self):
+        ready, old, new, writing = self._views()
+        self._live([ready, old, new, writing])
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        cards = [k for k in j["order"] if not k.startswith("__")]
+        self.assertEqual(cards, ["p4", "p3", "p2", "p1"],
+                         "AI 작성 중 → 관찰 중(최근 것 위) → 초안")
+        import server
+        body = server.view_shift(H.SID)
+        pos = [body.index(f'data-key="{k}"') for k in ["p4", "p3", "p2", "p1"]]
+        self.assertEqual(pos, sorted(pos), "첫 화면도 같은 차례")
+
+    def test_group_heads_show_live_counts(self):
+        ready, old, new, writing = self._views()
+        self._live([ready, old, new, writing])
+        import server
+        body = server.view_shift(H.SID)
+        for name, n in (("AI 작성 중", 1), ("관찰 중", 2), ("초안", 1)):
+            self.assertIn(f'>{name} <b>{n}</b><', body, "구분 머리에 지금 개수")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertIn("__h_observing", j["order"], "구분 머리도 폴링이 옮긴다")
+
+    def test_poll_sends_ready_cards_too(self):
+        """전부 다시 그린다 — 예외는 근무자가 지금 입력 중인 것뿐이고, 그것은 화면이 지킨다."""
+        ready, old, new, writing = self._views()
+        self._live([ready, old, new, writing])
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}&have=p1,p2,p3,p4")[1])
+        self.assertIn("p1", {c["key"] for c in j["cards"]}, "초안 카드도 매 번 보낸다")
+
+    def test_total_is_recomputed_every_poll(self):
+        """「채택 10 / 8건」 — 분모가 첫 그림 때 값이라 카드가 늘면 분자가 분모를 넘었다."""
+        import db
+        ready, old, new, writing = self._views()
+        self._live([ready, old, new, writing])
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["total"], 1, "지금 항목 수")
+        with db.connect() as conn:
+            self._add(conn, "LI-806", "p9")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["total"], 2, "항목이 늘면 분모도 는다")
+
+    def test_observing_card_drops_the_long_evidence(self):
+        import db
+        with db.connect() as conn:      # 원본이 있어야 추이를 그린다(빈 그래프는 그리지 않는다)
+            conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                             [("PI-201", H.iso(H.T(i)), 5.8 + i * 0.01) for i in range(0, 60, 2)])
+        ready, old, new, writing = self._views()
+        self._live([old])
+        import server
+        card = _card(server.view_shift(H.SID), "p2")
+        self.assertIn("0.08bar/시간", card, "시간당 변화는 남긴다")
+        self.assertIn("지금 5.84", card, "현재 값")
+        self.assertNotIn("평소 흔들림의", card, "긴 근거 문장은 뺀다")
+        self.assertIn("<svg", card, "스파크라인")
+
+    def test_poll_carries_the_left_list_and_summary(self):
+        ready, old, new, writing = self._views()
+        self._live([ready, old, new, writing])
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertIn("nrow", j["nav"], "왼쪽 근무 목록도 매 번 보낸다")
+        self.assertIn("관찰 중", j["summary"], "오른쪽 요약도")
+
+    def test_poll_protects_what_the_worker_is_typing(self):
+        """폴링이 카드를 갈아 끼울 때 근무자가 쓰던 코멘트·체크·상태가 남아야 한다.
+        브라우저 동작은 실제 재생으로 확인한다 — 이 시험은 그 장치가 화면에서 빠지는 것을 막는 울타리다."""
+        import server
+        js = server._POLL_JS
+        self.assertIn("activeElement", js, "입력 중인 카드는 건드리지 않는다")
+        self.assertIn("textarea", js, "코멘트를 되돌린다")
+        self.assertIn("checked", js, "체크를 되돌린다")
+
+
+class PollSafety(unittest.TestCase):
+    """폴링이 화면을 지우거나 엉키게 하면 안 된다 — codex 반증 2건(2026-09-15)에서 나온 시험."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            H._pending_draft(conn, H.SID)
+
+    def test_poll_does_not_wipe_the_list_when_the_shift_closes(self):
+        """마감되면 응답의 카드가 빈다. 그때 화면이 「없어진 카드」로 보고 전부 지우면
+        근무자가 쓰던 코멘트까지 사라진다(codex 반증). 화면은 쌓이는 중일 때만 카드를 건드린다."""
+        import server
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["draft"], "pending")
+        self.assertTrue(j["cards"], "빈 응답이면 화면이 카드를 전부 지운다 — 마감 뒤에도 그대로 준다")
+        self.assertIn("j.draft==='live'||j.draft==='pending'", server._POLL_JS,
+                      "서버가 목록을 그려 준 응답일 때만 카드를 건드린다 — 확정본·없는 근무 응답으로 지우지 않는다")
+
+    def test_poll_completes_the_list_when_the_shift_closes(self):
+        """마감 직전에 AI 가 쓴 항목이 화면에 못 올라오면, 근무자가 보지 못한 채 승인되어 그 항목이 제외로 남는다
+        (codex 반증 3차). 그래서 마감된 초안도 폴링이 카드를 그대로 준다 — 무리 머리만 걷힌다."""
+        import db
+        with db.connect() as conn:
+            iid = conn.execute("SELECT id FROM draft_item LIMIT 1").fetchone()[0]
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["draft"], "pending")
+        self.assertEqual([c["key"] for c in j["cards"]], [f"i{iid}"], "마감 뒤에도 항목 카드를 준다")
+        self.assertEqual(j["total"], 1)
+        self.assertNotIn("__h_ready", j["order"], "마감되면 무리 머리는 걷는다")
+        self.assertIn("감지", j["summary"], "요약도 마감 화면의 것")
+
+    def test_left_list_and_full_page_do_not_collide(self):
+        """화면 요청과 폴링이 동시에 들어온다(ThreadingHTTPServer). 목록 조각을 만드는 길이
+        전체 화면 함수와 상태를 나눠 쓰면 둘이 섞여 반쪽 화면이 나간다(codex 반증)."""
+        import threading
+        import server
+        bad = []
+
+        def page():
+            for _ in range(40):
+                body = server.view_draft()
+                if not body.startswith("<!doctype") or "<section" not in body:
+                    bad.append(body[:80])
+
+        def nav():
+            for _ in range(40):
+                frag = server._nav_html(H.SID)
+                if frag.startswith("<!doctype"):
+                    bad.append("조각 자리에 전체 화면")
+
+        ts = [threading.Thread(target=page), threading.Thread(target=nav),
+              threading.Thread(target=page), threading.Thread(target=nav)]
+        for t in ts:
+            t.start()
+        for t in ts:
+            t.join()
+        self.assertEqual(bad, [], "동시에 불러도 서로를 망치지 않는다")
 
 
 if __name__ == "__main__":

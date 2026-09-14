@@ -35,7 +35,8 @@ STYLE = """
       --live:#0b62c4;--live-soft:#e5effb;          /* 쌓이는 중 */
       --obs:#4c5a6b;--obs-soft:#eef1f5;            /* 관찰 중·서술 중 — 아직 못 고른다 */
       --ready:#3a4aa0;--ready-soft:#ecedfa;        /* 선택 가능 */
-      --chart:#0b62c4;--band:#f0b323;              /* 그래프 선 · 감지 구간 음영 */
+      --chart:var(--accent);--band:#f0b323;         /* 그래프 선 = SK 레드(경모님 2026-09-15) · 감지 구간 음영 */
+      --limit:#8b8f98;                             /* 알람 한계선 — 선이 빨강이 되어 회색 점선으로 물러났다 */
       --why-bg:#f6f5f2;--why-line:#d5d1ca;--sug-bg:#f1f6f2;--sug-line:#a9cdb6;
       --flash:#fdf2c9;                             /* 값이 바뀐 자리가 한 번 밝아진다 */
       --disc-bg:#fff8e6;--disc-line:#efe2bd;--off-bg:#fbfaf8}
@@ -51,7 +52,8 @@ STYLE = """
       --live:#5aa2f5;--live-soft:#10243c;
       --obs:#9fb0c2;--obs-soft:#1e2530;
       --ready:#9aa6ee;--ready-soft:#1d2040;
-      --chart:#5aa2f5;--band:#d9a03c;
+      --chart:var(--accent);--band:#d9a03c;
+      --limit:#9aa0aa;
       --why-bg:#232120;--why-line:#3d3a36;--sug-bg:#16251b;--sug-line:#2f5c3f;
       --flash:#4a3f1c;
       --disc-bg:#2a2413;--disc-line:#4a3f1f;--off-bg:#191817}
@@ -148,6 +150,16 @@ a{color:inherit}
 /* 값이 바뀐 관찰 카드만 한 번 깜빡인다 — 폴링이 새 마디를 끼울 때 class 가 붙어 애니메이션이 한 번 돈다 */
 @keyframes flash{from{background:var(--flash)}to{background:var(--why-bg)}}
 .item.flash .why{animation:flash 1.6s ease-out}
+@keyframes pop{from{background:var(--flash)}to{background:var(--obs-soft)}}
+.item.fresh{animation:pop .6s ease-out}
+/* 한 줄 목록의 무리 머리 — AI 작성 중 · 관찰 중 · 초안. 개수는 폴링이 갈아 끼운다 */
+.lane{font-size:12.5px;font-weight:700;color:var(--sub);letter-spacing:.02em;
+      margin:16px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.lane b{color:var(--ink)}
+.prog{height:3px;border-radius:2px;background:var(--chip);overflow:hidden;margin:2px 0 8px}
+.prog i{display:block;height:100%;width:38%;background:var(--obs);animation:slide 1.2s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}
+@media (prefers-reduced-motion: reduce){.item.flash .why,.item.fresh,.prog i{animation:none}}
 .det{position:relative}
 .det .edit{position:absolute;top:14px;right:16px;background:none;border:0;color:var(--sub);
            font-size:13px;text-decoration:underline;cursor:pointer;padding:2px 4px;font-family:inherit}
@@ -822,11 +834,11 @@ def view_draft():
     return _one_page(None)
 
 
-def _one_page(sel):
-    """왼쪽 근무 목록 + 오른쪽 그 근무의 내용, 한 화면.
+def _nav_html(sel):
+    """왼쪽 근무 목록 — 첫 그림과 폴링이 이 함수 하나를 쓴다. (목록 HTML, 고른 근무, 적재만 된 근무 수)
 
-    목록과 상세가 따로 열려 같은 근무를 두 번 찾아 들어가야 했다(경모님 2026-09-14).
-    주소는 그대로 /shift/<근무> 다 — 줄은 링크고, 승인 뒤 돌아오는 자리와 북마크가 계속 동작한다.
+    전역 깃발로 _one_page 의 반환을 바꿔치기했더니, 화면 요청과 폴링이 동시에 들어오는 순간
+    전체 화면 자리에 목록 조각만 나갔다(ThreadingHTTPServer · codex 반증 2026-09-15). 상태를 나눠 쓰지 않는다.
     """
     with db.connect() as conn:
         rows = db.list_shifts(conn)
@@ -860,11 +872,20 @@ def _one_page(sel):
     nav = [row(r, live_state(r), " live") for r in live_rows]
     nav += [row(r, f'<span class="pill on">확정 · 채택 {r["adopted_count"]}건</span>'
                 if r["draft_status"] == "confirmed" else '<span class="pill amber">초안</span>') for r in rest]
+    return "".join(nav), sel, len(only_ingested)
 
+
+def _one_page(sel):
+    """왼쪽 근무 목록 + 오른쪽 그 근무의 내용, 한 화면.
+
+    목록과 상세가 따로 열려 같은 근무를 두 번 찾아 들어가야 했다(경모님 2026-09-14).
+    주소는 그대로 /shift/<근무> 다 — 줄은 링크고, 승인 뒤 돌아오는 자리와 북마크가 계속 동작한다.
+    """
+    nav, sel, only_ingested = _nav_html(sel)
     if sel:
         right = _shift_body(sel)
     else:
-        why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
+        why = (f'적재된 근무 {only_ingested}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
         right = '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>'
 
     # 고를 것이 없으면 왼쪽과 「근무 고르기」를 아예 그리지 않는다 — 제목만 남은 껍데기가
@@ -872,8 +893,8 @@ def _one_page(sel):
     left = (f'<input type="checkbox" id="pick" class="pickbox">'
             f'<label for="pick" class="pickbtn">근무 고르기</label>'
             f'<div class="split"><nav class="side"><h2>근무 일지</h2>'
-            f'{"".join(nav)}</nav>' if nav else '<div class="split">')
-    return page("근무 일지", f'{left}<section class="detail">{right}</section></div>')
+            f'<div id="shiftnav">{nav}</div></nav>' if nav else '<div class="split">')
+    return page("근무 일지", f'{left}<section class="detail">{right}</section></div>{_POLL_JS}')
 
 
 def _rounds_html(shift_id):
@@ -1090,8 +1111,9 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, 
         shade = f'<rect x="{X(f0):.1f}" y="{T}" width="{max(3.0, (f1 - f0) * pw):.1f}" height="{ph}" fill="var(--band)" opacity=".22"/>'
     lim = ""
     if isinstance(limit, (int, float)) and ylo <= limit <= yhi:
-        lim = (f'<line x1="{L}" y1="{Y(limit):.1f}" x2="{W - R}" y2="{Y(limit):.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
-               f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {numfmt.fmt(limit)}{esc(unit)}</text>')
+        # 선이 SK 레드가 되어 한계선은 회색 점선으로 물러났다 — 둘 다 빨강이면 구분이 안 된다(경모님 2026-09-15)
+        lim = (f'<line x1="{L}" y1="{Y(limit):.1f}" x2="{W - R}" y2="{Y(limit):.1f}" stroke="var(--limit)" stroke-width="1.2" stroke-dasharray="6 4"/>'
+               f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--limit)">한계 {numfmt.fmt(limit)}{esc(unit)}</text>')
     end = f'<circle cx="{X(pts[-1][0]):.1f}" cy="{Y(pts[-1][1]):.1f}" r="3" fill="var(--chart)"/>'
     data = ""
     if minutes and len(minutes) == len(pts):
@@ -1278,6 +1300,19 @@ def _held(first_seen, clock):
     return f"{m}분째" if m < 90 else f"{m / 60:.1f}시간째"
 
 
+def _short_evidence(text):
+    """관찰 카드 한 줄 — 무엇이 얼마나 빨리 움직이나와 한계까지 남은 시간만.
+    긴 근거 문장(정상범위 대비·평소 대비·실측 보정)은 AI 가 쓴 초안 카드에 그대로 있다(경모님 2026-09-15)."""
+    base = (text or "").split("\n")[0]
+    head = base
+    for sep in (",", " ("):
+        i = head.find(sep)
+        if i > 0:
+            head = head[:i]
+    m = re.search(r"이 속도면[^·]*", base)
+    return head.strip() + (" · " + m.group(0).strip() if m else "")
+
+
 def _live_gray_card(v, full=None, clock=None, value=None):
     """아직 고를 수 없는 카드 — 관찰 중·서술 중·AI 서술 실패. 입력 요소를 두지 않는다(못 건드린다, 경모님 결정 §0).
 
@@ -1289,53 +1324,36 @@ def _live_gray_card(v, full=None, clock=None, value=None):
            if v.get("state") == "ai_failed" else "")
     now = [x for x in (f"지금 {numfmt.fmt(value)}" if isinstance(value, (int, float)) else "",
                        _held(v.get("first_seen"), clock)) if x]
-    head = ('<b>' + ' · '.join(esc(x) for x in now) + '</b> — ') if now else '<b>지금까지</b> — '
+    head = ('<b>' + ' · '.join(esc(x) for x in now) + '</b> — ') if now else ''
+    prog = '<div class="prog"><i></i></div>' if v["state"] == "writing" else ''
     return (f'<div class="item obs off" data-state="{esc(v["state"])}" data-key="{esc(v["key"])}" data-tag="{esc(v.get("tag") or "")}">'
             f'<div class="row1"><span class="pill">{esc(_LIVE_STATE.get(v["state"], v["state"]))}</span>'
             f'<div class="ttl">{esc(v.get("title") or "")}</div></div>'
             f'<div class="meta">{esc(v.get("tag") or "")}{f" · {when} 부터" if when else ""}</div>'
-            f'<div class="body">{_spark(None, None, full=full, height=96, ticks=3, legend=False)}'
-            f'<div class="why">{head}{esc(v.get("evidence") or "")}</div>{err}</div></div>')
+            f'<div class="body">{prog}{_spark(None, None, full=full, height=72, ticks=3, legend=False)}'
+            f'<div class="why">{head}{esc(_short_evidence(v.get("evidence")))}</div>{err}</div></div>')
 
 
-def live_cards(shift_id, have=()):
-    """폴링용 — 그 근무의 카드와 승인 잠금 문구. 화면과 같은 함수로 그리므로 모양이 갈라지지 않는다.
+# 한 줄 목록의 무리 차례 — AI 작성 중이 맨 위, 그 아래 관찰 중(최근 것 위), 맨 아래 초안.
+# 카드 하나가 올라갔다 내려오는 것으로 관측 → 추적 → AI → 초안이 한 화면에서 보인다(경모님 2026-09-15).
+_LANES = ("ai_failed", "writing", "observing", "ready")
+_LANE_NAME = {"ai_failed": "AI 서술 실패", "writing": "AI 작성 중", "observing": "관찰 중", "ready": "초안"}
 
-    have = 화면이 이미 그린 선택 가능 카드의 표식. 그 카드는 다시 그리지 않는다 — 근무자가 고른 체크·상태·코멘트가 날아가고,
-    항목마다 곡선을 다시 읽느라 폴링이 무거워진다.
+
+def _lane_head(state, n):
+    return f'<div class="lane" data-state="head" data-key="__h_{state}">{esc(_LANE_NAME[state])} <b>{n}</b></div>'
+
+
+def _live_rows(shift_id, draft, views, same, heads=True):
+    """쌓이는 중 화면의 줄 차례 — 첫 그림과 폴링이 이 함수 하나를 쓴다(모양이 갈라지지 않는다).
+
+    지난 근무에서 제외한 항목은 여기 넣지 않는다 — 그것은 최하단 접힌 칸의 몫이고,
+    넣으면 폴링이 같은 카드를 목록에 한 장 더 끼운다.
     """
-    with db.connect() as conn:
-        draft = db.load_draft(conn, shift_id)
-    st = live.status()
-    same = st.get("shift_id") == shift_id            # 지금 쌓는 근무인가 — 아니면 개수·시계는 이 줄의 것이 아니다
-    out = {"draft": (draft or {}).get("status"), "lock": live.approve_lock(shift_id),
-           "counts": (st.get("counts") or {}) if same else {}, "clock": st.get("clock") if same else None,
-           "cards": []}
-    if draft is None or draft.get("status") != "live":
-        return out
-    views = live.items(shift_id)
     keyed = {v["draft_item_id"]: v for v in views if v.get("draft_item_id")}
-    waves = _waves(shift_id)
-    ready = []
-    for it in _by_time([x for x in draft["items"] if x["origin"] != "carried"], _starts(shift_id)):
-        key = (keyed.get(it["id"]) or {}).get("key") or f"i{it['id']}"
-        ready.append(key)
-        if key in have:
-            continue
-        wf, wm = waves.get(it.get("event_id")) or (None, {})
-        out["cards"].append({"key": key, "state": "ready",
-                             "html": _item_card(it, wf, wm, it.get("curve") or _shift_curve(shift_id, it["tag"]), key=key)})
-    # 관찰 중은 have 와 무관하게 매 번 다시 보낸다 — 값이 움직이는 것이 이 카드의 전부다(경모님 지적 2026-09-15)
-    gray = _gray_cards(shift_id, views, same)
-    out["cards"] += gray
-    out["order"] = [c["key"] for c in gray] + ready
-    return out
-
-
-def _gray_cards(shift_id, views, same):
-    """회색 카드 — 가장 최근에 잡힌 것이 맨 위. 같은 태그를 여러 카드가 보면 곡선은 한 번만 읽는다."""
     vals = (live.values() or {}) if same else {}
     now = vals.get("clock")
+    waves = _waves(shift_id)
     curves = {}
 
     def curve(tag):
@@ -1343,53 +1361,127 @@ def _gray_cards(shift_id, views, same):
             curves[tag] = _shift_curve(shift_id, tag)
         return curves[tag]
 
-    out = []
+    lanes = {k: [] for k in _LANES}
+    for it in _by_time([x for x in draft["items"] if x["origin"] != "carried"], _starts(shift_id)):
+        if it.get("prev_excluded"):
+            continue
+        key = (keyed.get(it["id"]) or {}).get("key") or f"i{it['id']}"
+        wf, wm = waves.get(it.get("event_id")) or (None, {})
+        lanes["ready"].append({"key": key, "state": "ready",
+                               "html": _item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=key)})
     for v in sorted((x for x in views if x["state"] in _LIVE_STATE),
                     key=lambda x: x.get("first_seen") or "", reverse=True):
         cur = ((vals.get("values") or {}).get(v.get("tag")) or [None, None])[1]
-        out.append({"key": v["key"], "state": v["state"],
-                    "html": _live_gray_card(v, full=curve(v.get("tag")), clock=now, value=cur)})
+        lanes[v["state"]].append({"key": v["key"], "state": v["state"],
+                                  "html": _live_gray_card(v, full=curve(v.get("tag")), clock=now, value=cur)})
+    rows = []
+    for st in _LANES:
+        if lanes[st]:
+            if heads:
+                rows.append({"key": f"__h_{st}", "state": "head", "html": _lane_head(st, len(lanes[st]))})
+            rows += lanes[st]
+    return rows
+
+
+def _live_summary(rows):
+    """오른쪽 요약 — 지금 화면에 있는 것을 그대로 센다."""
+    n = {st: sum(1 for r in rows if r["state"] == st) for st in _LANES}
+    return (f'관찰 중 <b style="color:var(--ink)">{n["observing"]}</b> · '
+            f'초안 <b style="color:var(--ink)">{n["ready"]}</b>')
+
+
+def live_cards(shift_id):
+    """폴링용 — 화면에 보이는 것 전부를 지금 값으로 다시 준다(카드 · 왼쪽 목록 · 요약 · 채택 분모 · 잠금).
+
+    화면은 이것을 그대로 갈아 끼우고, 근무자가 지금 입력 중인 카드만 건너뛴다(_POLL_JS).
+    분모(채택 N / M 의 M)를 매 번 다시 보내는 까닭: 첫 그림 때 값으로 두었더니 AI 가 항목을 다 쓸 때마다
+    카드는 느는데 분모는 그대로라 「채택 10 / 8건」 이 됐다(경모님 지적 2026-09-15).
+    """
+    with db.connect() as conn:
+        draft = db.load_draft(conn, shift_id)
+    st = live.status()
+    same = st.get("shift_id") == shift_id            # 지금 쌓는 근무인가 — 아니면 개수·시계는 이 줄의 것이 아니다
+    out = {"draft": (draft or {}).get("status"), "lock": live.approve_lock(shift_id),
+           "counts": (st.get("counts") or {}) if same else {}, "clock": st.get("clock") if same else None,
+           "nav": _nav_html(shift_id)[0], "cards": [], "order": [], "total": 0, "summary": ""}
+    if draft is None or draft.get("status") == "confirmed":
+        return out
+    # 마감된 초안(pending)도 카드를 준다. 마감 직전에 AI 가 쓴 항목이 화면에 못 올라오면 근무자가 보지 못한 채
+    # 승인돼 그 항목이 제외로 남는다(codex 반증 3차). 무리 머리는 쌓이는 중에만 세운다.
+    on = draft.get("status") == "live"
+    rows = _live_rows(shift_id, draft, live.items(shift_id) if on else [], same, heads=on)
+    n = len([x for x in draft["items"] if x["origin"] != "carried"])
+    out["cards"] = rows
+    out["order"] = [r["key"] for r in rows]
+    out["total"] = n
+    out["summary"] = _live_summary(rows) if on else f'감지 <b style="color:var(--ink)">{n}</b>건'
     return out
 
 
-# 새로고침 없이 카드를 갱신한다 — 새로고침은 근무자가 고른 체크·상태·코멘트를 지운다.
-# 이미 그린 선택 가능 카드는 다시 그리지 않고(입력 유지), 회색 카드만 갈아 끼운다.
-_LIVE_CARDS_JS = """<script>(function(){
-var box=document.getElementById('items'); if(!box||!box.dataset.live) return; var sid=box.dataset.shift;
-function keys(sel){return Array.prototype.map.call(box.querySelectorAll(sel),function(e){return e.getAttribute('data-key')})}
+# 화면 갱신 장치 하나 — 모든 근무 일지 화면이 2초마다 지금 상태를 받아 다시 그린다(경모님 2026-09-15).
+# 다시 그리지 않는 유일한 예외는 근무자가 지금 손대고 있는 카드다. 그 밖의 카드는 갈아 끼우되
+# 이미 넣어 둔 체크·완료/진행중·코멘트·펼침을 그대로 되돌려 놓는다 — 새로고침이 그것을 지웠다.
+_POLL_JS = """<script>(function(){
+var box=document.getElementById('items'); var sid=(box&&box.dataset.shift)||'';
+function busy(el){return el.contains(document.activeElement)&&document.activeElement!==document.body}
+function keep(el){          /* 근무자가 넣은 것 — 갈아 끼운 뒤 그대로 되돌린다 */
+ var o={cb:[],rd:null,ta:{},dt:[]};
+ el.querySelectorAll('input[type=checkbox]').forEach(function(x){o.cb.push([x.value,x.checked])});
+ var r=el.querySelector('input[type=radio]:checked'); if(r) o.rd=r.value;
+ el.querySelectorAll('textarea').forEach(function(x){o.ta[x.name]=x.value});
+ el.querySelectorAll('details').forEach(function(x){o.dt.push(x.open)});
+ return o;
+}
+function put(el,o){
+ el.querySelectorAll('input[type=checkbox]').forEach(function(x){
+  o.cb.forEach(function(p){if(p[0]===x.value) x.checked=p[1]});
+  var it=x.closest('.item'); if(it) it.classList.toggle('off',!x.checked);
+ });
+ if(o.rd) el.querySelectorAll('input[type=radio]').forEach(function(x){x.checked=(x.value===o.rd)});
+ el.querySelectorAll('textarea').forEach(function(x){if(o.ta[x.name]!==undefined) x.value=o.ta[x.name]});
+ el.querySelectorAll('details').forEach(function(x,i){if(o.dt[i]!==undefined) x.open=o.dt[i]});
+}
 function tick(){
- fetch('/api/live/cards?shift='+encodeURIComponent(sid)+'&have='+encodeURIComponent(keys('.item[data-state="ready"][data-key]').join(',')))
- .then(function(r){return r.json()}).then(function(j){
-  var seen={};
-  (j.cards||[]).forEach(function(c){ seen[c.key]=1;
-   var el=box.querySelector('.item[data-key="'+c.key+'"]');
-   if(el&&el.getAttribute('data-state')==='ready') return;
-   var was=el?((el.querySelector('.why')||{}).textContent||''):'';
-   if(el){el.outerHTML=c.html;} else {box.insertAdjacentHTML('beforeend',c.html);}
-   var now=box.querySelector('.item[data-key="'+c.key+'"]');
-   if(now&&was&&((now.querySelector('.why')||{}).textContent||'')!==was) now.classList.add('flash');
-  });
-  /* 차례 — 관찰 중이 위(최근 것이 맨 위), 그 아래 선택 가능. 고르던 칸에 글을 쓰는 중이면 건드리지 않는다 */
-  if((j.order||[]).length&&!box.contains(document.activeElement)){
-   var prev=null;
-   j.order.forEach(function(k){
-    var e=box.querySelector('.item[data-key="'+k+'"]'); if(!e) return;
-    var want=prev?prev.nextElementSibling:box.firstElementChild;
-    if(e!==want) box.insertBefore(e,want);
-    prev=e;
+ fetch('/api/live/cards?shift='+encodeURIComponent(sid)).then(function(r){return r.json()}).then(function(j){
+  var nav=document.getElementById('shiftnav');
+  if(nav&&j.nav&&!busy(nav)) nav.innerHTML=j.nav;
+  /* 목록을 서버가 실제로 그려 준 경우에만 카드를 건드린다 — 빈 응답과 「빈 목록」은 다르다(codex 반증 4차).
+     확정본·없는 근무면 응답에 목록이 없으니 화면을 그대로 둔다. */
+  var listed=(j.draft==='live'||j.draft==='pending');
+  if(box&&box.dataset.live&&listed){
+   var seen={};
+   (j.cards||[]).forEach(function(c){ seen[c.key]=1;
+    var el=box.querySelector('[data-key="'+c.key+'"]');
+    if(el&&busy(el)) return;                      /* 지금 쓰고 있는 카드는 건드리지 않는다 */
+    var was=el?((el.querySelector('.why')||{}).textContent||''):'';
+    var st=el?keep(el):null;
+    if(el){el.outerHTML=c.html;} else {box.insertAdjacentHTML('beforeend',c.html);}
+    var now=box.querySelector('[data-key="'+c.key+'"]');
+    if(!now) return;
+    if(st) put(now,st);
+    if(!el) now.classList.add('fresh');           /* 새로 들어온 카드 */
+    else if(was&&((now.querySelector('.why')||{}).textContent||'')!==was) now.classList.add('flash');
    });
+   Array.prototype.forEach.call(box.querySelectorAll('[data-key]'),function(e){
+    if(!seen[e.getAttribute('data-key')]&&!busy(e)) e.remove();   /* 사라진 카드 · 마감돼 걷힌 무리 머리 */
+   });
+   if((j.order||[]).length&&!busy(box)){
+    var prev=null;
+    j.order.forEach(function(k){
+     var e=box.querySelector('[data-key="'+k+'"]'); if(!e) return;
+     var want=prev?prev.nextElementSibling:box.firstElementChild;
+     if(e!==want) box.insertBefore(e,want);
+     prev=e;
+    });
+   }
   }
-  Array.prototype.forEach.call(box.querySelectorAll('.item[data-key]'),function(e){
-   var k=e.getAttribute('data-key');
-   if(!seen[k]&&e.getAttribute('data-state')!=='ready') e.remove();   /* 관찰 후 사라진 카드 */
-  });
+  var sm=document.getElementById('summary'); if(sm&&j.summary) sm.innerHTML=j.summary;
+  var tot=document.getElementById('tot'); if(tot&&j.total) tot.textContent=j.total;
   var lk=document.getElementById('approvelock'), btn=document.getElementById('approve');
   if(lk) lk.textContent=j.lock||'';
   if(btn) btn.disabled=!!j.lock;
-  var cntEl=document.querySelector('.nrow.live[data-shift="'+sid+'"] .livecnt');
-  if(cntEl&&j.counts&&Object.keys(j.counts).length) cntEl.textContent=(j.clock?j.clock.slice(11,16)+' · ':'')+'관찰 중 '+(j.counts.observing||0)+' · 초안 '+(j.counts.ready||0);
   if(window.cnt) window.cnt();      /* 채택 수를 다시 센다 */
-  if(j.draft==='live') setTimeout(tick,2000);
+  setTimeout(tick,2000);
  }).catch(function(){setTimeout(tick,5000);});
 }
 setTimeout(tick,2000);})();</script>"""
@@ -1408,6 +1500,7 @@ def _view_pending(shift_id, draft):
         return curves[tag]
 
     items = []
+    rows = []           # 쌓이는 중이면 한 줄 목록의 차례(AI 작성 중 · 관찰 중 · 초안)
     low = []            # 지난 근무에서 제외한 것 — 지우지 않고 최하단으로 내린다 (#30)
     on_n = 0
     quality = None
@@ -1430,10 +1523,13 @@ def _view_pending(shift_id, draft):
         # 표식은 재생이 떠난 뒤에도 있어야 한다 — 없으면 폴링이 같은 카드를 못 알아보고 한 장 더 넣는다(실제 재생에서 봤다)
         (low if pe else items).append(
             _item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=keys.get(it["id"]) or f"i{it['id']}"))
-    same = live.status().get("shift_id") == shift_id if live_mode else False
-    gray = [c["html"] for c in _gray_cards(shift_id, lives, same)]
+    if live_mode:
+        # 쌓이는 중에는 폴링과 똑같은 함수로 그린다 — 첫 그림과 2초 뒤 그림이 갈라지면 카드가 뛴다
+        same = live.status().get("shift_id") == shift_id
+        rows = _live_rows(shift_id, draft, lives, same)
+        items = [r["html"] for r in rows]
 
-    if not items and not low and not gray:
+    if not items and not low:
         items.append('<div class="card"><div class="empty">감지된 항목이 없습니다.</div></div>')
 
     disc = ""
@@ -1461,13 +1557,13 @@ def _view_pending(shift_id, draft):
     lock = live.approve_lock(shift_id)
     # 쌓이는 중에는 「감지 N건」이 초안 표에 든 수라 화면의 회색 카드와 어긋난다(지휘자 실측: 회색 2장인데 「감지 0건」).
     # 지금 보이는 것을 그대로 센다. 「전체 표시」는 마감 뒤 초안에서만 뜻이 있다.
-    summary = (f'관찰 중 <b style="color:var(--ink)">{len(gray)}</b> · 초안 <b style="color:var(--ink)">{n}</b>' if live_mode
-               else f'감지 <b style="color:var(--ink)">{n}</b>건')
+    summary = _live_summary(rows) if live_mode else f'감지 <b style="color:var(--ink)">{n}</b>건'
+
     head = ('<form method="post" action="/approve" onsubmit="return chk(this)">'
             f'<input type="hidden" name="shift_id" value="{esc(shift_id)}">')
     tail = ('<div class="card" style="padding:12px 16px;display:flex;justify-content:flex-end">'
             '<button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>'
-            f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건 '
+            f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span id="tot">{n}</span>건 '
             '<span id="need" class="need"></span>'
             f'<span id="approvelock" class="need">{esc(lock or "")}</span></div>'
             f'<button type="submit" id="approve" class="btn"{" disabled" if lock else ""}>승인하고 확정</button></div></form>')
@@ -1479,18 +1575,18 @@ def _view_pending(shift_id, draft):
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
 인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2></div>
-<div class="muted" style="font-size:13px">{summary}
+<div class="muted" style="font-size:13px" id="summary">{summary}
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}
 </div>
 </div>
 {head}
 {_carry_box(opened, choices, editable=True)}
 <div id="items" data-shift="{esc(shift_id)}"{' data-live="1"' if live_mode else ""}>
-{"".join(gray)}{"".join(items)}
+{"".join(items)}
 </div>
 {lowbox}
 <div id="mans"></div>
-{tail}{_LIVE_CARDS_JS if live_mode else ""}"""
+{tail}"""
 
 
 
@@ -1561,8 +1657,7 @@ class Handler(BaseHTTPRequestHandler):
                             "values": {t: numfmt.fmt(x[1]) for t, x in (v.get("values") or {}).items()}})
             elif path == "/api/live/cards":
                 q = parse_qs(urlparse(self.path).query)
-                have = {k for k in (q.get("have", [""])[0] or "").split(",") if k}
-                self._json(live_cards(q.get("shift", [""])[0], have))
+                self._json(live_cards(q.get("shift", [""])[0]))
             elif path == "/dcs":
                 self._send(200, view_dcs())
             elif path == "/asu":
