@@ -1,0 +1,105 @@
+{
+  "idx": 0,
+  "shift_id": "2026-09-14-day",
+  "kind": "day",
+  "kind_ko": "주간",
+  "from": "2026-09-14T06:00:00",
+  "to": "2026-09-14T18:00:00",
+  "base_seed": 1843652677,
+  "placement_seed": 1843652677,
+  "sampling_interval_sec": 2,
+  "tag_count": 53,
+  "injected": [
+    {
+      "scenario_id": 15,
+      "name": "순도 동반 저하",
+      "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+      "trigger_tag": "AI-707",
+      "affected_tags": [
+        "AI-707",
+        "AI-803"
+      ],
+      "start": "2026-09-14T07:53:56",
+      "end": "2026-09-14T09:53:56",
+      "duration_sec": 7200,
+      "minutes": 120,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 8,
+      "name": "압축기 서지 전조",
+      "description": "토출압 +3% 상승과 유량 −6% 감소가 동시 진행",
+      "trigger_tag": "PI-203",
+      "affected_tags": [
+        "PI-203",
+        "FI-204",
+        "JI-206",
+        "TI-205"
+      ],
+      "start": "2026-09-14T09:24:18",
+      "end": "2026-09-14T09:49:18",
+      "duration_sec": 1500,
+      "minutes": 25,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 7,
+      "name": "탱크 인입밸브 고착",
+      "description": "개도 45.0% 고정 2시간 — 레벨이 추세를 벗어나 계속 상승",
+      "trigger_tag": "ZI-801",
+      "affected_tags": [
+        "ZI-801",
+        "LI-802"
+      ],
+      "start": "2026-09-14T10:06:32",
+      "end": "2026-09-14T12:06:32",
+      "duration_sec": 7200,
+      "minutes": 120,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 9,
+      "name": "Cold end 저온 이탈",
+      "description": "시간당 +1.5℃ 상승 — 냉각 부족, 순도까지 전파",
+      "trigger_tag": "TI-403",
+      "affected_tags": [
+        "TI-403"
+      ],
+      "start": "2026-09-14T17:24:04",
+      "end": "2026-09-14T18:00:00",
+      "duration_sec": 2156,
+      "minutes": 36,
+      "carried_in": false,
+      "continues_next": true,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": "manual-stuck",
+      "name": "LIN 레벨 계측기 고착(수동)",
+      "trigger_tag": "LI-806",
+      "affected_tags": [
+        "LI-806"
+      ],
+      "start": "2026-09-14T00:00:00.000Z",
+      "end": "2026-09-14T02:00:00.000Z",
+      "duration_sec": 7200,
+      "minutes": 120,
+      "note": "LI-806=81.96 고정, ZI-805 는 원본 그대로"
+    }
+  ],
+  "overlaps": []
+}

@@ -1,0 +1,18 @@
+저장소 준비 완료: /Users/gyeongmopark/Desktop/Projects/engra/.claude/worktrees/probe-isolated/tmp_probe/engra.db
+검출 엔진: engine
+AI: AI 미연결
+INIT=0
+2026-09-14-day: 1,144,800점 적재 · 태그 53개 · 구간 충족률 100.0%
+다음: python3 app/cli.py run 2026-09-14-day
+INGEST=0
+[2026-09-14-day] 실행 — 엔진: engine
+  시계열 53개 태그 · 1,144,800점
+  요약 53건 저장
+  지난 근무가 없어 이번 구간으로 임시 기준선을 만듭니다 (잠정)
+  기준선 53개 태그 갱신
+  이벤트 13건 검출 (engine)
+  서술 작성 — AI 미연결 (ENGRA_LLM=off) — 문장 틀 그대로
+  초안 4개 항목 생성 — 승인 대기
+  ⚠ 기준선이 잠정입니다. 근무가 쌓이면 정확해집니다.
+완료: 이벤트 13건 · 초안 4개 항목
+RUN=0
