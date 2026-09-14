@@ -839,6 +839,11 @@ class StatusSwitchAndCarry(unittest.TestCase):
         self.assertIn("밸브 점검", body, "빈 항목을 이름으로 짚어야 한다")
         with db.connect() as conn:
             self.assertIsNone(db.load_handover(conn, self.DAY[0]))
+        # 위조된 상태 값도 400 — 라디오가 안 주는 값을 보낸 요청 잘못이다
+        h = Fake()
+        h._handle_form(urlencode([("shift_id", self.DAY[0]), ("item", ids[0]), (f"status_{ids[0]}", "대충")]).encode())
+        self.assertEqual(h.sent[-1][0], 400)
+        self.assertIn("완료/진행중", h.sent[-1][1])
 
     def test_server_accepts_form_with_status_and_carry(self):
         ids = self._three_shifts()

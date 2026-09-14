@@ -1440,6 +1440,8 @@ class Handler(BaseHTTPRequestHandler):
                 approve_mod.decide(shift_id, decisions, carried=carried)
             except approve_mod.StatusMissing as exc:
                 _back("채택한 항목마다 완료 / 진행중을 골라야 승인됩니다. 아래 항목이 비어 있습니다.", exc.items); return
+            except ValueError as exc:      # 위조된 상태 값·없는 항목·열려 있지 않은 이월 항목 — 요청 잘못이라 400
+                _back(str(exc)); return
 
             self.send_response(303)
             self.send_header("Location", f"/shift/{shift_id}")
