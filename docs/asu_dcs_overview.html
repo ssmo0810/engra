@@ -1239,7 +1239,18 @@
   //  10×21  LIN 레벨을 한쪽은 상한으로 밀고 한쪽은 출하로 내린다
   //   7×22  LOX 탱크 인입밸브 고착과 LOX 출하가 ZI-801·LI-802 를 동시에 잡는다
   //  23×24  계획 정지와 Trip 이 동시에 일어날 수는 없다
-  var FORBID = [[2, 8], [1, 15], [10, 21], [7, 22], [23, 24]];
+  /* 같은 태그를 서로 다른 방향으로 끄는 조합만 시간 겹침을 막는다.
+     겹치면 파형이 합쳐져 정답지가 거짓이 되기 때문이고, 태그가 안 겹치는
+     조합은 오히려 겹쳐야 「여러 이상이 동시에 난 근무」가 만들어진다. */
+  var FORBID = [[1,15], [1,50], [1,55], [2,8], [2,45], [3,5], [3,11], [3,53], [4,39], [4,45], 
+                 [5,11], [5,53], [6,27], [6,38], [6,39], [6,52], [7,22], [7,32], [7,37], 
+                 [7,41], [8,20], [8,45], [8,53], [10,21], [10,54], [11,53], [12,32], [12,40], 
+                 [12,50], [13,17], [13,33], [14,43], [14,44], [15,50], [15,55], [17,33], 
+                 [18,46], [20,45], [20,53], [21,54], [22,32], [22,37], [22,41], [23,24], 
+                 [27,38], [27,39], [27,52], [32,37], [32,40], [32,41], [32,47], [32,50], 
+                 [34,35], [34,36], [34,49], [34,51], [35,36], [35,49], [35,51], [36,49], 
+                 [36,51], [37,41], [38,39], [38,52], [38,55], [39,45], [39,52], [40,50], 
+                 [42,43], [43,44], [45,53], [49,51], [50,55]];
 
   /* 물리 한계까지 남은 여유. 진동을 태우기 전에 확인한다.
      외기·노이즈·연동이 나중에 더해지므로 정상범위 폭의 15% 를 그 몫으로 남긴다. */
@@ -1264,12 +1275,17 @@
   // 압축기는 0초 — 정지의 시작점이다. ||60 으로 기본값을 주면 0 이 falsy 라 60 으로
   // 바뀌어 first-out 이 압축기가 아니라 콜드박스로 나온다(실제로 겪었다). undefined 로만 판정한다.
   var STOP_LAG = { '2':0, '1':10, '6':6, '5':12, '3':30, '7':60, '4':300, '9':600 };
-  function stopTargets(){
-    var out = [];
+  /* blocks 를 주면 그 유닛(번호 앞자리)만 정지 대상이 된다 — 유닛별 Trip(#25~#31) 용.
+     안 주면 기존 동작(외기·탱크 제외 전 계통)이라 #23·#24 는 그대로다.
+     lagMap 을 주면 first-out 순서를 그 시나리오에 맞게 바꾼다 — 터빈 Trip 은
+     터빈이 0초이고 압축기가 30분 뒤다. 압축기 고정이던 STOP_LAG 로는 표현이 안 된다. */
+  function stopTargets(blocks, lagMap){
+    var LAG = lagMap || STOP_LAG, out = [];
     Object.keys(state).forEach(function(id){
       if(id==='TI-101' || id==='MI-102') return;
       var blk = id.split('-')[1][0];
-      if(blk === '8') return;
+      if(blocks){ if(blocks.indexOf(blk) < 0) return; }
+      else if(blk === '8') return;
       var d = state[id], nom = +d.nom, lo = +d.lo, hi = +d.hi, pre = id.split('-')[0], t;
       if(pre==='FI'||pre==='JI'||pre==='SI') t = 0;
       else if(pre==='ZI')  t = (id==='ZI-905') ? 100 : 0;    // 벤트만 열린다
@@ -1280,14 +1296,14 @@
       else if(pre==='MI')  t = (d.HH!=='' ? +d.HH*1.6 : hi*2);
       else if(pre==='LI')  t = (d.LL!=='' ? +d.LL*1.05 : lo*0.5);
       else t = nom;
-      out.push([id, t, STOP_LAG[blk]===undefined?60:STOP_LAG[blk], nom]);
+      out.push([id, t, LAG[blk]===undefined?60:LAG[blk], nom]);
     });
     return out;
   }
   /* 목표값으로 f 만큼 끌고 간다. f=1 에서 목표값에 딱 고정하면 분산 0 인 평평한
      구간이 생겨 엔진 통계를 왜곡하므로, 원래 편차의 6% 를 남겨 계기 노이즈를 흉내낸다. */
-  function stopApply(D, s, e, c, shape, lagScale){
-    var T = stopTargets();
+  function stopApply(D, s, e, c, shape, lagScale, blocks, lagMap){
+    var T = stopTargets(blocks, lagMap);
     for(var m=0;m<T.length;m++){
       var id=T[m][0], tgt=T[m][1], lag=T[m][2]*(lagScale||1), nom=T[m][3], a=D[id];
       for(var i=s;i<e;i++){
@@ -1297,10 +1313,68 @@
     }
   }
 
+  /* 플랜트가 서면 실제로 움직이는 태그 전부. 유닛 Trip(#25~#31)의 affected_tags 로 쓴다.
+     손으로 적었더니 흡착탑·GN2·벤트 계통이 빠져, 주입이 만든 이벤트가 채점에서
+     「오탐」으로 세어졌다(터빈 Trip 근무 72 건). 목록은 규칙에서 뽑는 것이 맞다. */
+  var STOP_TAGS = stopTargets().map(function(t){ return t[0]; });
+
+  /* 외기가 움직이면 따라 움직이는 태그 전부 — AMB 표에 계수가 있는 것들.
+     #51(한랭전선)의 affected_tags 로 쓴다. */
+  var AMB_TAGS = ['TI-101','MI-102'].concat(Object.keys(AMB));
+
   /* 각 시나리오의 pre/post 는 (D, s, e, c) 를 받는다.
      c.off = 시나리오 시작부터 이 구간 첫 샘플까지 경과한 초. 근무를 넘어
      이어질 때 c.off 가 채워지므로, 파형을 '경과초 x' 의 함수로만 쓰면
      경계에서 끊기지 않는다. c.memo 는 근무를 넘겨 기억할 값. */
+
+  /* ── 계측 신호 고정 (정비 위장 #34~#36) ─────────────────────
+     정비·교정 중에는 DCS 에 오는 값이 실제 공정값이 아니라 「붙들린 값」이다.
+     실제 신호에는 언제나 노이즈가 있는데 붙들린 값은 완전히 평평하다 —
+     그 평평함 자체가 정비의 서명이라, 다른 시나리오와 달리 여기서는
+     분산 0 을 일부러 남긴다 (#7 고착과 같은 처리).
+
+     대상 태그는 고정하지 않고 뽑는다. 다만 아무 태그나 뽑으면 같은 근무의
+     다른 시나리오가 쓰는 태그와 겹쳐 정답지가 거짓이 되므로, solo(정지) 외의
+     어떤 시나리오도 건드리지 않는 7 점으로 후보를 한정했다. */
+  var FREEZE_POOL    = ['MI-102','MI-808','ZI-506','ZI-709','TI-708','TI-603','AI-402'];
+  var FREEZE_POOL_LO = ['MI-102','ZI-506','ZI-709','TI-708','TI-603'];   // L 또는 LL 이 있는 것만
+
+  /* 같은 seed 면 같은 태그가 뽑힌다 — 재현성(검증 항목 8)을 깨지 않으려고
+     Math.random 이 아니라 이미 seed 로 만들어진 데이터에서 해시를 뽑는다. */
+  function pickFrom(pool, D, s){
+    var a = D['TI-101'], h = 0, n = a.length;
+    for(var i=0;i<8;i++) h = (h*31 + Math.floor(Math.abs(a[Math.min(s+i,n-1)]*1e6))) % 1000003;
+    return pool[h % pool.length];
+  }
+  /* mode — 'now' 현재값에 고정 · 'HH' 상한 강제 출력 · 'LL' 하한 강제 출력.
+     HH/LL 은 한계선을 살짝 넘겨 DCS 알람을 실제로 울린다. 「알람이 울리는데
+     설비 정지가 아닌 경우」를 만들기 위한 것이다. */
+  function holdTarget(tag, mode, cur){
+    var d = state[tag], R = Math.abs(+d.hi - +d.lo) || 1;
+    var phyHi = (d.unit === '%') ? 100 : Infinity, phyLo = (d.unit === '℃') ? -Infinity : 0;
+    if(mode === 'HH'){ var v = (d.HH !== '' ? +d.HH : +d.H) + R*0.03; return Math.min(v, phyHi); }
+    if(mode === 'LL'){ var w = (d.LL !== '' ? +d.LL : +d.L) - R*0.03; return Math.max(w, phyLo); }
+    return cur;
+  }
+  function holdApply(D, s, e, c, pool, mode){
+    if(c.memo.pick === undefined) c.memo.pick = pickFrom(pool, D, s);
+    var t = c.memo.pick;
+    if(c.memo.v === undefined) c.memo.v = holdTarget(t, mode, D[t][s]);
+    for(var i=s;i<e;i++) D[t][i] = c.memo.v;
+  }
+
+  /* 유닛 Trip 공용 파형 — lead 초 동안 전조가 흐른 뒤 정지하고, 마지막 2시간에 재기동.
+     rise 를 크게 주면 「천천히 죽는다」 (터빈 정지 뒤 냉동이 빠지는 것처럼). */
+  function tripShape(lead, rise0){
+    return function(x, lag, tot){
+      if(x < lead + lag) return 0;
+      var y = x - lead - lag, rise = (lag > 0 ? rise0 : 60), tail = tot - 7200 - lead - lag;
+      if(y < rise) return y/rise;
+      if(y < tail) return 1;
+      return Math.max(0, 1 - (y - tail)/7200);
+    };
+  }
+
   var SCEN = [
    {id:1, nm:'순도 헌팅', tag:'AI-707', tags:['AI-707','AI-803'], dur:1800,
     desc:'평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정',
@@ -1458,7 +1532,10 @@
    {id:23, nm:'플랜트 계획 정지', tag:'JI-206',
     tags:['JI-206','ZI-201','ZI-202','PI-203','FI-204','TI-205','FI-602','PI-604','ZI-601',
           'SI-507','PI-502','PI-504','LI-701','LI-705','AI-703','AI-707','AI-803','FI-710','PDI-702','TI-704','TI-403','PI-901','FI-902'],
-    dur:21600, op:true, solo:true, first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (계획 감부하)',
+    dur:21600, op:true, solo:true, cls:'operation',
+    unit:'#200 AIR COMPRESSOR K-201', impact:'전 플랜트 정지 — 계획된 것이라 조치는 불필요',
+    expect:'계획 정지. 이상이 아니지만 인계는 필수',
+    first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (계획 감부하)',
     desc:'계획 정지 — 압축기 부하를 3시간에 걸쳐 단계적으로 내려 정지, 1시간 유지 후 2시간 재기동',
     pre:function(D,s,e,c){
       stopApply(D,s,e,c,function(x,lag,tot){
@@ -1474,7 +1551,9 @@
           'SI-507','PI-502','PI-504','TI-501','TI-503','LI-701','LI-705','AI-703','AI-707','FI-710',
           'PDI-702','PDI-706','TI-704','AI-803','TI-401','TI-403','AI-402','MI-302','MI-305','PDI-303','PDI-306',
           'PI-901','FI-902','MI-903','ZI-905','FI-906'],
-    dur:21600, solo:true, alarm:'다수 (HH/LL 포함)',
+    dur:21600, solo:true, cls:'trip', alarm:'다수 (HH/LL 포함)',
+    unit:'#200 AIR COMPRESSOR K-201', impact:'전 플랜트 정지',
+    expect:'S/D — 압축기 전력 상실. 원인 규명이 인계의 핵심',
     first_out:'AIR COMPRESSOR K-201 · JI-206 소비 전력 (전력 상실, 0초)',
     desc:'압축기 전력 상실로 Trip — 30초 안에 압축기 붕괴, 유닛별 지연으로 6초~10분에 걸쳐 43점 연쇄 이탈, 4시간 정지 후 2시간 재기동',
     pre:function(D,s,e,c){
@@ -1484,7 +1563,473 @@
         if(y<30) return y/30;                          // 30초 안에 붕괴
         if(y<tot-7200-lag) return 1;
         return Math.max(0,1-(y-(tot-7200-lag))/7200);  // 마지막 2시간 재기동
-      }, 1); }}
+      }, 1); }},
+
+   /* ══ 25~33 : Unit 별 Trip — 유닛마다 1 종 ═══════════════════════════════
+      같은 「Trip」이라도 어느 유닛이 나갔느냐에 따라 플랜트가 죽기도 하고
+      멀쩡하기도 하다. 그 차이를 초안이 짚는지가 이 묶음의 채점 목적이다.
+      impact 가 플랜트 파급의 정답이고, first_out 이 원인 유닛의 정답이다.
+
+      25~31 은 결국 플랜트가 서므로 solo:true — 정지에 다른 시나리오가 묻히면
+      정답지가 「검출 가능」이라고 거짓 주장하게 된다(23·24 와 같은 이유).
+      32·33 은 플랜트가 살아 있으므로 랜덤 풀에 남긴다. */
+
+   {id:25, nm:'[#100] 흡입 필터 폐색 Trip (EIGA 147 §8.11)', tag:'PDI-103',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'PDI-103 HH 외 다수',
+    unit:'#100 AIR FILTER F-101',
+    impact:'전 플랜트 정지 — 다만 전조가 3시간 앞선다',
+    expect:'S/D — 흡입 필터 폐색이 원인. 3시간 전조 구간에서 잡았어야 한다',
+    src:'EIGA Doc 147/22 §8.11 Suction filters or screens · §12.12.4',
+    first_out:'AIR FILTER F-101 · PDI-103 필터 차압 (폐색, 0초)',
+    desc:'차압 0.012 → 0.043 bar (HH 0.040) 3시간 상승 · 흡입 부족으로 토출유량 −10% → 압축기 보호정지 → 전 플랜트',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f=clamp01(x/10800);
+        D['PDI-103'][i] += 0.031*f*f;                        // 막힘은 후반에 가팔라진다
+        if(x<10800){ D['FI-204'][i] -= 42500*0.10*f; D['JI-206'][i] += 150*f; } }
+      stopApply(D,s,e,c,tripShape(10800,120),1,null,
+                {'1':0,'2':60,'6':66,'5':72,'3':90,'7':120,'4':360,'9':660}); }},
+
+   {id:26, nm:'[#200] 압축기 서지 Trip (EIGA 147 §8.3.1)', tag:'PI-203',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'다수 (HH/LL 포함)',
+    unit:'#200 AIR COMPRESSOR K-201 / MOTOR M-202',
+    impact:'전 플랜트 정지',
+    expect:'S/D — 안티서지 제어 실패. 전조가 10분뿐이라 조기 검출 여지가 좁다',
+    src:'EIGA Doc 147/22 §8.3.1 Anti-surge control · §8.3.3 진동 정지',
+    first_out:'AIR COMPRESSOR K-201 · PI-203 토출 압력 (서지 맥동, 0초)',
+    desc:'안티서지 밸브 응답 실패 — 토출압·유량이 24초 주기로 역위상 맥동, 진폭이 10분간 커지다 진동 정지',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x<600){ var g=x/600, w=Math.sin(2*Math.PI*x/24);
+          D['PI-203'][i] += 0.30*g*w; D['FI-204'][i] -= 42500*0.09*g*w; D['JI-206'][i] += 180*g*Math.abs(w); } }
+      stopApply(D,s,e,c,tripShape(600,60),1); }},
+
+   {id:27, nm:'[#300] 흡착탑 파과 미절환 정지 (EIGA 147 §9.3)', tag:'MI-302',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'MI-302 H 외 다수',
+    unit:'#300 ADSORBER A-301 / A-302',
+    impact:'전 플랜트 정지 — 규정에 따른 강제 정지',
+    expect:'S/D — 파과 고알람 후 30분 내 절환 실패. 지침이 정한 정지라 조치는 정해져 있다',
+    src:'EIGA Doc 147/22 §9.3 — 「고알람 후 30분 내 절환 불가 시 정지」 · CO2 마커를 태그 체계의 수분 마커로 치환',
+    first_out:'ADSORBER A-301 · MI-302 후단 수분 (파과, 0초)',
+    desc:'후단 수분 0.8 → 3.3 ppm (H 3.0) 30분 · 절환 실패로 4.2 ppm 까지 30분 더 → 지침대로 전 플랜트 정지',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x<3600){ var f=clamp01(x/1800);
+          D['MI-302'][i]  += 2.5*f + 0.9*clamp01((x-1800)/1800);
+          D['PDI-303'][i] += 0.05*f; } }
+      stopApply(D,s,e,c,tripShape(3600,180),1,null,
+                {'3':0,'2':120,'1':130,'6':126,'5':132,'7':180,'4':420,'9':720}); }},
+
+   {id:28, nm:'[#400] Main HX 인입 고온 정지 (EIGA 60.1/25 #087.06.03)', tag:'TI-401',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'TI-304 H · TI-403 H 외 다수',
+    unit:'#400 MAIN HEAT EXCHANGER E-401',
+    impact:'전 플랜트 정지',
+    expect:'S/D — 재생 직후 냉각되지 않은 흡착탑으로 절환한 것이 원인. 설비 고장이 아니라 절환 시퀀스 문제',
+    src:'EIGA Doc 60.1/25 #087.06.03 (재생 후 미냉각 절환, 300℃ 열파로 콜드박스 손상) · EIGA Doc 147/22 §9.3 TSA 출구 고온 정지',
+    first_out:'ADSORBER A-302 → MAIN HX E-401 · TI-304 재생탑 온도 (미냉각 절환, 0초)',
+    desc:'재생탑 196℃ 인 채로 절환 — 인입 Air 21℃ 로 상승, Cold end −162℃ 까지 승온 → 콜드박스 보호 정지',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f=clamp01(x/600), g=clamp01((x-300)/900);
+        if(x<2400){ D['TI-304'][i] += 28*f; D['TI-401'][i] += 9.0*g; D['TI-403'][i] += 10.5*g; D['MI-302'][i] += 0.6*g; } }
+      stopApply(D,s,e,c,tripShape(2400,120),1,null,
+                {'4':0,'6':60,'5':72,'7':120,'2':180,'1':190,'3':210,'9':600}); }},
+
+   {id:29, nm:'[#500] 팽창터빈 Trip — 냉동 상실 연쇄 (EIGA 147 §10.1)', tag:'SI-507',
+    tags:STOP_TAGS,
+    dur:25200, solo:true, cls:'trip', alarm:'SI-507 H → 다수 (HH/LL 포함)',
+    unit:'#500 TURBINE X-501 / GENERATOR G-502',
+    impact:'전 플랜트 정지 — 단, 터빈은 60초 만에 죽고 플랜트는 45분에 걸쳐 죽는다',
+    expect:'S/D — 터빈이 먼저 나갔고 플랜트 정지는 그 결과. 원인 유닛을 터빈으로 짚어야 한다',
+    src:'EIGA Doc 147/22 §10.1 Loss of loading and overspeed · §10.8 진동 정지',
+    first_out:'TURBINE X-501 · SI-507 터빈 회전수 (부하 상실 오버스피드, 0초)',
+    desc:'부하 상실로 20,600 rpm 오버스피드 → 즉시 정지, 60초 코스트다운 · 냉동원이 사라져 콜드박스가 30분에 걸쳐 승온하며 전 계통이 순차로 나간다',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x<8) D['SI-507'][i] += 2150*clamp01(x/4); }              // 오버스피드 (H 20,200 초과)
+      stopApply(D,s,e,c,tripShape(0,1800),1,null,
+                {'5':0,'4':900,'6':1200,'7':1500,'3':1800,'2':2100,'1':2110,'9':2700}); }},
+
+   {id:30, nm:'[#600] FV-601 공급 차단 Trip (EIGA 147 §12.3.2)', tag:'ZI-601',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'LI-705 H · 다수 (HH/LL 포함)',
+    unit:'#600 COLD BOX INLET FV-601',
+    impact:'전 플랜트 정지',
+    expect:'S/D — 컬럼 공급이 끊긴 것. HP 레벨은 내려가는데 LP 레벨은 올라가는 반대 거동이 서명이다',
+    src:'EIGA Doc 147/22 §12.3.2 — 「공기가 갑자기 끊기면 상부 액이 LP sump 로 내려와 레벨이 오르고 GOX 노즐을 덮을 수 있다」',
+    first_out:'COLD BOX INLET FV-601 · ZI-601 개도 (긴급 차단, 0초)',
+    desc:'FV-601 2초 만에 전폐 — HP 레벨 급강하, LP sump 레벨은 거꾸로 44% 까지 급상승(GOX 노즐 침수 위험)',
+    pre:function(D,s,e,c){
+      stopApply(D,s,e,c,tripShape(0,60),1,null,
+                {'6':0,'7':30,'5':60,'4':120,'2':180,'1':190,'3':240,'9':600}); },
+    post:function(D,s,e,c){
+      // 일반 정지 규칙은 레벨을 LL 부근으로 내린다. LP sump 만은 반대 방향이라 되돌린다.
+      if(c.memo.b===undefined) c.memo.b = D['LI-705'][s];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x<600) D['LI-705'][i] = c.memo.b + 22*clamp01(x/420);
+        else if(x < c.tot-7200) D['LI-705'][i] = c.memo.b + 22; } }},
+
+   {id:31, nm:'[#700] 리보일러 저레벨 정지 (EIGA 147 §12.12.4)', tag:'LI-705',
+    tags:STOP_TAGS,
+    dur:21600, solo:true, cls:'trip', alarm:'LI-705 L 외 다수',
+    unit:'#700 COLUMNS C-701 HP / C-702 LP',
+    impact:'전 플랜트 정지 — 규정에 따른 강제 정지',
+    expect:'S/D — 리보일러 침지를 유지하지 못해 정지. 90분 하강 추세에서 잡았어야 한다',
+    src:'EIGA Doc 147/22 §12.12.4 (Low and high reboiler level) · §12.3.2 · EIGA Doc 65/20 §7.2.1',
+    first_out:'COLUMN C-702 LP · LI-705 LP 레벨 (리보일러 침지 상실, 0초)',
+    desc:'LP 레벨 22.1 → 8.7% (L 12) 90분 하강 — 리보일러 침지 상실은 오염물 국소 농축으로 이어져 지침이 정지를 요구한다',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x<5400){ var f=clamp01(x/5400);
+          D['LI-705'][i] -= 13.4*f; D['PDI-706'][i] -= 0.07*f; D['AI-703'][i] -= 3.0*f; } }
+      stopApply(D,s,e,c,tripShape(5400,120),1,null,
+                {'7':0,'6':60,'5':90,'4':180,'2':240,'1':250,'3':300,'9':600}); }},
+
+   {id:32, nm:'[#800] LOX 탱크 S/D — 플랜트 무영향 (EIGA 60.1/25 #155.05.01)', tag:'LI-802',
+    tags:['ZI-801','LI-802','AI-803','MI-804','LI-705'],
+    dur:14400, cls:'trip', alarm:'ZI-801 L (밸브 전폐)',
+    unit:'#800 PRODUCT TANKS TK-801 LOX',
+    impact:'없음 — 컬럼·압축기·터빈은 정상 운전을 계속한다',
+    expect:'S/D 이지만 탱크 계통 한정. 플랜트 정지가 아니고 조치도 출하 계획 조정뿐',
+    src:'EIGA Doc 147/22 §14.1 Liquid storage · EIGA Doc 60.1/25 #155.05.01 (정비로 ASU 오프라인, 탱크 계통만 격리)',
+    first_out:'PRODUCT TANK TK-801 · ZI-801 LV-801 개도 (격리, 0초)',
+    desc:'탱크 격리로 LV-801 전폐 — 레벨·순도·수분이 그 시각 값에서 멈추고 LP 레벨만 소폭 상승. 알람은 하나도 울리지 않는다',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+        if(x<180) f=x/180; else if(x < c.tot-1800) f=1; else f=Math.max(0,1-(x-(c.tot-1800))/1800);
+        D['ZI-801'][i] = D['ZI-801'][i]*(1-f);                       // 인입 전폐
+        D['LI-705'][i] += 8.0*f; } },                                // 뽑아내지 못한 LOX 가 컬럼에 남는다
+    post:function(D,s,e,c){
+      // 탱크를 끊으면 레벨·순도·수분은 그 시각 값에서 멈춘다 — 계기가 죽은 게 아니라
+      // 물질 출입이 없어서다. 파형은 #34(정비 고정)·#37(계기 고장)과 같고 원인이 다르다.
+      //
+      // 고정 구간을 「밸브가 완전히 닫힌 동안」으로만 잡았더니, 여닫는 180초·1800초
+      // 구간에서 ZI-801→LI-802 연동(gain −0.60)이 레벨을 111.9% 까지 밀어 올렸다.
+      // 레벨이 100% 를 넘는 것은 물리적으로 불가능하다. 격리하면 물질 출입이 아예
+      // 없으므로 창 전체를 고정하는 것이 맞다.
+      ['LI-802','AI-803','MI-804'].forEach(function(t){
+        if(c.memo[t]===undefined) c.memo[t] = D[t][s];
+        for(var i=s;i<e;i++) D[t][i] = c.memo[t]; }); }},
+
+   {id:33, nm:'[#900] GN2 공급 Trip — 벤트 전환 (EIGA 147 §16.10)', tag:'ZI-904',
+    tags:['ZI-904','PI-901','FI-902','ZI-905','FI-906','MI-903'],
+    dur:10800, cls:'trip', alarm:'FI-902 LL · ZI-905 H · FI-906 H',
+    unit:'#900 GN2 SUPPLY / VENT',
+    impact:'없음 — 생산은 계속되고 잉여 GN2 만 벤트로 나간다',
+    expect:'S/D 이지만 수요처 정지가 원인. 플랜트는 정상이고 손실은 벤트뿐',
+    src:'EIGA Doc 147/22 §16.10 Product delivery · §12.12.1',
+    first_out:'GN2 SUPPLY · ZI-904 PV-902 개도 (수요처 정지, 0초)',
+    desc:'수요처 정지로 PV-902 전폐 — 공급 유량이 400 Nm3/h 까지 떨어지고 벤트 개도가 42% 로 열려 압력만 정상 유지',
+    pre:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+        if(x<120) f=x/120; else if(x < c.tot-1200) f=1; else f=Math.max(0,1-(x-(c.tot-1200))/1200);
+        D['ZI-904'][i] = D['ZI-904'][i]*(1-f);          // 공급 전폐 → 연동이 압력을 올린다
+        D['ZI-905'][i] += 33.5*f; } },                  // 벤트 개방 → 연동이 압력을 도로 내린다
+    post:function(D,s,e,c){
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+        if(x<120) f=x/120; else if(x < c.tot-1200) f=1; else f=Math.max(0,1-(x-(c.tot-1200))/1200);
+        D['FI-902'][i] = D['FI-902'][i]*(1-f) + 400*f; } }},
+
+   /* ══ 34~37 : 정비 위장과 그 대조군 ═════════════════════════════════════
+      34·35·36 은 정비 중이라 신호가 붙들린 것이고, 37 은 파형이 똑같은데
+      실제로는 계기가 고장난 것이다. 넷을 한 묶음으로 두는 이유는 하나다 —
+      「고착」 하나만 놓고는 정비인지 고장인지 알 수 없고, 주변 태그가
+      물질수지에 맞게 움직이는지를 봐야만 갈린다. 그 판단을 초안이 하는지가
+      이 묶음의 채점 목적이다.
+
+      34~36 은 solo 가 아니다. 「여러 이상이 동시에 난 근무에 정비 태그가
+      섞여 있을 때」를 시험하려면 랜덤 풀에 있어야 한다. */
+
+   {id:34, nm:'정비 — 계측 루프 점검 (신호 고정)', tag:'(랜덤 1점)', tags:FREEZE_POOL,
+    dur:1800, cls:'maintenance', maint:true, alarm:'미발생',
+    unit:'계측 (태그는 근무마다 달라진다)',
+    impact:'없음 — 공정은 정상',
+    expect:'정비 — 계측 루프 점검. 이상이 아니다. 주변 연동 태그가 전부 정상인 것이 근거',
+    src:'EIGA Doc 147/22 §12.13.3 Periodic inspection and maintenance · §13.1',
+    desc:'계측 1점을 현재값에 30분 고정 — 값이 완전히 평평하고(노이즈 0) 주변 연동 태그는 정상 거동',
+    post:function(D,s,e,c){ holdApply(D,s,e,c,FREEZE_POOL,'now'); }},
+
+   {id:35, nm:'정비 — 신호 강제 HH 출력 (알람 울리나 공정 정상)', tag:'(랜덤 1점)', tags:FREEZE_POOL,
+    dur:900, cls:'maintenance', maint:true, alarm:'대상 태그 HH',
+    unit:'계측 (태그는 근무마다 달라진다)',
+    impact:'없음 — 공정은 정상',
+    expect:'정비 — 알람 시험을 위한 강제 출력. HH 가 울려도 설비 정지가 아니다',
+    src:'EIGA Doc 147/22 §13.9 Alarm system · §12.13.3',
+    desc:'계측 1점을 HH 초과값에 15분 강제 고정 — DCS HH 알람이 실제로 울리지만 연동 태그는 미동도 없다',
+    post:function(D,s,e,c){ holdApply(D,s,e,c,FREEZE_POOL,'HH'); }},
+
+   {id:36, nm:'정비 — 신호 강제 LL 출력 (알람 울리나 공정 정상)', tag:'(랜덤 1점)', tags:FREEZE_POOL_LO,
+    dur:2400, cls:'maintenance', maint:true, alarm:'대상 태그 LL 또는 L',
+    unit:'계측 (태그는 근무마다 달라진다)',
+    impact:'없음 — 공정은 정상',
+    expect:'정비 — 알람 시험을 위한 강제 출력. LL 이 울려도 설비 정지가 아니다',
+    src:'EIGA Doc 147/22 §13.9 Alarm system · §12.13.3',
+    desc:'계측 1점을 LL 미만값에 40분 강제 고정 — DCS LL 알람이 울리지만 연동 태그는 미동도 없다',
+    post:function(D,s,e,c){ holdApply(D,s,e,c,FREEZE_POOL_LO,'LL'); }},
+
+   {id:37, nm:'LOX 탱크 레벨계 고장 — 정비 아님 (EIGA 60.1/25 #085.05.04)', tag:'LI-802',
+    tags:['LI-802','ZI-801','AI-803'],
+    dur:5400, cls:'anomaly', alarm:'LI-802 H 88% (계기 복구 직후)',
+    unit:'#800 PRODUCT TANKS TK-801 LOX',
+    impact:'없음 (플랜트) — 그러나 탱크 과충전은 파열로 이어진다',
+    expect:'이상 — 계기 고장. 34 와 파형이 같지만 인입 개도가 살아 있어 물질수지가 안 맞는다',
+    src:'EIGA Doc 60.1/25 #085.05.04 — 「LOX 저장탱크(500 m3)가 정상 운전 중 파열. 원인은 레벨 계측 고장에 의한 과충전」',
+    desc:'레벨계만 죽어 그 시각 값에 고정 — 인입은 계속 열려 있어 실제 레벨은 오르고 있고, 계기가 살아나는 순간 89.5%(H 88) 가 드러난다',
+    pre:function(D,s,e,c){
+      // 레벨계만 죽었을 뿐 인입은 계속된다 — 고착(#7)이나 정비 고정(#34)과 달리
+      // 개도가 「레벨을 올리는 방향」으로 살아 있는 것이 구분점이다.
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP; D['ZI-801'][i] += 6*clamp01(x/600); } },
+    post:function(D,s,e,c){
+      if(c.memo.v===undefined) c.memo.v = D['LI-802'][s];
+      for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+        if(x < c.tot-600) D['LI-802'][i] = c.memo.v;                    // 고착 구간
+        // 기저 레벨은 시각에 따라 49.8~70.6% 로 흔들린다. 「+30%p」로 더하면 높은
+        // 시각에서 HH(95)를 넘어 「탱크 파열 직전」이 아니라 「이미 터진 값」이 됐다.
+        // 드러나는 값을 89.5% 로 못박아 H(88)만 넘고 HH 는 안 넘게 한다.
+        else D['LI-802'][i] = c.memo.v + (89.5-c.memo.v)*clamp01((x-(c.tot-600))/600); } }},
+
+   /* ══ 38~50 : 지침·사고보고서에서 뽑은 ASU 운전 상황 ════════════════════
+      전부 근거 문서의 조항이나 실제 사고 한 건에 1:1 로 대응한다.
+      src 에 문서번호와 절·사고번호를 적어 두었으므로 대조가 가능하다. */
+
+   {id:38, nm:'PPU 수분 연속 슬립 (EIGA 147 §9.3)', tag:'MI-302', tags:['MI-302','AI-703'],
+    dur:28800, cls:'anomaly', alarm:'미발생',
+    unit:'#300 ADSORBER A-301',
+    impact:'없음 (당장) — 방치하면 리보일러 오염물 축적',
+    expect:'이상 — 알람선 근처에도 못 가지만 흡착제가 제 일을 못 하고 있다는 신호',
+    src:'EIGA Doc 147/22 §9.3 — 「낮지만 지속적인 슬립은 사이클 말 파과만큼 위험하다. 0.2~0.5 ppm 에 이르면 원인을 조사하라」',
+    desc:'후단 수분 0.8 → 1.6 ppm 8시간 완만 상승 — H(3.0) 의 절반이라 알람은 영영 안 울린다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['MI-302'][i] += 0.8*clamp01((c.off+(i-s)*STEP)/c.tot); }},
+
+   {id:39, nm:'흡착탑 재생 냉각 부족 열파 (EIGA 60.1/25 #087.06.03)', tag:'TI-304',
+    tags:['TI-304','TI-401','MI-302'],
+    dur:2400, cls:'anomaly', alarm:'TI-304 H 190℃',
+    unit:'#300 ADSORBER A-302 → #400 MAIN HX',
+    impact:'해당 유닛 — 방치하면 콜드박스 손상',
+    expect:'이상 — 절환 시퀀스 문제. 설비 고장이 아니라 냉각 단계가 덜 끝난 것',
+    src:'EIGA Doc 60.1/25 #087.06.03 — 「드라이어 논리 시퀀스 고장으로 재생 직후 미냉각 탑으로 절환, 300℃ 넘는 공기가 후단으로 가 화재·콜드박스 손상」',
+    desc:'재생탑 168 → 194℃ (H 190) · 10분 뒤 인입 Air 21℃ 까지 동반 상승 — 인입은 알람선(25℃)에 못 미쳐 단독으로는 안 보인다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f=clamp01(x/600), g=clamp01((x-300)/900);
+      // +28℃ 는 기저가 높은 시각(175.8℃)에서 HH(200)를 넘었다. H(190)만 넘게 18℃ 로.
+      D['TI-304'][i] += 18*f; D['TI-401'][i] += 9.0*g; D['MI-302'][i] += 0.6*g; } }},
+
+   {id:40, nm:'리보일러 오염물 4.6배 상승 (EIGA 65/20 §9)', tag:'MI-804', tags:['MI-804'],
+    dur:7200, cls:'anomaly', alarm:'MI-804 H 2.0 ppm',
+    unit:'#800 PRODUCT TANKS TK-801 LOX',
+    impact:'해당 유닛 — 오염물 농축은 리보일러 폭발의 선행 조건',
+    expect:'이상 — 지침이 정한 「정상값의 4~5배」 조사 기준을 넘었다',
+    src:'EIGA Doc 65/20 §9 — 「측정 오염물이 정상 예상값의 4~5배를 넘으면 원인 조사 알람을 울려야 한다. 급격한 변화는 증가든 감소든 조사 대상이다」 · Appendix E/F 한계표',
+    desc:'LOX 수분 0.5 → 2.3 ppm (정상값의 4.6배, H 2.0) 2시간 — 지침의 「4~5배」 조사 기준선이 알람선보다 먼저 걸린다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++)
+      D['MI-804'][i] += 1.8*clamp01((c.off+(i-s)*STEP)/c.tot); }},
+
+   {id:41, nm:'LOX 퍼지율 저하 (EIGA 60.1/25 #108.05.06)', tag:'ZI-801',
+    tags:['ZI-801','LI-802','MI-804'],
+    dur:7200, cls:'anomaly', alarm:'미발생',
+    unit:'#800 PRODUCT TANKS TK-801 LOX',
+    impact:'없음 (당장) — 퍼지 부족은 오염물 축적으로 이어진다',
+    expect:'이상 — 세 태그 전부 정상범위 안이라 단독으로는 안 보이고, 셋이 같은 방향인 것으로만 보인다',
+    src:'EIGA Doc 60.1/25 #108.05.06 — 「LOX 흡착탑 하부에서 대량 누출. 퍼지율은 1.6% 였으나 간헐적으로 낮은 퍼지율이 있었다」 (간헐 → 지속 저하로 옮겨 반영)',
+    desc:'LV-801 개도 45 → 31% 서서히 조여짐 · 레벨은 그만큼 덜 빠져 73% 로 상승 · 수분 마커 0.5 → 1.4 ppm — 전부 정상범위 안',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f=clamp01(x/c.tot);
+      D['ZI-801'][i] -= 14*f; D['MI-804'][i] += 0.9*f; } }},
+
+   {id:42, nm:'팽창터빈 효율 저하 (EIGA 147 §10.9)', tag:'TI-503',
+    tags:['TI-503','ZI-505','SI-507','TI-501'],
+    dur:7200, cls:'anomaly', alarm:'미발생',
+    unit:'#500 TURBINE X-501',
+    impact:'없음 (당장) — 냉동 부족이 쌓이면 순도 저하로 이어진다',
+    expect:'이상 — 회전수는 정상인데 엔탈피 강하가 줄었다. 단일 태그로는 절대 안 보인다',
+    src:'EIGA Doc 147/22 §10.9 Abnormal speed — 「설계 한계 초과뿐 아니라 필요한 냉동을 못 내는 수준도 비정상 속도다」',
+    desc:'Outlet 온도가 −178.3 → −174℃ 로 올라 온도차가 줄고, 개도를 8% 더 열어 회전수만 맞춰 놓은 상태',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['TI-503'][i] += 5.5*f; D['ZI-505'][i] += 8*f; } }},
+
+   {id:43, nm:'팽창터빈 인입 결빙 (EIGA 147 §10.11)', tag:'PI-502',
+    tags:['PI-502','SI-507','ZI-505','TI-501'],
+    dur:10800, cls:'anomaly', alarm:'미발생',
+    unit:'#500 TURBINE X-501',
+    impact:'해당 유닛 — 방치하면 노즐·임펠러 손상',
+    expect:'이상 — 인입 스크린 막힘. 압력은 오르고 회전수는 떨어지는 조합이 서명',
+    src:'EIGA Doc 147/22 §10.11 Fouling of expander with ice or carbon dioxide — 「인입 스크린 차압과 팽창기 성능을 감시하라」',
+    desc:'Inlet 압력 5.42 → 5.74 bar 상승, 회전수 −900 rpm 하강, 개도 6% 보상 — 셋 다 정상범위 안이라 알람 없음',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['PI-502'][i] += 0.32*f; D['SI-507'][i] -= 900*f; D['ZI-505'][i] += 6*f; } }},
+
+   {id:44, nm:'팽창터빈 임계속도 체류 (EIGA 147 §10.10)', tag:'SI-507', tags:['SI-507'],
+    dur:1500, cls:'anomaly', alarm:'미발생',
+    unit:'#500 TURBINE X-501',
+    impact:'해당 유닛 — 공진대 체류는 축 손상으로 이어진다',
+    expect:'이상 — 값 자체는 정상범위 안이다. 「그 대역에 머물렀다」는 사실이 이상',
+    src:'EIGA Doc 147/22 §10.10 Critical speed — 「제조사가 정한 공진 회피대(no-dwell zone)를 빠르게 통과해야 하며 체류 시 정지가 필요하다」',
+    desc:'17,650 rpm 공진 회피대에 25분 체류 + ±120 rpm 미진동 — L(17,000)에 한참 못 미쳐 알람은 없다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['SI-507'][i] += -800*clamp01(x/180) + 120*Math.sin(2*Math.PI*x/40); } }},
+
+   {id:45, nm:'감발 시 Warm end 급랭 — 냉취성 (EIGA 147 §12.12.3)', tag:'TI-401',
+    tags:['TI-401','TI-205','ZI-201','FI-204','PI-203'],
+    dur:3600, cls:'anomaly', alarm:'미발생',
+    unit:'#200 AIR COMPRESSOR → #400 MAIN HX',
+    impact:'해당 유닛 — 탄소강 배관 파열 위험',
+    expect:'이상 — 알람이 하나도 없는데 배관이 깨질 수 있는 상황. 두 온도에는 L/LL 이 아예 없다',
+    src:'EIGA Doc 147/22 §12.12.3 Abnormally low temperature — 「MAC 감발·정지 시 역류로 Warm end 배관 온도가 몇 분 만에 탄소강 취성 온도(−29℃) 아래로 떨어질 수 있다」',
+    desc:'감발로 토출온도 108.6 → 48℃, 인입 Air 12.4 → −6℃ 로 10분 만에 급락 — 두 태그 다 L/LL 이 없어 DCS 는 끝까지 조용하다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/600);
+      D['TI-205'][i] -= 60.6*f; D['TI-401'][i] -= 18.4*f; D['ZI-201'][i] -= 18*f; } }},
+
+   {id:46, nm:'HP 컬럼 고레벨 — 수격 위험 (EIGA 147 §12.3.1)', tag:'LI-701',
+    tags:['LI-701','PDI-702'],
+    dur:5400, cls:'anomaly', alarm:'LI-701 H 40%',
+    unit:'#700 COLUMN C-701 HP',
+    impact:'해당 유닛 — 컬럼 내부품 수격 손상',
+    expect:'이상 — 제조사 최대값을 넘긴 것. 기동 전이라면 반드시 내려야 한다',
+    src:'EIGA Doc 147/22 §12.3.1 High pressure column — 「제조사 최대값 이하로 유지해야 내부품 수격(water-hammer) 손상을 막는다」',
+    desc:'HP 레벨 25.4 → 47% (H 40, HH 50 미달) 90분 상승, HP 차압도 0.31 → 0.40 bar 동반',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/(c.tot*0.7));
+      D['LI-701'][i] += 21.6*f; D['PDI-702'][i] += 0.09*f; } }},
+
+   {id:47, nm:'LP sump 범람 — GOX 노즐 침수 (EIGA 147 §12.3.2)', tag:'LI-705',
+    tags:['LI-705','PDI-706'],
+    dur:900, cls:'anomaly', alarm:'LI-705 H 38%',
+    unit:'#700 COLUMN C-702 LP',
+    impact:'해당 유닛 — 액이 GOX 계통 온단 배관으로 넘어가면 탄소강이 깨진다',
+    expect:'이상 — 15분 만에 오르는 급상승. 온단 산소 밸브를 닫아야 하는 상황',
+    src:'EIGA Doc 147/22 §12.3.2 Low pressure column — 「상부 액이 sump 로 내려와 레벨이 오르고 GOX 인출 노즐을 덮으면 액이 온단 배관으로 밀려간다」',
+    desc:'LP 레벨 22.1 → 41% (H 38) 15분 급상승, LP 차압은 거꾸로 0.24 → 0.18 bar 로 하강',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['LI-705'][i] += 18.9*f; D['PDI-706'][i] -= 0.06*f; } }},
+
+   {id:48, nm:'질소 제품 산소 부화 (EIGA 147 §12.12.1)', tag:'AI-807',
+    tags:['AI-807','MI-903'],
+    dur:7200, cls:'anomaly', alarm:'AI-807 L 99.6%',
+    unit:'#800 PRODUCT TANKS TK-802 LIN → #900 GN2',
+    impact:'해당 유닛 — 산소 부화된 질소는 연소 위험을 만든다',
+    expect:'이상 — 순도 저하가 아니라 안전 문제. 질소라고 믿고 쓰는 곳이 있다',
+    src:'EIGA Doc 147/22 §12.12.1 Oxygen enrichment — 「질소 제품 스트림은 누설·이상 시 산소 부화 대상이다. 분석 알람과 정지 계통을 두어야 한다」',
+    desc:'LIN 순도 99.90 → 99.52% (L 99.6) 2시간 하강, GN2 수분도 0.4 → 0.9 ppm 동반 상승',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['AI-807'][i] -= 0.38*f; D['MI-903'][i] += 0.5*f; } }},
+
+   {id:49, nm:'저온 보호 임계 바로 위 체류 (EIGA 60.1/25 #028.03.05)', tag:'TI-603',
+    tags:['TI-603'],
+    dur:2400, cls:'anomaly', alarm:'미발생',
+    unit:'#600 COLD BOX INLET',
+    impact:'해당 유닛 — 보호 계통이 뜨지 않는 구간에서 40분을 보낸다',
+    expect:'이상 — 알람선을 넘지 않게 바로 위에 머무는 것이 가장 안 보이는 형태',
+    src:'EIGA Doc 60.1/25 #028.03.05 — 「증발기 출구 저온 스위치가 알람도 정지도 시키지 않아 탄소강 배관이 파열」',
+    desc:'공급 온도 −168 → −174.9℃ 체류 40분 — L(−176)을 1.1℃ 차이로 안 넘겨 보호 계통이 끝까지 조용하다',
+    // 이 시나리오의 핵심은 「알람선을 아슬아슬하게 안 넘는 것」이라 여유 계산이 곧 설계다.
+    // 기저 최저가 −170.4℃ 이므로 −4.5℃ 면 최악의 시각에도 −174.9℃ — L(−176) 위에 1.1℃ 남는다.
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+      D['TI-603'][i] -= 4.5*clamp01(x/420); } }},
+
+   {id:50, nm:'침묵 이상 — 알람 0건 (ARIA 23132 / Bintulu 1997)', tag:'MI-804',
+    tags:['MI-804','AI-803','PDI-706'],
+    dur:28800, cls:'anomaly', alarm:'미발생',
+    unit:'#700 COLUMN C-702 LP → #800 TK-801',
+    impact:'없음 (표면상) — 이 모양으로 진행한 실제 사고가 폭발로 끝났다',
+    expect:'이상 — 세 태그 전부 정상범위 안이고 알람이 0 건이다. 알람에 의존하는 체계로는 원리상 못 잡는다',
+    src:'ARIA 23132 / Bintulu 1997-12-25 (사망 4 · 중상 4 · 경상 27) — 「폭발 시점까지 플랜트는 정상 운전 중이었고, 조건은 안정적이었으며, 유의미한 알람이 없었다」',
+    desc:'LOX 수분 0.5 → 1.15 ppm · LOX 순도 −0.08%p · LP 차압 +0.03 bar 를 8시간에 걸쳐 — 셋 다 정상범위 안, 각각은 노이즈와 구분이 안 간다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var f=clamp01((c.off+(i-s)*STEP)/c.tot);
+      D['MI-804'][i] += 0.65*f; D['AI-803'][i] -= 0.08*f; D['PDI-706'][i] += 0.03*f; } }},
+
+   /* ══ 51~55 : 이상이 아닌 「정상」 시나리오 ══════════════════════════════
+      여기 다섯은 아무 문제가 없다. 넣는 이유는 반대다 — ENGRA 가 이것들을
+      그냥 지나가는지를 재기 위한 것이다.
+
+      지금까지의 오탐 측정은 「결함을 하나도 안 넣은 밋밋한 데이터」로 했다.
+      그건 쉬운 시험이다. 진짜 시험은 「이상처럼 생겼는데 정상인 것」이고,
+      그래서 다섯 모두 검출기가 물기 쉬운 모양으로 골랐다 —
+      계단 변화(52·55) · 단조 상승(54) · 다태그 동시 이동(51·53).
+
+      잡히면 오탐이다. 잡히더라도 초안이 「정상 거동」으로 적으면 절반은 산다.
+      cls:'normal' 이 정답이고, 채점은 두 층으로 나눠 본다. */
+
+   {id:51, nm:'[정상] 한랭전선 통과 — 외기 급변 (EIGA 147 §7.9)', tag:'TI-101',
+    tags:AMB_TAGS,
+    dur:14400, cls:'normal', norm:true, alarm:'미발생',
+    unit:'#100 AIR FILTER F-101 (외기)',
+    impact:'없음 — 외기 변화는 정상 입력이다',
+    expect:'정상 — 기상 변화. 조치 불필요. 인계에 적을 필요도 없다',
+    src:'EIGA Doc 147/22 §7.9 Monitoring intake air — 외기 조건 변동은 감시 대상이지 이상이 아니다',
+    desc:'대기온도 28.5 → 20.5℃ · 습도 68.5 → 46.5% 로 40분 만에 떨어졌다가 2시간 체류 후 1시간 20분에 걸쳐 회복 — 외기 보정을 타고 22 태그가 동시에 움직인다',
+    // 처음에는 「비 오는 한랭전선」으로 습도를 올렸는데, 습도 기저가 이미 83% 까지
+    // 올라가는 시각이 있어 HH(95)가 울렸다. 정상 시나리오가 알람을 울리면 시험이
+    // 성립하지 않는다. 건조한 한랭 기단으로 바꾸면 — 물리적으로도 흔한 쪽이다 —
+    // 습도가 내려가고, 기저 최저 54% 에서 −22%p 면 32% 로 L(20) 위에 넉넉히 남는다.
+    // 처음에는 40분에 걸쳐 떨어뜨린 뒤 그대로 뒀는데, 시나리오가 끝나는 순간
+    // 외기가 계단으로 원복해 8 태그가 한 시각에 「이탈」로 잡혔다(04:13, 오탐 11 건).
+    // 전선은 지나가면 서서히 회복한다 — 통과 40분 · 체류 2시간 · 회복 1시간 20분.
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<2400) f=x/2400; else if(x<9600) f=1; else f=Math.max(0,1-(x-9600)/4800);
+      D['TI-101'][i] -= 8.0*f; D['MI-102'][i] -= 22.0*f; } }},
+
+   {id:52, nm:'[정상] 흡착탑 TSA 정상 절환 (EIGA 147 §9.3)', tag:'PDI-303',
+    tags:['PDI-303','PDI-306','MI-302','MI-305','TI-301','TI-304'],
+    dur:3600, cls:'normal', norm:true, alarm:'미발생',
+    unit:'#300 ADSORBER A-301 / A-302',
+    impact:'없음 — 설계된 주기 동작이다',
+    expect:'정상 — TSA 사이클. 6 태그가 동시에 계단으로 움직이는 것이 정상 모습이다',
+    src:'EIGA Doc 147/22 §9.3 — 「TSA 의 온라인 시간은 통상 2~12시간이며 온라인·감압·재생·승압·병렬의 5 단계를 돈다」',
+    desc:'A탑 → B탑 정상 절환 — 차압·수분·온도 6 점이 계단으로 맞바뀐다. 전부 정상범위 안',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f=clamp01((x-600)/240);
+      D['PDI-303'][i] += 0.030*f; D['PDI-306'][i] -= 0.030*f;
+      D['MI-302'][i]  += 0.30*f;  D['MI-305'][i]  -= 0.40*f;
+      D['TI-301'][i]  += 6.0*f;   D['TI-304'][i]  -= 14.0*f; } }},
+
+   {id:53, nm:'[정상] 수요 감소 계획 감발 후 복귀 (EIGA 147 §8.3.3)', tag:'JI-206',
+    tags:['JI-206','ZI-201','FI-204','PI-203','ZI-601','FI-602','PI-604'],
+    dur:14400, cls:'normal', norm:true, alarm:'미발생',
+    unit:'#200 AIR COMPRESSOR K-201',
+    impact:'없음 — 계획된 부하 조정이다',
+    expect:'정상 — 감발. 값이 내려가는 방향은 정지(#23·#24)와 같지만 0 까지 가지 않고 되돌아온다',
+    src:'EIGA Doc 147/22 §8.3.3 — 용량 제어(IGV·전류 제한)에 의한 정상 부하 조정 · §12.12.4 reduced plant operation',
+    desc:'수요 감소로 IGV 를 12% 조여 전력 3,240 → 2,960 kW · 2시간 유지 후 복귀 — 10여 점이 같이 내려갔다 같이 올라온다',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<900) f=x/900; else if(x<8100) f=1; else f=Math.max(0,1-(x-8100)/1800);
+      D['ZI-201'][i] -= 12.4*f; D['JI-206'][i] -= 280*f;
+      D['ZI-601'][i] -= 8.0*f; } }},
+
+   {id:54, nm:'[정상] LIN 탱크 재충전 (EIGA 147 §14.1)', tag:'LI-806',
+    tags:['ZI-805','LI-806'],
+    dur:9000, cls:'normal', norm:true, alarm:'미발생',
+    unit:'#800 PRODUCT TANKS TK-802 LIN',
+    impact:'없음 — 계획된 충전이다',
+    expect:'정상 — 재충전. 2.5시간 단조 상승이라 드리프트로 잡히기 쉽지만 이상이 아니다',
+    src:'EIGA Doc 147/22 §14.1 Liquid storage — 정상 재고 운영',
+    desc:'LV-802 개도를 38.5 → 29.5% 로 조여 2.5시간 충전 — LIN 레벨이 86% 부근까지 단조 상승 (H 88 미달)',
+    pre:function(D,s,e,c){ for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP, f;
+      if(x<600) f=x/600; else if(x<7800) f=1; else f=Math.max(0,1-(x-7800)/1200);
+      D['ZI-805'][i] -= 9.0*f; } },
+    // 레벨 상한을 두는 이유는 #21·#22 가 하한을 두는 이유와 같다 — 「H 에 닿기 전에
+    // 멈춘다」는 운전 상식이다. 기저 레벨이 시각마다 74.7~85.7% 로 흔들려 개도만으로
+    // 상승폭을 맞출 수가 없다. 딱 잘라내면 분산 0 인 평평한 구간이 생기므로
+    // 초과분의 15% 만 남겨 파형 결을 유지한다(#22 와 같은 처리).
+    post:function(D,s,e,c){ for(var i=s;i<e;i++)
+      if(D['LI-806'][i]>86) D['LI-806'][i] = 86 + (D['LI-806'][i]-86)*0.15; }},
+
+   {id:55, nm:'[정상] 분석기 자동 교정 (EIGA 147 §12.4)', tag:'AI-703',
+    tags:['AI-703','AI-707','AI-803'],
+    dur:1200, cls:'normal', norm:true, alarm:'미발생',
+    unit:'#700 COLUMNS / #800 TK-801 (분석기)',
+    impact:'없음 — 주기 자동 교정이다',
+    expect:'정상 — 자동 교정. 34(정비 고정)와 달리 짧고 순차적이며 스스로 복귀한다',
+    src:'EIGA Doc 147/22 §12.4 Monitoring contaminants — 분석 주기·교정 관행',
+    desc:'분석기 3 점이 3분씩 순차로 기준가스 값으로 갔다가 복귀 — 값은 공정값이 아니고 각 구간은 평평하다',
+    pre:function(D,s,e,c){
+      // 순도 태그는 위로 갈 여유가 0.2~0.3%p 뿐이다. 교정 기준가스 값을 그대로
+      // 얹었더니 AI-803 이 100.11% 가 됐다 — 산소 순도가 100% 를 넘을 수는 없다.
+      // 기저 최대(AI-707 99.698 · AI-803 99.729)와 AI-707→AI-803 연동(+0.067)까지
+      // 셈해 100% 아래로 들어오게 진폭을 다시 잡았다.
+      var W=[['AI-703',0,3.8],['AI-707',300,0.15],['AI-803',600,0.12]];
+      for(var m=0;m<W.length;m++){
+        var t=W[m][0], t0=W[m][1], amp=W[m][2];
+        for(var i=s;i<e;i++){ var x=c.off+(i-s)*STEP;
+          if(x>=t0 && x<t0+180) D[t][i] += amp; } } }}
   ];
 
   function scenById(id){ for(var i=0;i<SCEN.length;i++) if(SCEN[i].id===id) return SCEN[i]; return null; }
@@ -1619,8 +2164,11 @@
 
       // 4) 알람 실측 + 겹침 검출
       segs.forEach(function(w){
+        // 정비 고정(#34~#36)은 대상 태그를 seed 에서 뽑으므로 S.tags 가 후보 목록이다.
+        // 알람·겹침·정답지는 후보가 아니라 실제로 고정된 그 1 점을 봐야 한다.
+        w.tags = (w.c.memo && w.c.memo.pick) ? [w.c.memo.pick] : w.S.tags;
         var fired=[];
-        w.S.tags.forEach(function(t){
+        w.tags.forEach(function(t){
           var d=state[t], mn=Infinity, mx=-Infinity;
           for(var i=w.s;i<w.e;i++){ var v=D[t][i]; if(v<mn)mn=v; if(v>mx)mx=v; }
           if(d.HH!==''&&mx>+d.HH) fired.push(t+' HH');
@@ -1632,7 +2180,7 @@
       });
       var overlaps=[];
       for(var i=0;i<segs.length;i++) for(var j=i+1;j<segs.length;j++){
-        var sh=segs[i].S.tags.filter(function(t){ return segs[j].S.tags.indexOf(t)>=0; });
+        var sh=segs[i].tags.filter(function(t){ return segs[j].tags.indexOf(t)>=0; });
         if(sh.length && segs[i].s<segs[j].e && segs[j].s<segs[i].e){
           var os=Math.max(segs[i].s,segs[j].s), oe=Math.min(segs[i].e,segs[j].e);
           overlaps.push({ a:segs[i].S.id, b:segs[j].S.id, tags:sh,
@@ -1649,7 +2197,16 @@
         base_seed:RUN.chSeed, placement_seed:seed, sampling_interval_sec:STEP, tag_count:ids.length,
         injected:segs.map(function(w){
           return { scenario_id:w.S.id, name:w.S.nm, description:w.S.desc,
-                   trigger_tag:w.S.tag, affected_tags:w.S.tags,
+                   trigger_tag:(w.c.memo&&w.c.memo.pick)||w.S.tag, affected_tags:w.tags,
+                   // class — anomaly 이상 / operation 계획 작업 / trip 유닛·플랜트 정지 /
+                   //         maintenance 정비 중 신호 고정 / normal 정상 거동(잡히면 오탐)
+                   class:w.S.cls||(w.S.op?'operation':'anomaly'),
+                   unit:w.S.unit||null,
+                   source:w.S.src||null,              // 근거 문서·절·사고번호
+                   plant_impact:w.S.impact||null,     // 플랜트 파급 — 유닛별 Trip 의 정답
+                   expect_judgment:w.S.expect||null,  // 초안이 내려야 할 판단
+                   maintenance:!!w.S.maint,
+                   normal_operation:!!w.S.norm,
                    start:fmtTs(shiftMs+w.s*STEP*1000), end:fmtTs(shiftMs+w.e*STEP*1000),
                    duration_sec:(w.e-w.s)*STEP, minutes:Math.round((w.e-w.s)*STEP/60),
                    carried_in:w.fromPrev, continues_next:w.toNext,
