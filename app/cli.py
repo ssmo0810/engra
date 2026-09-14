@@ -7,7 +7,7 @@
     python3 app/cli.py shifts                    근무 구간 목록
     python3 app/cli.py run <근무id>              요약·검출·초안 생성
     python3 app/cli.py draft <근무id>            초안 보기
-    python3 app/cli.py approve <근무id> [--items 1,3] [--all]
+    python3 app/cli.py approve <근무id> [--items 1,3] [--all] --status 완료|진행중
     python3 app/cli.py handover <근무id>         확정 일지 보기
     python3 app/cli.py serve                     웹 화면
 """
@@ -153,11 +153,16 @@ def cmd_draft(args):
 def cmd_approve(args):
     with db.connect() as conn:
         d = db.load_draft(conn, args.shift_id)
-    if d is None:
-        print(f"{args.shift_id} 의 초안이 없습니다.")
-        return
+        if d is None:
+            print(f"{args.shift_id} 의 초안이 없습니다.")
+            return
+        # 명령줄은 이월 판단을 고르지 못한다. 화면에서 고른 판단 중 아직 열려 있는 것은 그대로 넘긴다 —
+        # 안 넘기면 재승인이 그 판단을 지워, 화면에서 닫은 항목이 조용히 다시 열린다.
+        opened = {o["id"] for o in db.open_items(conn, args.shift_id)}
+        carried = {rid: ch for rid, ch in db.carried_choices(conn, d["id"]).items() if rid in opened}
 
-    known = {it["id"] for it in d["items"]}
+    own = [it for it in d["items"] if it["origin"] != "carried"]   # 이월 판단 행은 decide 가 carried 로 다시 쓴다
+    known = {it["id"] for it in own}
     if args.all:
         chosen = set(known)
     elif args.items:
@@ -176,12 +181,16 @@ def cmd_approve(args):
     else:
         print("--all 또는 --items 1,3 으로 채택할 항목을 지정하세요.")
         return
+    if chosen and args.status is None:
+        # 기본값을 두지 않는다 — 화면과 같이, 안 읽고 승인하는 것을 막는 자리다(심사평 08).
+        raise ValueError("채택할 항목이 있으면 --status 완료|진행중 을 주세요 (기본값 없음)")
 
     decisions = {
-        it["id"]: {"adopted": it["id"] in chosen, "comment": args.comment}
-        for it in d["items"]
+        it["id"]: {"adopted": it["id"] in chosen, "comment": args.comment,
+                   "status": args.status if it["id"] in chosen else None}
+        for it in own
     }
-    r = approve_mod.decide(args.shift_id, decisions, confirmed_by=args.by)
+    r = approve_mod.decide(args.shift_id, decisions, confirmed_by=args.by, carried=carried)
     if r.get("prev_round"):
         print(f"※ 이미 확정된 근무입니다. 이전 확정본을 이력 {r['prev_round']}회차로 남기고 다시 확정합니다.")
     print(f"확정: 채택 {r['adopted']}건 · 제외 {r['excluded']}건\n")
@@ -240,6 +249,8 @@ def build_parser():
     s.add_argument("shift_id")
     s.add_argument("--items", help="채택할 항목 번호, 쉼표 구분")
     s.add_argument("--all", action="store_true", help="전부 채택")
+    s.add_argument("--status", choices=db.ITEM_STATUSES,
+                   help="채택한 항목 전부에 붙일 처리 상태. 기본값 없음 — 채택할 항목이 있으면 꼭 준다")
     s.add_argument("--comment")
     s.add_argument("--by", default="근무자")
     s.set_defaults(fn=cmd_approve)

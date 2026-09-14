@@ -93,6 +93,13 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                 raise ValueError(f"이월 항목 #{root_id} 의 상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {ch.get('status')!r}")
             if ch.get("comment"):
                 ch["comment"] = str(ch["comment"])[:1000]
+        # 원 근무가 재검토 중이면 그 원 항목이 open_items 에서 빠져, 아래 save_carried 가 이 근무의 기존 판단을
+        # 조용히 지운다(반증 워커 실측). 명령줄·화면 공통으로 거부한다 — 원 근무를 먼저 확정하면 된다.
+        in_review = db.carried_roots_in_review(conn, draft["id"])
+        if in_review:
+            rid, sid = next(iter(in_review.items()))
+            raise ValueError(f"원 근무 {sid} 가 재검토 중이라 이월 항목 #{rid} 의 판단을 다시 쓸 수 없습니다 — "
+                             f"원 근무를 먼저 확정하세요.")
         db.save_carried(conn, draft["id"], carried, opened)
 
         final = db.load_draft(conn, shift_id)

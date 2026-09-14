@@ -727,6 +727,23 @@ def open_items(conn, before_shift):
     return out
 
 
+def carried_roots_in_review(conn, draft_id):
+    """이 초안의 이월 판단이 가리키는 원 항목 중 원 근무가 지금 확정이 아닌 것 {원 항목 id: 원 근무 id}.
+
+    원 근무를 재검토로 되돌린 동안 그 원 항목은 open_items 에서 빠진다. 그때 이 근무를 재승인하면 save_carried 가
+    기존 판단(예: 「완료로 닫음」)을 조용히 지운다(반증 워커 실측) — approve.decide 가 이것으로 확인하고 거부한다.
+    원 항목이 지워져 없으면(초안 재생성) 넣지 않는다 — 가리킬 곳이 없는 판단은 지워지는 것이 맞다.
+    """
+    return {r["carried_from"]: r["shift_id"] for r in conn.execute(
+        """SELECT c.carried_from, rd.shift_id
+             FROM draft_item c
+             JOIN draft_item r    ON r.id = c.carried_from
+             JOIN draft rd        ON rd.id = r.draft_id
+             LEFT JOIN handover h ON h.shift_id = rd.shift_id
+            WHERE c.draft_id = ? AND c.origin = 'carried' AND h.id IS NULL""",
+        (draft_id,))}
+
+
 def carried_choices(conn, draft_id):
     """이 초안에 기록된 이월 판단 {원 항목 id: {status, comment}}. 재검토 뒤 화면이 앞 선택을 되살릴 때 쓴다."""
     return {

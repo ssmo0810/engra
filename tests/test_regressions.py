@@ -1032,6 +1032,119 @@ class StatusSwitchAndCarry(unittest.TestCase):
         self.assertEqual(len(nxt), 1)
         self.assertIn("밸브 교체 끝", nxt[0], "닫은 판단의 코멘트가 과거 조치로 검색돼야 한다")
 
+    # --- 명령줄·도구 — smoke·seed·snapshot 이 approve --all 로 승인한다 ---------------------
+
+    def _cli(self, *args):
+        import subprocess
+        return subprocess.run([sys.executable, os.path.join(ROOT, "app", "cli.py"), *args],
+                              capture_output=True, text=True, env=dict(os.environ))
+
+    def test_cli_approve_needs_status_for_adopted_items(self):
+        """approve --all 이 상태를 안 넣어 이 브랜치에서 항상 실패했다 — smoke·seed·snapshot 이 깨졌다(실측).
+        --status 는 기본값이 없다. 빠지면 한 줄로 알리고 0 이 아닌 코드로 끝나야 한다."""
+        ids = self._three_shifts()
+        import db
+        r = self._cli("approve", self.DAY[0], "--all")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("--status", r.stdout)
+        self.assertEqual(len(r.stdout.strip().splitlines()), 1, r.stdout)
+        with db.connect() as conn:
+            self.assertIsNone(db.load_handover(conn, self.DAY[0]))
+        r = self._cli("approve", self.DAY[0], "--all", "--status", "완료")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with db.connect() as conn:
+            self.assertIsNotNone(db.load_handover(conn, self.DAY[0]))
+            st = [row[0] for row in conn.execute("SELECT status FROM draft_item WHERE id IN (?, ?) ORDER BY id", ids)]
+        self.assertEqual(st, ["완료", "완료"])
+
+    def test_cli_reapprove_skips_carried_rows_and_keeps_carry_decisions(self):
+        """재검토한 근무를 명령줄로 재승인하면 이월 행 id 가 decisions 에 섞여 「이 초안에 없는 항목」 으로 멈췄다.
+        명령줄은 이월 판단을 고르지 못하니 화면에서 고른 판단을 그대로 둔다 — 지우면 닫힌 항목이 조용히 다시 열린다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료", "comment": "교체 끝"}})
+        with db.connect() as conn:
+            db.reopen_handover(conn, self.NIGHT[0], "명령줄로 다시")
+        r = self._cli("approve", self.NIGHT[0], "--all", "--status", "완료")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with db.connect() as conn:
+            kept = db.carried_choices(conn, db.load_draft(conn, self.NIGHT[0])["id"])
+            self.assertEqual(db.open_items(conn, self.NEXT[0]), [], "화면에서 닫은 판단이 명령줄 재승인으로 풀리면 안 된다")
+        self.assertEqual(kept[ids[0]]["status"], "완료")
+        self.assertEqual(kept[ids[0]]["comment"], "교체 끝")
+
+    def _snapshot_tool(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("snapshot_tool", os.path.join(ROOT, "tools", "snapshot.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_snapshot_neutralizes_the_approve_form(self):
+        """승인 폼 태그에 onsubmit 이 붙자 snapshot.py 의 문자열 치환이 조용히 빗나가 정적 페이지에
+        /approve 로 가는 폼이 남았다. 새 태그를 치환하고, 빗나가면 멈춰야 한다."""
+        ids = self._three_shifts()
+        import db, server
+        with db.connect() as conn:
+            draft = db.load_draft(conn, self.DAY[0])
+        snap = self._snapshot_tool()
+        out = snap.to_static(server._view_pending(self.DAY[0], draft), "draft.html")
+        self.assertNotIn('action="/approve"', out)
+        self.assertIn('<form onsubmit="return false">', out)
+        with self.assertRaises(SystemExit):     # 치환이 못 잡는 POST 제출이 남으면 멈춘다
+            snap.to_static('<div class="top"></div><div class="card"><button formmethod="post" formaction="/reopen">x'
+                           '</button></div>', "draft.html")
+
+    def test_snapshot_neutralizes_every_post_form(self):
+        """확정 화면의 재검토 폼(POST /reopen)이 정적 handover.html 에 살아 남았다 — 승인 폼만 치환·검사했다(반증 워커)."""
+        ids = self._three_shifts()
+        import approve, db, server
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "완료"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            draft = db.load_draft(conn, self.DAY[0])
+            h = db.load_handover(conn, self.DAY[0])
+        out = self._snapshot_tool().to_static(server._view_confirmed(self.DAY[0], draft, h), "handover.html")
+        self.assertNotIn('method="post"', out)
+
+    def test_snapshot_neutralizes_post_form_spelling_variants(self):
+        """치환·검사가 소문자·큰따옴표 method="post" 만 봐서, 대소문자·따옴표·공백 표기가 다른 POST 폼은 SystemExit 없이
+        정적 페이지에 남았다(반증 워커 실측 — 지금 server.py 폼은 전부 method="post" 라 잠재 결함)."""
+        import re
+        snap = self._snapshot_tool()
+        for attr in ('method="POST"', 'METHOD="post"', "method='post'", "method=post", 'method = "post"'):
+            with self.subTest(attr=attr):
+                out = snap.to_static(f'<div class="top"></div><div class="card"><form {attr} action="/reopen">'
+                                     '</form></div>', "handover.html")
+                self.assertIn('<form onsubmit="return false">', out)
+                self.assertIsNone(re.search(r'method\s*=\s*["\']?post\b', out, re.I), out)
+
+    def test_reapproving_during_root_shift_review_keeps_carry_decision(self):
+        """원 근무를 재검토로 되돌린 사이 뒤 근무를 재승인하면 원 항목이 open_items 에서 빠져, save_carried 가
+        「완료로 닫음」 을 조용히 지웠다 — 원 근무를 재확정하면 닫힌 항목이 다시 열렸다(반증 워커 실측).
+        명령줄·화면 모두 거부하고 이월 행을 남긴다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료", "comment": "교체 끝"}})
+        with db.connect() as conn:
+            db.reopen_handover(conn, self.DAY[0], "원 근무 고침")
+        r = self._cli("approve", self.NIGHT[0], "--all", "--status", "완료")
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn(self.DAY[0], r.stdout)
+        code, body = self._post([("shift_id", self.NIGHT[0]), ("item", nids[0]), (f"status_{nids[0]}", "완료")])
+        self.assertEqual(code, 400)
+        self.assertIn(self.DAY[0], body)
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            kept = db.carried_choices(conn, db.load_draft(conn, self.NIGHT[0])["id"])
+            self.assertEqual(db.open_items(conn, self.NEXT[0]), [], "원 근무를 재확정해도 뒤 근무가 닫은 항목은 닫혀 있어야 한다")
+        self.assertEqual(kept.get(ids[0], {}).get("status"), "완료")
+
 
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):

@@ -47,7 +47,7 @@ step "샘플 생성"     sample --date "$DAY"
 step "적재"          ingest app/sample_shift.csv
 step "검출·초안"     run "$SID"
 step "초안 조회"     draft "$SID"
-step "승인"          approve "$SID" --all --comment "샘플링 재확인"
+step "승인"          approve "$SID" --all --status 완료 --comment "샘플링 재확인"
 step "확정 일지"     handover "$SID"
 step "근무 목록"     shifts
 
