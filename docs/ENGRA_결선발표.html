@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENGRA 결선 발표 — 앙그라쥬</title>
+<style>
+:root{
+  --red:#EA002C; --orange:#F47725; --red-deep:#B00021; --wash:#FFF4F6;
+  --k:#0f0f10; --k2:#16161a; --k3:#22222a; --line-k:#2b2b30;
+  --paper:#fafaf9; --card:#fff; --line:#e7e7e4;
+  --ink:#0f0f10; --body:#3a3a40; --mute:#6b6b72; --mute-k:#8f8f97; --dim-k:#5c5c63;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth}
+html,body{margin:0;padding:0;background:var(--k)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic","맑은 고딕","Noto Sans KR",sans-serif;
+  color:#f4f4f5;line-height:1.55;letter-spacing:-.01em;word-break:keep-all;overflow-wrap:break-word}
+::selection{background:var(--red);color:#fff}
+b,strong{font-weight:800}
+.mono{font-family:var(--mono)}
+
+/* ── 슬라이드 공통 ── */
+.s{position:relative;height:100vh;height:100svh;scroll-snap-align:start;overflow:hidden;
+   display:flex;flex-direction:column;justify-content:center;padding:clamp(28px,5vh,60px) clamp(28px,5vw,84px)}
+.s.dark{background:var(--k);color:#f4f4f5}
+.s.light{background:var(--paper);color:var(--ink)}
+.wrap{width:100%;max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:clamp(14px,2.6vh,30px)}
+.eyebrow{font-family:var(--mono);font-size:clamp(10px,1.2vh,12px);letter-spacing:.24em;color:var(--red);font-weight:600;display:flex;align-items:center;gap:14px}
+.eyebrow .n{color:var(--dim-k);letter-spacing:.1em}
+.light .eyebrow .n{color:#a9a9ad}
+h1.h,h2.h{margin:0;font-weight:300;line-height:1.28;letter-spacing:-.035em;text-wrap:balance}
+h2.h{font-size:clamp(24px,4.2vh,44px)}
+h2.h strong{font-weight:800}
+h2.h .r{color:var(--red);font-weight:800}
+p.sub{margin:0;color:var(--mute);font-size:clamp(14px,1.9vh,18px);line-height:1.8;max-width:820px}
+.dark p.sub{color:var(--mute-k)}
+.footline{margin-top:auto;padding-top:clamp(10px,2vh,18px);font-size:clamp(13px,1.7vh,16px);color:var(--mute);border-top:1px solid var(--line)}
+.dark .footline{color:var(--mute-k);border-top-color:var(--line-k)}
+.footline b{color:inherit}
+
+/* 고정 UI */
+#bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--red),var(--orange));width:0;z-index:50;transition:width .3s}
+#cnt{position:fixed;right:18px;bottom:14px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:#77777f;z-index:50;background:rgba(0,0,0,.25);padding:4px 8px;border-radius:6px}
+#help{position:fixed;left:18px;bottom:14px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;color:#77777f;z-index:50;opacity:.75}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:38vh;overflow:auto;background:rgba(10,10,12,.96);color:#e8e8ea;
+  border-top:2px solid var(--red);padding:16px 28px 22px;font-size:15px;line-height:1.75;z-index:60;display:none;backdrop-filter:blur(6px)}
+#notes.on{display:block}
+#notes .t{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--red);margin-bottom:8px}
+#notes b{color:#fff}
+#notes .tm{font-family:var(--mono);color:var(--orange);font-size:12px;margin-right:6px}
+.notes{display:none}
+
+/* ── 타이틀 ── */
+.hero{align-items:center;text-align:center}
+.hero .waves{position:absolute;inset:0;opacity:.5;pointer-events:none}
+.hero .waves svg{width:100%;height:100%;display:block}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(-1440px)}}
+.hero .fade{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(15,15,16,.1) 0%,rgba(15,15,16,.9) 62%,var(--k) 100%);pointer-events:none}
+.hero .in{position:relative;display:flex;flex-direction:column;align-items:center;gap:clamp(16px,3vh,32px);max-width:980px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo i{width:8px;height:8px;border-radius:50%;background:var(--red);display:block}
+.logo span{font-size:clamp(30px,5vh,48px);font-weight:800;letter-spacing:-.045em;color:#fff}
+.hero h1.h{font-size:clamp(30px,6.4vh,62px);color:#fff}
+.hero h1.h strong{font-weight:800}
+.hero h1.h .r{color:var(--red);font-weight:800}
+.hero .meta{font-family:var(--mono);font-size:clamp(11px,1.4vh,13px);letter-spacing:.2em;color:var(--dim-k)}
+
+/* ── 문제 슬라이드 ── */
+.logs{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2.2vw,28px)}
+.log{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(18px,3vh,32px) clamp(20px,2.6vw,34px);
+  display:flex;flex-direction:column;gap:12px;min-height:clamp(120px,22vh,200px);position:relative}
+.log .who{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--mute)}
+.log .txt{font-size:clamp(22px,3.6vh,36px);font-weight:500;line-height:1.4;letter-spacing:-.02em;color:var(--ink)}
+.log .txt b{font-weight:800}
+.log::before{content:"";position:absolute;left:0;top:22px;bottom:22px;width:3px;background:#d9d9d5;border-radius:2px}
+.punch{font-size:clamp(24px,4.4vh,44px);font-weight:800;color:var(--red);letter-spacing:-.03em;line-height:1.3;display:flex;align-items:center;gap:16px}
+.punch .arrow{font-weight:300;color:#c9c9c4}
+.punch small{font-size:.5em;font-weight:500;color:var(--mute);letter-spacing:0}
+.bigval{position:absolute;right:clamp(28px,5vw,84px);top:50%;transform:translateY(-50%);font-size:clamp(90px,22vh,220px);font-weight:800;letter-spacing:-.06em;
+  color:rgba(234,0,44,.07);line-height:1;pointer-events:none;user-select:none}
+.side-note{font-size:clamp(12px,1.6vh,14.5px);color:var(--mute);border-left:3px solid var(--red);padding:6px 14px;max-width:760px;background:var(--wash);border-radius:0 8px 8px 0}
+.side-note b{color:var(--red-deep)}
+
+/* ── 해결: 소개 ── */
+.flow{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line-k);border-radius:14px;padding:clamp(16px,2.6vh,26px) clamp(18px,2.4vw,32px);
+  background:var(--k2);font-size:clamp(18px,2.55vh,22px);color:#c9c9cf}
+.flow span{text-align:center;line-height:1.35}
+.flow b{color:#fff}
+.flow i{color:var(--red);font-style:normal;font-weight:700;font-size:1.3em;flex:none}
+.flow .back{color:var(--orange)}
+.claim{font-size:clamp(28px,5.6vh,56px);font-weight:300;line-height:1.3;letter-spacing:-.035em;color:#fff}
+.claim strong{font-weight:800}
+.claim .r{color:var(--red);font-weight:800}
+
+/* ── 구조 × 8단계 표 ── */
+.grid8{display:grid;grid-template-columns:clamp(150px,15vw,210px) repeat(8,1fr);gap:6px;align-items:stretch}
+.grid8 .hd{display:flex;flex-direction:column;gap:2px;padding:6px 6px 8px;border-bottom:2px solid #d5d5d0;min-height:0}
+.grid8 .hd .num{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--red);font-weight:700}
+.grid8 .hd .nm{font-size:clamp(13px,1.9vh,17px);font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.grid8 .hd .ez{font-size:clamp(10px,1.35vh,12px);color:var(--mute);line-height:1.35}
+.grid8 .lane{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 0}
+.grid8 .lane svg{width:clamp(30px,5vh,44px);height:clamp(30px,5vh,44px);flex:none;stroke:#4a4a52;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.grid8 .lane.ai svg{stroke:var(--red)}
+.grid8 .lane.hu svg{stroke:var(--ink)}
+.grid8 .lane .nm{font-size:clamp(13px,1.9vh,17px);font-weight:800;line-height:1.2;color:var(--ink)}
+.grid8 .lane .ez{font-size:clamp(10px,1.35vh,12px);color:var(--mute)}
+.grid8 .c{border-radius:8px;min-height:clamp(46px,7.6vh,74px);background:#f1f1ee;border:1px dashed #e0e0dc}
+.grid8 .c.on{background:#e4e4e0;border:none;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;
+  font-size:clamp(12px,1.7vh,15px);font-weight:700;color:var(--ink);position:relative;padding:4px 6px;text-align:center}
+.grid8 .c.on.ai{background:var(--red);color:#fff}
+.grid8 .c.on.hu{background:var(--ink);color:#fff}
+.grid8 .c.span3{grid-column:span 3;flex-direction:row;gap:0;justify-content:space-around}
+.grid8 .c.span3 i{font-style:normal;color:var(--red);font-weight:800}
+.grid8 .badge{position:absolute;top:-9px;right:-4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;background:#fff;color:var(--red-deep);
+  border:1px solid var(--red);border-radius:10px;padding:1px 6px;font-weight:700}
+.grid8 .c.on.ai .badge{background:#fff}
+.store{grid-column:1 / -1;display:grid;grid-template-columns:clamp(150px,15vw,210px) 1fr;gap:6px;align-items:center;margin-top:2px}
+.store .lane{opacity:.85}
+.store .strip{height:clamp(30px,5vh,44px);border-radius:8px;background:linear-gradient(90deg,#ececea,#f4f4f2);border:1px solid #e0e0dc;
+  display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:clamp(11px,1.5vh,13px);color:var(--mute)}
+.store .strip b{color:var(--ink)}
+.cycle{grid-column:2 / -1;display:flex;align-items:center;gap:10px;color:var(--red-deep);font-size:clamp(12px,1.7vh,15px);font-weight:700}
+.cycle .ln{flex:1;height:2px;background:linear-gradient(90deg,var(--red),var(--orange));position:relative;border-radius:2px}
+.cycle .ln::before{content:"";position:absolute;left:-2px;top:-5px;border:6px solid transparent;border-right:10px solid var(--red)}
+.grid8 .lane.storelane{grid-column:1}
+
+/* ── AI 표 ── */
+table.t{width:100%;border-collapse:collapse;font-size:clamp(12px,1.75vh,15.5px);line-height:1.5}
+table.t th{font-family:var(--mono);font-size:clamp(10px,1.3vh,12px);letter-spacing:.14em;color:var(--mute);text-align:left;padding:6px 10px 8px;border-bottom:2px solid #d5d5d0;font-weight:600}
+table.t td{padding:clamp(6px,1.1vh,11px) 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.t td:first-child{font-weight:800;color:var(--ink);white-space:nowrap}
+table.t td.old{color:var(--mute)}
+table.t td.ai{background:var(--wash);border-left:3px solid var(--red);color:var(--ink)}
+table.t td.ai b{color:var(--red-deep)}
+table.t td.hu{color:#a9a9ad;text-align:center;font-weight:700}
+table.t td.hu.on{color:var(--ink)}
+table.t tr.last td{border-top:3px solid var(--ink);background:#f1f1ee}
+table.t tr.last td.ai{background:#e9e9e6;border-left-color:#bdbdb8;color:var(--mute)}
+table.t tr.last td.hu{background:var(--ink);color:#fff;font-size:1.05em}
+.ask{font-size:clamp(18px,3vh,28px);font-weight:300;letter-spacing:-.03em;line-height:1.4}
+.ask strong{font-weight:800}
+.ask .r{color:var(--red);font-weight:800}
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:3px 9px;border-radius:12px;border:1px solid var(--red);color:var(--red-deep);font-weight:700;background:#fff}
+
+/* AI P2 */
+.two{display:grid;grid-template-columns:1.25fr .9fr;gap:clamp(16px,2.4vw,34px);align-items:start}
+table.m td.v{font-weight:800;white-space:nowrap}
+table.m tr.big td.v{font-size:clamp(20px,3.2vh,32px);color:var(--red);letter-spacing:-.03em;line-height:1.1}
+table.m tr.big td{padding-top:clamp(8px,1.4vh,14px);padding-bottom:clamp(8px,1.4vh,14px)}
+table.m td.w{color:var(--mute);font-size:.92em}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:clamp(14px,2.2vh,22px) clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:8px}
+.box .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--red);font-weight:700}
+.box .q{font-size:clamp(14px,2vh,17px);line-height:1.6}
+.box .q .rej{display:inline-block;background:var(--ink);color:#fff;border-radius:6px;padding:1px 8px;font-weight:700;font-size:.9em}
+.box.gray{background:#f1f1ee;border-color:#e0e0dc;color:var(--mute);font-size:clamp(12px,1.6vh,14px);line-height:1.65}
+.box.gray .k{color:var(--mute)}
+.concl{font-size:clamp(18px,3vh,28px);font-weight:300;letter-spacing:-.03em;line-height:1.4;border-top:2px solid var(--ink);padding-top:clamp(10px,1.8vh,16px)}
+.concl strong{font-weight:800}
+
+/* 8page 이력 타임라인 */
+.hist{display:flex;flex-direction:column;gap:0}
+.hist .r{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:6px 0;border-bottom:1px dashed #e6e6e3;font-size:clamp(11.5px,1.6vh,14px);line-height:1.45}
+.hist .r:last-child{border-bottom:none}
+.hist .d{font-family:var(--mono);font-size:.92em;color:var(--mute);white-space:nowrap;padding-top:1px}
+.hist .ok{font-size:9.5px;font-weight:700;padding:1.5px 6px;border-radius:9px;background:#dcefe2;color:#1a7f37;white-space:nowrap}
+.hist .down{display:flex;align-items:center;gap:8px;padding:7px 0;color:var(--red-deep);font-weight:700;font-size:clamp(11px,1.5vh,13px);border-bottom:none}
+.hist .down .ln{flex:1;height:1px;background:var(--red);opacity:.45}
+.hist .r.ai{background:var(--wash);border-radius:8px;padding:8px 10px;border-bottom:none;margin-top:4px;grid-template-columns:auto 1fr}
+.hist .r.ai .q{color:var(--ink)}
+.hist .r.ai .q b{color:var(--red-deep)}
+.rej-x{display:inline-block;background:var(--ink);color:#fff;border-radius:6px;padding:1px 8px;font-weight:700;font-size:.9em}
+
+/* ── 결과 ── */
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.8vw,22px)}
+.nums .num{border:1px solid var(--line-k);border-radius:16px;padding:clamp(16px,2.6vh,28px) clamp(18px,2vw,28px);background:var(--k2);display:flex;flex-direction:column;gap:6px}
+.nums .num .k{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--red);font-weight:700}
+.nums .num .v{font-size:clamp(38px,7.4vh,72px);font-weight:800;letter-spacing:-.05em;line-height:1;color:#fff}
+.nums .num .v small{font-size:.42em;font-weight:600;color:var(--mute-k);letter-spacing:-.01em;margin-left:4px}
+.nums .num .d{font-size:clamp(12px,1.7vh,15px);color:var(--mute-k);line-height:1.55}
+.nums .num .d b{color:#fff}
+.loop{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(12px,1.6vw,22px);align-items:center;border:1px solid var(--line-k);border-radius:16px;padding:clamp(14px,2.2vh,22px) clamp(16px,2vw,26px);background:rgba(234,0,44,.05)}
+.loop .k{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--mute-k);margin-bottom:6px}
+.loop .q{font-size:clamp(15px,2.3vh,21px);font-weight:600;line-height:1.45;color:#fff}
+.loop .q .cm{display:inline-block;border:1px solid #444;border-radius:8px;padding:2px 10px;background:var(--k);font-weight:500}
+.loop .ar{color:var(--red);font-size:clamp(26px,4vh,40px);font-weight:300}
+.loop .ar small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--mute-k);text-align:center}
+.loop .q .pre{display:inline-block;background:var(--red);color:#fff;border-radius:8px;padding:2px 10px;font-weight:700}
+.loop .n{font-size:clamp(11px,1.5vh,13px);color:var(--dim-k);margin-top:4px}
+.duo{display:grid;grid-template-columns:1.3fr 1fr;gap:clamp(12px,1.8vw,22px)}
+.honest{border-left:3px solid var(--orange);padding:6px 16px;font-size:clamp(13px,1.8vh,16px);line-height:1.7;color:#d5d5da}
+.honest b{color:#fff}
+.live{border:1px solid rgba(234,0,44,.45);border-radius:14px;padding:clamp(12px,1.8vh,18px) 18px;display:flex;flex-direction:column;gap:4px;justify-content:center;background:rgba(234,0,44,.08)}
+.live .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:var(--red);font-weight:700;display:flex;align-items:center;gap:8px}
+.live .k i{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.live .u{font-family:var(--mono);font-size:clamp(13px,2vh,19px);color:#fff;letter-spacing:-.01em}
+.live .d{font-size:clamp(11px,1.5vh,13.5px);color:var(--mute-k)}
+
+/* 9page 라이트 변형 */
+.light .nums .num{background:var(--card);border-color:var(--line)}
+.light .nums .num .v{color:var(--ink)}
+.light .nums .num .d{color:var(--mute)}
+.light .nums .num .d b{color:var(--ink)}
+.light .loop{border-color:var(--line);background:var(--wash)}
+.light .loop .k{color:var(--mute)}
+.light .loop .q{color:var(--ink)}
+.light .loop .q .cm{border-color:#dcdcd8;background:#fff;color:var(--ink)}
+.light .loop .n{color:var(--mute)}
+.light .loop .ar small{color:var(--mute)}
+.light .honest{color:var(--body)}
+.light .honest b{color:var(--ink)}
+.light .live{background:var(--wash);border-color:rgba(234,0,44,.4)}
+.light .live .u{color:var(--ink)}
+.light .live .d{color:var(--mute)}
+
+/* ── 임팩트 3분할 ── */
+.axis{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--mute)}
+.axis .ln{flex:1;height:1px;background:linear-gradient(90deg,#c9c9c4,var(--red));position:relative}
+.axis .ln::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:8px solid var(--red)}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,1.8vw,24px);align-items:stretch}
+.col{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(16px,2.4vh,26px) clamp(16px,1.8vw,24px);display:flex;flex-direction:column;gap:clamp(8px,1.4vh,12px)}
+.col .lv{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--red);font-weight:700}
+.col h3{margin:0;font-size:clamp(16px,2.5vh,22px);font-weight:800;letter-spacing:-.025em;line-height:1.3}
+.col .img{height:clamp(84px,15vh,150px);border-radius:12px;background:#f4f4f2;border:1px solid #e9e9e6;display:flex;align-items:center;justify-content:center;padding:10px;position:relative;overflow:hidden}
+.col .img svg{width:100%;height:100%;stroke:#4a4a52;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.col ul{margin:0;padding-left:1.1em;font-size:clamp(12px,1.65vh,14.5px);line-height:1.6;color:var(--body)}
+.col ul li{margin:.2em 0}
+.col ul b{color:var(--ink)}
+.col .ev{margin-top:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--red-deep);border-top:1px dashed #ddd;padding-top:8px;line-height:1.5}
+.col .ev b{color:var(--red-deep)}
+.tagr{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;background:var(--red);color:#fff;border-radius:10px;padding:2px 7px;font-weight:700}
+.strip-all{border-top:2px solid var(--ink);padding-top:clamp(8px,1.4vh,14px);font-size:clamp(15px,2.3vh,21px);font-weight:300;letter-spacing:-.02em}
+.strip-all strong{font-weight:800}
+
+/* ── 마무리 ⓑ ── */
+.vs{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(20px,3vw,50px);align-items:center;text-align:center}
+.vs .big{font-size:clamp(70px,16vh,170px);font-weight:800;letter-spacing:-.06em;line-height:1;color:#fff}
+.vs .big.r{color:var(--red)}
+.vs .lb{font-size:clamp(14px,2.2vh,20px);color:var(--mute-k);margin-top:10px;line-height:1.5}
+.vs .lb b{color:#fff}
+.vs .mid{font-size:clamp(20px,3.4vh,34px);font-weight:300;color:var(--dim-k)}
+.lead-k{font-size:clamp(18px,3vh,28px);font-weight:300;color:#c9c9cf;letter-spacing:-.02em;line-height:1.5;text-align:center}
+.lead-k b{color:#fff}
+.final-line{font-size:clamp(26px,5vh,52px);font-weight:300;letter-spacing:-.035em;line-height:1.3;text-align:center;color:#fff}
+.final-line strong{font-weight:800}
+.final-line .r{color:var(--red);font-weight:800}
+
+/* ── 마무리 ⓒ 인계장 ── */
+.ho{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;overflow:hidden;max-width:920px;width:100%;margin:0 auto;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.ho .top{display:flex;align-items:center;gap:10px;padding:14px 22px;border-bottom:1px solid var(--line);background:#fff}
+.ho .top .lg{font-weight:800;letter-spacing:-.04em;font-size:18px}.ho .top .lg b{color:var(--red)}
+.ho .top .st{margin-left:auto;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:9px;background:#dcefe2;color:#1a7f37}
+.ho .top .eng{font-family:var(--mono);font-size:11px;color:var(--mute)}
+.ho .row{display:grid;grid-template-columns:clamp(110px,12vw,150px) 1fr;gap:12px;padding:clamp(9px,1.5vh,14px) 22px;border-bottom:1px solid #f0f0ee;font-size:clamp(14px,2vh,18px);line-height:1.5}
+.ho .row .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--mute);padding-top:5px}
+.ho .row .v b{color:var(--ink)}
+.ho .row.items .v{display:flex;flex-direction:column;gap:6px}
+.ho .it{display:flex;align-items:flex-start;gap:10px}
+.ho .it i{width:17px;height:17px;border:2px solid var(--red);border-radius:4px;flex:none;margin-top:4px;position:relative;background:var(--red)}
+.ho .it i::after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ho .it .sv{font-size:10.5px;font-weight:700;padding:1.5px 7px;border-radius:9px;background:#ffe0e6;color:#b00020;margin-top:4px;flex:none}
+.ho .row.next .v{font-weight:800;font-size:1.15em}
+.ho .row.next .v .r{color:var(--red)}
+.ho .foot{padding:12px 22px 14px;display:flex;align-items:center;gap:14px;background:#fafaf9;font-family:var(--mono);font-size:clamp(12px,1.7vh,15px);color:var(--ink)}
+.ho .foot i{width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;animation:pulse 1.6s infinite}
+.ho .foot span{color:var(--mute);font-size:.85em;margin-left:auto}
+.team{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--dim-k);text-align:center}
+</style>
+</head>
+<body>
+
+<div id="bar"></div>
+<div id="cnt">1 / 12</div>
+<div id="help">← → 넘기기 · N 대본 · F 전체화면</div>
+<div id="notes"><div class="t">발표자 노트</div><div id="notes-body"></div></div>
+
+<!-- ═══════════ 0. 타이틀 ═══════════ -->
+<section class="s dark hero">
+  <div class="waves"><svg viewBox="0 0 1440 500" preserveAspectRatio="none">
+    <g style="animation:drift 34s linear infinite"><path d="M0,250 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0 q60,-70 120,0 q60,70 120,0" fill="none" stroke="#3a3a3f" stroke-width="1.5"/></g>
+    <g style="animation:drift 21s linear infinite"><path d="M0,320 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0 q40,-30 80,0 q40,30 80,0" fill="none" stroke="#2b2b30" stroke-width="1"/></g>
+    <g style="animation:drift 48s linear infinite"><path d="M0,180 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0 q90,-40 180,0 q90,40 180,0" fill="none" stroke="#EA002C" stroke-width="1" opacity=".35"/></g>
+  </svg></div>
+  <div class="fade"></div>
+  <div class="in">
+    <div class="logo"><i></i><span>engra</span></div>
+    <h1 class="h">교대 인수인계를,<br><strong>데이터가 <span class="r">먼저</span> 쓴다.</strong></h1>
+    <p class="sub" style="text-align:center;max-width:620px">12시간치 운전 데이터를 AI가 읽고 인수인계 초안을 씁니다.<br>사람은 쓰지 않습니다. 고르기만 합니다.</p>
+    <div class="meta">SK AI HACKATHON 2026 · FINAL · TEAM ANGRAGE</div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>안녕하십니까, 팀 앙그라쥬입니다. 인수인계 일지 두 장을 먼저 보여드리고 시작하겠습니다.</aside>
+</section>
+
+<!-- ═══════════ 1. 문제 ① 온도 ═══════════ -->
+<section class="s light">
+  <div class="bigval" style="font-size:clamp(70px,16vh,160px)">3℃</div>
+  <div class="wrap">
+    <div class="eyebrow">THE PROBLEM <span class="n">01 / 03</span></div>
+    <h2 class="h">같은 근무, 같은 사건.<br><strong>두 사람이 썼습니다.</strong></h2>
+    <div class="logs">
+      <div class="log"><span class="who">A 사원</span><div class="txt">온도 <b>조금</b> 올라갔지만<br>특이사항 없음</div></div>
+      <div class="log"><span class="who">B 사원</span><div class="txt">온도 <b>상승 추세</b>,<br>주의 요망</div></div>
+    </div>
+    <div class="punch"><span class="arrow">→</span> 같은 3℃입니다. <small>무엇이 인계할 만한 일인지, 공통 기준이 없습니다.</small></div>
+  </div>
+  <aside class="notes"><span class="tm">0:05</span>한 명은 "온도 조금 올랐지만 특이사항 없음", 다른 한 명은 "상승 추세, 주의 요망". <b>같은 3℃를 보고 쓴 겁니다.</b> 무엇이 인계할 만한 일인지 공통 기준이 없습니다. <i>(13초 — 문장만 읽고 넘어간다)</i></aside>
+</section>
+
+<!-- ═══════════ 2. 문제 ② 펌프 ═══════════ -->
+<section class="s light">
+  <div class="bigval">?</div>
+  <div class="wrap">
+    <div class="eyebrow">THE PROBLEM <span class="n">02 / 03</span></div>
+    <h2 class="h">기준이 문제라면 맞추면 됩니다.<br><strong>그런데 이건 다릅니다.</strong></h2>
+    <div class="logs">
+      <div class="log"><span class="who">A 조</span><div class="txt">2번 펌프 소음 발생.<br><b>1번 예비기 펌프로 전환 후 정상</b></div></div>
+      <div class="log"><span class="who">B 조</span><div class="txt"><b>펌프 소음 지속</b>,<br>상태 지켜보는 중</div></div>
+    </div>
+    <div class="punch"><span class="arrow">→</span> 지금 돌고 있는 펌프는 몇 번입니까?</div>
+    <div class="side-note">B 조의 <b>"펌프"가 2번인지 1번 예비기인지</b>, A 조의 <b>"정상"이 펌프가 고쳐진 것인지 공정이 정상이란 것인지</b></div>
+  </div>
+  <aside class="notes"><span class="tm">0:18</span><b>기준이 문제라면 맞추면 됩니다. 그런데 이건 다릅니다.</b> A조는 예비기로 바꿔서 정상, B조는 소음이 계속된다. 두 문장 다 자연스럽고 서로 모순도 아닙니다. 그런데 — <b>지금 돌고 있는 펌프는 몇 번일까요?</b> <i>(2초 정적)</i> 아무도 모릅니다. 쓴 사람 빼고요. <i>(25초 — 여기만 느리게)</i></aside>
+</section>
+
+<!-- ═══════════ 3. 문제 ③ 없음 ═══════════ -->
+<section class="s light">
+  <div class="bigval">없음</div>
+  <div class="wrap">
+    <div class="eyebrow">THE PROBLEM <span class="n">03 / 03</span></div>
+    <h2 class="h">마지막입니다.</h2>
+    <div class="logs">
+      <div class="log"><span class="who">A 조</span><div class="txt"><b>특이사항 없음</b></div></div>
+      <div class="log"><span class="who">B 조</span><div class="txt">야간 중 <b>알람 2회</b>,<br>확인 후 리셋</div></div>
+    </div>
+    <div class="punch"><span class="arrow">→</span> 같은 근무입니다. <small>'없음'이 없었다는 뜻인지, 안 썼다는 뜻인지 구분되지 않습니다.</small></div>
+    <div class="footline" style="font-size:clamp(17px,2.7vh,25px);color:var(--ink);font-weight:700">알람이 안 울린 변화는 <b style="color:var(--red)">기록될 이유조차 없습니다.</b></div>
+  </div>
+  <aside class="notes"><span class="tm">0:43</span>마지막입니다. "특이사항 없음." 그런데 같은 근무에 알람이 두 번 울렸습니다. <b>'없음'이 없었다는 뜻인지, 안 썼다는 뜻인지 구분이 안 됩니다.</b><br><span class="tm">0:52</span>세 장 모두, 쓴 사람은 다 알고 있었습니다. <b>12시간 뒤에 기억으로 쓰기 때문에</b> 사라진 겁니다. <i>(선택)</i> 애초에 알람이 안 울린 변화는 기록될 이유조차 없습니다 — 이상 24종 중 알람은 7종뿐입니다. 그래서 저희는 사람이 아니라 <b>데이터가 먼저 쓰게</b> 했습니다.</aside>
+</section>
+
+<!-- ═══════════ 4. 해결 — ENGRA 소개 ═══════════ -->
+<section class="s dark">
+  <div class="wrap">
+    <div class="eyebrow">THE ANSWER</div>
+    <div class="logo" style="gap:20px"><i style="width:20px;height:20px"></i><span style="font-size:clamp(84px,14vh,140px)">engra</span></div>
+    <div class="claim">12시간치 운전 데이터를 읽고<br><strong>인수인계 초안을 대신 쓰는</strong> 서비스.<br><span class="r">사람은 쓰지 않습니다. 고르기만 합니다.</span></div>
+    <div class="flow">
+      <span>운전 데이터<br><b>12시간</b></span><i>→</i>
+      <span>검출<br><b>통계</b></span><i>→</i>
+      <span><b>AI 초안</b><br>교대 1시간 전</span><i>→</i>
+      <span><b>운전원 승인</b></span><i class="back">↻</i>
+      <span>다음 근무의<br><b>과거 조치</b>로</span>
+    </div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>그래서 ENGRA를 만들었습니다. <b>12시간치 데이터를 읽고 인수인계 초안을 대신 쓰는</b> 서비스입니다. 사람은 쓰지 않습니다. <b>고르기만 합니다.</b> <i>(12초)</i></aside>
+</section>
+
+<!-- ═══════════ 5. 구조 × 8단계 ═══════════ -->
+<section class="s light">
+  <div class="wrap" style="gap:clamp(10px,1.8vh,20px)">
+    <div class="eyebrow">HOW IT IS BUILT</div>
+    <h2 class="h" style="font-size:clamp(20px,3.4vh,34px)"><strong>5 Parts,</strong> 여덟 단계.</h2>
+
+    <div class="grid8">
+      <!-- 헤더 -->
+      <div></div>
+      <div class="hd"><span class="num">1</span><span class="nm">적재</span><span class="ez">12시간 데이터 받기</span></div>
+      <div class="hd"><span class="num">2</span><span class="nm">요약</span><span class="ez">태그별 통계 내기</span></div>
+      <div class="hd"><span class="num">3</span><span class="nm">기준선</span><span class="ez">'평소'를 만들기</span></div>
+      <div class="hd"><span class="num">4</span><span class="nm">검출</span><span class="ez">벗어난 구간 찾기</span></div>
+      <div class="hd"><span class="num">5</span><span class="nm">조립</span><span class="ez">과거 일지 붙이기</span></div>
+      <div class="hd"><span class="num">6</span><span class="nm">서술·판정</span><span class="ez">문장 쓰고 중요도 매기기</span></div>
+      <div class="hd"><span class="num">7</span><span class="nm">승인</span><span class="ez">사람이 고르기</span></div>
+      <div class="hd"><span class="num">8</span><span class="nm">회수</span><span class="ez">다음 근무로 되돌리기</span></div>
+
+      <!-- 레인 1 가상 DCS -->
+      <div class="lane">
+        <svg viewBox="0 0 24 24"><path d="M2 21h20"/><path d="M4 21V11l5 3.2V11l5 3.2V11l5 3.2V21"/><path d="M5.6 11V4.2h2.8V8"/><path d="M6.6 17.4h1.6M11.6 17.4h1.6M16.6 17.4h1.6"/></svg>
+        <div><div class="nm">가상 DCS · CSV</div><div class="ez">데이터가 들어오는 곳</div></div>
+      </div>
+      <div class="c on">적재<span class="badge">114만 행</span></div>
+      <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+
+      <!-- 레인 2 엔진 -->
+      <div class="lane">
+        <svg viewBox="0 0 24 24"><circle cx="8.8" cy="8.8" r="4.2"/><circle cx="8.8" cy="8.8" r="1.5"/><path d="M8.8 4.6V2.4M8.8 15V12.8M4.6 8.8H2.4M15 8.8H12.8M5.83 5.83L4.28 4.28M13.32 13.32l1.55 1.55M11.77 5.83l1.55-1.55M5.83 11.77l-1.55 1.55"/><circle cx="17.6" cy="17.4" r="2.9"/><circle cx="17.6" cy="17.4" r="1"/><path d="M17.6 14.5v-1.6M17.6 20.3v1.6M14.7 17.4h-1.6M20.5 17.4h1.6"/></svg>
+        <div><div class="nm">엔진 · 통계</div><div class="ez">숫자로 찾는다</div></div>
+      </div>
+      <div class="c"></div>
+      <div class="c on span3"><span>요약</span><i>→</i><span>기준선</span><i>→</i><span>검출</span></div>
+      <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+
+      <!-- 레인 3 배선 -->
+      <div class="lane">
+        <svg viewBox="0 0 24 24"><path d="M2 9h4v6H2zM18 9h4v6h-4z"/><path d="M6 12h2.5c2 0 2.5 3 4.5 3s2.5-3 4.5-3H18"/><path d="M3 9V6M5 9V6M19 15v3M21 15v3"/></svg>
+        <div><div class="nm">배선 (app)</div><div class="ez">붙이고 되돌린다</div></div>
+      </div>
+      <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+      <div class="c on">조립</div>
+      <div class="c"></div><div class="c"></div>
+      <div class="c on">회수</div>
+
+      <!-- 레인 4 AI -->
+      <div class="lane ai">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M16 7.5l.8 1.7 1.7.8-1.7.8-.8 1.7-.8-1.7-1.7-.8 1.7-.8z"/></svg>
+        <div><div class="nm" style="color:var(--red-deep)">AI · Claude</div><div class="ez">문장을 쓴다</div></div>
+      </div>
+      <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+      <div class="c on ai">서술·판정<span class="badge">7~10분</span></div>
+      <div class="c"></div><div class="c"></div>
+
+      <!-- 레인 5 사람 -->
+      <div class="lane hu">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.6"/><path d="M4.6 20.8v-1.1a7.4 7.4 0 0 1 14.8 0v1.1"/></svg>
+        <div><div class="nm">사람 · 운전원</div><div class="ez">고른다</div></div>
+      </div>
+      <div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div><div class="c"></div>
+      <div class="c on hu">승인<span class="badge">사람 1명</span></div>
+      <div class="c"></div>
+
+      <!-- 저장소 띠 -->
+      <div class="store">
+        <div class="lane storelane">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v13c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-13"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/></svg>
+          <div><div class="nm">저장소</div><div class="ez">SQLite · 파일 1개</div></div>
+        </div>
+        <div class="strip"><span><b>1~8 전 구간 관통</b> — 요약·이벤트·일지는 영구 보존</span><span>원본 시계열은 <b>3일만</b> 보관하고 버림</span></div>
+      </div>
+      <div></div>
+      <div class="cycle"><span>1번으로</span><div class="ln"></div><span>8 → 다음 근무의 「과거 조치」 · <b>쓸수록 좋아진다</b></span></div>
+    </div>
+
+    <div class="footline">이 여덟 칸을, <b>지금은 사람이 기억으로 합니다.</b></div>
+  </div>
+  <aside class="notes"><span class="tm">0:12</span>구조는 <b>다섯 파트</b>, 데이터는 <b>여덟 단계</b>로 흐릅니다. <i>(왼쪽 위부터 손으로 짚으며)</i> 12시간치 데이터가 들어오면 — <b>통계</b>가 평소를 만들고, 평소에서 벗어난 구간을 찾습니다. 여기까지 <b>AI는 한 번도 안 나옵니다.</b><br><span class="tm">0:30</span>찾아낸 구간에 <b>과거에 같은 일이 있었을 때의 일지</b>를 붙이고, <b>여기서</b> <i>(빨간 칸)</i> AI가 문장을 쓰고 중요도를 판단합니다. 여덟 칸 중 <b>한 칸</b>입니다.<br><span class="tm">0:45</span>그리고 <b>사람이 고릅니다.</b> 확정된 일지는 버려지지 않고 <i>(화살표)</i> <b>다음 근무의 참고자료로 되돌아옵니다.</b> 쓸수록 다음 초안이 좋아지는 구조입니다.<br><span class="tm">0:58</span>이 여덟 칸을, <b>지금은 사람이 기억으로 하고 있습니다.</b></aside>
+</section>
+
+<!-- ═══════════ 6. AI 구조 P1 ═══════════ -->
+<section class="s light">
+  <div class="wrap" style="gap:clamp(10px,1.8vh,20px)">
+    <div class="eyebrow">AI-NATIVE <span class="n">01 / 02</span> <span class="pill" style="margin-left:auto">AI 연결이 끊기면 초안 생성 정지</span></div>
+    <h2 class="h" style="font-size:clamp(23px,4vh,40px)"><strong>engra</strong>에서 <span class="r">AI가 하는 일</span></h2>
+    <p class="sub" style="font-size:clamp(12px,1.7vh,15.5px);max-width:none">AI를 빼면 업무가 원래 방식으로 돌아가는가, 아니면 성립하지 않는가 —
+      ENGRA에서 AI를 빼면 <b>태그 53점 × 12시간 전수 검토가 사람에게</b> 돌아옵니다. 교대 준비 시간에 불가능합니다.</p>
+    <table class="t">
+      <thead><tr><th style="width:17%">업무 단계</th><th style="width:59%">AI가 하는 일</th><th style="width:24%;text-align:center">사람의 몫</th></tr></thead>
+      <tbody>
+        <tr><td>무엇을 볼지 고르기</td><td class="ai">태그 <b>53점 전수</b>를 그 태그의 '평소 값'과 대조<br>경험으로 골라 보던 몇 개가 아니라, <b>빠짐없이 전부</b></td><td class="hu">—</td></tr>
+        <tr><td>이상인지 판정하기</td><td class="ai">통계가 뽑은 후보를 <b>「놓치면 무슨 일이 일어나는가?」</b>로 다시 판단하고 이유를 붙임<br>외기 일주기처럼 정상 운전 범위인 것은 <b>'전달 가치 없음'</b>으로 내림</td><td class="hu on">수정 가능<br><small style="font-weight:400;color:var(--mute)">이유가 보이므로</small></td></tr>
+        <tr><td>무엇이 한 사건인지</td><td class="ai">태그 연결표에 <b>없는 조합</b>을 공정 지식으로 하나로 묶음<br>예: A탑·B탑 후단 수분 동시 상승 → <b>입구 수분 부하 한 사건</b></td><td class="hu">—</td></tr>
+        <tr><td>근거 찾기</td><td class="ai">같은 태그의 <b>과거 확정 일지</b>를 회수해 이번 증상에 맞는지 판정<br><b>안 맞는 사례는 걷어냄</b> — 태그만 같고 증상이 다르면 기각</td><td class="hu">—</td></tr>
+        <tr><td>기록 작성하기</td><td class="ai">근거 수치를 <b>인용해</b> 항목별 서술 작성 (새 숫자를 만들 수 없음)<br><b>조치 문장은 쓰지 않음</b> — 이 공장의 절차를 모르므로, 과거 일지의 문장만 인용</td><td class="hu on">문장 보완</td></tr>
+        <tr class="last"><td>기록 확정하기</td><td class="ai"><b style="color:var(--mute)">권한 없음.</b> 확정 경로에 AI가 들어가지 않음<br>근거 없는 서술이 공식 기록으로 굳는 길을 구조로 차단</td><td class="hu on">채택 · 제외 · 코멘트 · 승인<br><small style="font-weight:400;opacity:.7">사람만</small></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>AI 네이티브냐 아니냐를 가르는 질문은 하나입니다. <b>AI를 빼면 원래 방식으로 돌아가는가, 업무가 성립하지 않는가.</b> ENGRA에서 AI를 빼면 태그 53점, 12시간 전수 검토가 사람에게 돌아옵니다. 교대 준비 시간에 <b>물리적으로 불가능합니다.</b><br><span class="tm">0:15</span>가운데가 AI가 하는 일입니다. 한 칸에 두 줄씩 들어갈 만큼 많습니다. 오른쪽은 <b>사람의 몫</b>인데 — <i>(손으로 위에서 아래로)</i> 비어 있습니다. 비어 있습니다. 비어 있습니다. <b>그런데 맨 아랫줄만 반대입니다.</b> 확정은 AI가 못 합니다. 인수인계 일지는 안전에 직결되는 공식 기록이고, <b>책임 주체는 사람이어야 하니까요.</b> <i>(표를 읽지 말 것 — 오른쪽 열만 짚는다)</i></aside>
+</section>
+
+<!-- ═══════════ 7. AI 구조 P2 ═══════════ -->
+<section class="s light">
+  <div class="wrap" style="gap:clamp(10px,1.8vh,20px)">
+    <div class="eyebrow">AI ON / OFF <span class="n">02 / 02</span></div>
+    <div class="ask"><strong>AI를 켜고, 끄고 — 같은 근무를 두 번 돌렸습니다.</strong><br>
+      <span style="font-size:.72em;color:var(--mute)">무엇이 달라지는지 항목 단위로 셌습니다 — 7근무 실측</span></div>
+    <div class="two">
+      <table class="t m">
+        <thead><tr><th>측정 항목</th><th>값</th><th>무엇을 말하는가</th></tr></thead>
+        <tbody>
+          <tr class="big"><td>숫자 환각</td><td class="v">423개 중 0개</td><td class="w"><b>AI가 숫자를 적을 칸을 아예 안 만들었습니다.</b> 근거 숫자를 그대로 옮겨 적기만 합니다</td></tr>
+          <tr class="big"><td>과거 조치 판정</td><td class="v">50건 → 33 채택 · 17 기각</td><td class="w">규칙은 "같은 태그면 무조건" 붙였다</td></tr>
+          <tr><td>중요도 재판정</td><td class="v">52항목 중 10건 (19%)</td><td class="w">통계 등급을 그대로 두지 않음</td></tr>
+          <tr><td>재현성</td><td class="v">같은 근무 2회 — 9/9 일치</td><td class="w">심사 재현의 전제</td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div class="box">
+          <div class="k">기각 — 라이브 실측</div>
+          <div class="q" style="font-size:clamp(12.5px,1.75vh,15px)"><b>ZI-801</b> 탱크 인입 밸브에 과거 조치가 따라붙음<br>
+            → 08-29 「<b>44.1%에서 120분 고착</b>」 건<br>
+            AI <span class="rej-x">기각</span> <span style="color:var(--mute)">"밸브 점검 매뉴얼 전환에 따른 다른 증상이라 제외함"</span></div>
+          <div style="font-size:clamp(11px,1.5vh,12.5px);color:var(--red-deep);font-weight:700">= 「계속 내려가는 중」과 「멈춰 있음」은 다른 고장</div>
+        </div>
+        <div class="box">
+          <div class="k">과거 이력 회수 — 라이브 실측</div>
+          <div class="hist">
+            <div class="r"><span class="d">08-29 야간</span><span><b>TI-403</b> Cold end 온도 상승 — 콜드박스 열밸런스 의심</span><span class="ok">확정</span></div>
+            <div class="r"><span class="d">08-30 주간</span><span><b>TI-403</b> 상승 지속 — 순도 하강과 겹침</span><span class="ok">확정</span></div>
+            <div class="down"><span>↓ 다음 근무 초안이 위 2건을 자동으로 불러옴</span><span class="ln"></span></div>
+            <div class="r ai"><span class="d">08-30 야간</span><span class="q">AI 판정 — "두 전례 모두 동일 증상이며 <b>이번 근무까지 3개 근무 연속 심화 추세</b>라 채택함"</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="concl">AI를 켜고 끈 결과를 대조하면 — <strong>태그·근거·출처는 한 글자도 바뀌지 않고, 문장과 판단만 바뀝니다.</strong></div>
+  </div>
+  <aside class="notes"><span class="tm">0:38</span>AI를 <b>켜고 끄고 같은 근무를 두 번</b> 돌려 항목 단위로 셌습니다. 본문에 나온 숫자 <b>423개 중 환각 0개</b> — <b>AI가 숫자를 적을 칸을 아예 안 만들었기 때문</b>입니다.<br><span class="tm">0:52</span>과거 사례는 <b>50건 중 33건만 채택하고 17건을 기각</b>했습니다. <i>(기각 상자)</i> 이 밸브 건은 과거에 「44.1%에서 120분 <b>고착</b>」 이력이 따라붙었는데, 이번엔 계속 <b>내려가는 중</b>이라 AI가 걷어냈습니다. 같은 계기판이라도 <b>멈춘 것과 내려가는 것은 다른 고장</b>입니다.<br><span class="tm">1:08</span><i>(이력 상자)</i> 반대로 이건 3개 근무에 걸쳐 <b>같은 증상이 이어진</b> 경우입니다. 앞 두 근무의 확정 일지를 다음 초안이 자동으로 불러왔고, AI가 <b>"3개 근무 연속 심화 추세"</b>라고 읽어냈습니다.<br><span class="tm">1:20</span>AI를 켜고 끈 결과를 대조하면 — <b>태그와 근거와 출처는 한 글자도 바뀌지 않고, 문장과 판단만 바뀝니다.</b></aside>
+  </section>
+
+<!-- ═══════════ 8. 작동 결과 ═══════════ -->
+<section class="s light">
+  <div class="wrap">
+    <div class="eyebrow">RESULTS</div>
+    <h2 class="h">숫자 <strong>세 개</strong>만 말씀드리겠습니다.</h2>
+    <div class="nums">
+      <div class="num"><span class="k">놓치지 않는다</span><div class="v">46<small>/ 46</small></div><div class="d">6근무에 심어둔 이상 <b>전부 검출</b> · 미탐지 <b>0건</b></div></div>
+      <div class="num"><span class="k">시끄럽지 않다</span><div class="v">0<small>건</small></div><div class="d">이상 없는 정상 14근무 <b>1,600만 점</b>에서 이벤트 <b>0건</b></div></div>
+      <div class="num"><span class="k">먼저 안다</span><div class="v">11<small>시간</small></div><div class="d">알람이 울리기 <b>706분 전</b>에 이미 잡아냄</div></div>
+    </div>
+    <div class="loop">
+      <div><div class="k">주간조 · 승인하며 남긴 코멘트</div><div class="q"><span class="cm">"샘플링 재확인 후 필터 교체 의뢰"</span></div></div>
+      <div class="ar">→<small>12시간 뒤</small></div>
+      <div><div class="k">야간조 · 같은 태그의 초안</div><div class="q"><span class="pre">과거 조치</span> 로 그대로 회수됨</div><div class="n">사람이 넣어 둔 예시 문구가 아니라, 앞 근무자의 판단이 저장됐다가 되돌아온 것</div></div>
+    </div>
+    <div class="duo">
+      <div class="honest"><b>가상 데이터입니다. 정답지도 저희가 만들었습니다.</b><br>대신 채점이 헐거운지 확인했습니다 — <b>정답지를 60분 옮기면 100%가 75%로 무너집니다.</b></div>
+      <div class="live"><div class="k"><i></i>LIVE — 지금 열려 있습니다</div><div class="u">engra.64-176-227-85.sslip.io</div><div class="d">설치·로그인 없이 직접 승인 버튼을 눌러보실 수 있습니다</div></div>
+    </div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>결과입니다. 숫자 세 개만 말씀드리겠습니다.<br><span class="tm">0:05</span>6근무에 이상을 <b>46건 심어 놓고 돌렸더니 46건을 다 찾았습니다. 놓친 건 없습니다.</b><br><span class="tm">0:14</span>그럼 아무거나 다 잡는 것 아니냐 — 반대로도 해봤습니다. <b>이상을 하나도 넣지 않은 14근무, 1,600만 점</b>을 넣었더니 <b>올라온 항목이 0개</b>였습니다.<br><span class="tm">0:26</span>그리고 가장 중요한 건 <b>시점</b>입니다. 알람이 울리기 <b>최대 11시간 전에</b> 이미 잡아냈습니다. 알람이 울린 뒤에 아는 것과 반나절 먼저 아는 것은 다른 일입니다.<br><span class="tm">0:38</span>그리고 이건 돌아간다는 증거입니다. 주간조가 승인하면서 남긴 코멘트가 <b>12시간 뒤 야간조 초안에 「과거 조치」로 그대로 돌아왔습니다.</b> 저희가 넣어둔 예시가 아닙니다.<br><span class="tm">0:50</span>가상 데이터고 정답지도 저희가 만들었습니다. 그래서 <b>정답지를 60분 옮겨봤습니다. 100%가 75%로 무너집니다</b> — 채점이 헐거워서 나온 100%가 아닙니다.</aside>
+</section>
+
+<!-- ═══════════ 9. 기대 임팩트 3분할 ═══════════ -->
+<section class="s light">
+  <div class="wrap" style="gap:clamp(10px,1.8vh,18px)">
+    <div class="eyebrow">IMPACT</div>
+    <h2 class="h" style="font-size:clamp(20px,3.4vh,34px)">이 구조가 <strong>어디까지</strong> 갈 수 있는가 — 세 층</h2>
+    <div class="axis"><span>가까운 곳</span><div class="ln"></div><span>먼 곳</span></div>
+    <div class="cols">
+      <!-- 1층 -->
+      <div class="col">
+        <span class="lv">1층 · 사내망</span>
+        <h3>사내망 안에서, 설치 없이</h3>
+        <div class="img">
+          <svg viewBox="0 0 300 120">
+            <rect x="8" y="10" width="284" height="100" rx="10" stroke-dasharray="5 4"/>
+            <text x="18" y="27" font-size="10" fill="#6b6b72" stroke="none" font-family="ui-monospace,monospace" letter-spacing="1.5">폐쇄망</text>
+            <rect x="26" y="44" width="58" height="38" rx="5"/><path d="M40 90h30M55 82v8"/><text x="55" y="66" font-size="10.5" fill="#0f0f10" stroke="none" text-anchor="middle" font-weight="700">VDI</text>
+            <path d="M88 63h24M108 58l4 5-4 5"/>
+            <rect x="116" y="40" width="70" height="46" rx="6" stroke="#EA002C"/><text x="151" y="67" font-size="12" fill="#EA002C" stroke="none" text-anchor="middle" font-weight="800">ENGRA</text>
+            <path d="M190 63h24M210 58l4 5-4 5"/>
+            <ellipse cx="248" cy="48" rx="20" ry="6"/><path d="M228 48v28c0 3.3 9 6 20 6s20-2.7 20-6V48"/><text x="248" y="98" font-size="9.5" fill="#6b6b72" stroke="none" text-anchor="middle">운전 데이터</text>
+            <rect x="140" y="104" width="20" height="12" rx="2" fill="#fafaf9"/><path d="M144 104v-3a6 6 0 0 1 12 0v3" /><text x="170" y="114" font-size="9" fill="#6b6b72" stroke="none">경계를 넘지 않음</text>
+          </svg>
+        </div>
+        <ul>
+          <li>운전원은 <b>브라우저만 열면 됩니다</b> — 설치 권한이 없는 VDI에서도 동작</li>
+          <li><b>원본도 일지도 사내에 남습니다</b> — 파일 하나짜리 저장소</li>
+          <li>결정할 것은 <b>AI 호출 경로 하나</b>. 그 지점은 코드 한 파일에 모여 있음</li>
+        </ul>
+        <div class="ev">근거 · <b>외부 라이브러리 0개</b> — 파이썬만 있으면 동작</div>
+      </div>
+      <!-- 2층 -->
+      <div class="col">
+        <span class="lv">2층 · 다른 설비</span>
+        <h3>24시간 돌아가는 곳이면, 어디든</h3>
+        <div class="img">
+          <span class="tagr">수처리 — 결선에서 실증</span>
+          <svg viewBox="0 0 300 120">
+            <!-- ASU -->
+            <g transform="translate(22,22)"><rect x="6" y="6" width="16" height="66" rx="6"/><rect x="30" y="18" width="14" height="54" rx="5"/><path d="M22 30h8M22 50h8"/><text x="26" y="90" font-size="9.5" fill="#EA002C" stroke="none" text-anchor="middle" font-weight="700">지금 여기</text><text x="26" y="101" font-size="8.5" fill="#6b6b72" stroke="none" text-anchor="middle">공기분리</text></g>
+            <!-- 수처리 -->
+            <g transform="translate(94,22)"><path d="M26 6c-8 12-16 20-16 30a16 16 0 0 0 32 0c0-10-8-18-16-30z"/><path d="M6 66h40M10 66v8h32v-8"/><text x="26" y="101" font-size="8.5" fill="#6b6b72" stroke="none" text-anchor="middle">수처리</text></g>
+            <!-- 발전 -->
+            <g transform="translate(166,22)"><path d="M26 4L14 44h12l-6 30 24-42H30z"/><text x="26" y="101" font-size="8.5" fill="#6b6b72" stroke="none" text-anchor="middle">발전</text></g>
+            <!-- 반도체 -->
+            <g transform="translate(238,22)"><circle cx="26" cy="38" r="30"/><path d="M6 28h40M6 48h40M16 10v56M36 10v56"/><text x="26" y="101" font-size="8.5" fill="#6b6b72" stroke="none" text-anchor="middle">반도체 Fab</text></g>
+          </svg>
+        </div>
+        <ul>
+          <li><b>바꾸는 것</b> — 태그 명세와 데이터 소스 어댑터, 둘뿐</li>
+          <li><b>그대로 쓰는 것</b> — 저장소·승인·순환·화면, 그리고 <b>검출 알고리즘까지</b></li>
+          <li>고정 임계값이 아니라 <b>그 태그의 평소</b>가 기준이라, 사업장이 바뀌어도 재튜닝이 없음</li>
+        </ul>
+        <div class="ev">근거 · 태그 53점 명세 <b>한 명이 3일</b>에 정의 · 태그 <b>16배(848점)</b>로 늘려도 검출 108초</div>
+      </div>
+      <!-- 3층 -->
+      <div class="col">
+        <span class="lv">3층 · 교대 현장 너머</span>
+        <h3>사람이 옮기면 사라지는 모든 것</h3>
+        <div class="img">
+          <svg viewBox="0 0 300 120">
+            <g transform="translate(40,30) rotate(-6 60 40)"><rect x="0" y="0" width="120" height="80" rx="6" fill="#fff"/><path d="M12 18h60M12 32h96M12 46h80M12 60h50"/><text x="112" y="14" font-size="8" fill="#6b6b72" stroke="none" text-anchor="end">주간 보고</text></g>
+            <g transform="translate(90,22) rotate(3 60 40)"><rect x="0" y="0" width="120" height="80" rx="6" fill="#fff"/><path d="M12 18h50M12 32h96M12 46h70M12 60h88"/><text x="112" y="14" font-size="8" fill="#6b6b72" stroke="none" text-anchor="end">업무 일지</text></g>
+            <g transform="translate(140,34)"><rect x="0" y="0" width="120" height="80" rx="6" fill="#fff" stroke="#EA002C"/><path d="M12 22h70M12 36h96M12 50h60M12 64h84"/><rect x="60" y="4" width="56" height="12" rx="6" fill="#EA002C" stroke="none"/><text x="88" y="13" font-size="7.5" fill="#fff" stroke="none" text-anchor="middle" font-weight="700">AI 초안 → 사람 승인</text><text x="12" y="13" font-size="8" fill="#0f0f10" stroke="none" font-weight="700">팀 인수인계</text></g>
+          </svg>
+        </div>
+        <ul>
+          <li>앞의 두 층이 같은 문제를 <b>다른 설비</b>로 옮긴다면, 3층은 <b>구조 자체</b>를 옮기는 것</li>
+          <li>바꾸는 것은 <b>업무 데이터 연결</b>과 <b>"무엇이 특이사항인가"의 정의</b>뿐</li>
+          <li>근본 문제는 교대만의 것이 아님 — <b>사람이 이동하면 그 사람이 알던 것이 사라진다</b></li>
+        </ul>
+        <div class="ev"><b>이미 해봤습니다</b> — 이 대회 제출물 「04. 제작 과정」 개발일지는 <b>커밋 248건에서 자동 생성</b>된 것</div>
+      </div>
+    </div>
+    <div class="strip-all">세 층 모두 <strong>같은 순환</strong>입니다 — <strong>데이터가 쓰고, 사람이 고르고, 쌓여서 돌아온다.</strong></div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>이 구조가 어디까지 갈 수 있는지, <b>가까운 곳부터</b> 말씀드리겠습니다.<br><span class="tm">0:04</span><i>(1층)</i> 첫 번째는 <b>사내망 안</b>입니다. 운전원은 <b>브라우저만 열면 됩니다.</b> 설치할 게 없어서 VDI에서도 그대로 돕니다. <b>데이터는 사내 밖으로 나가지 않습니다.</b><br><span class="tm">0:16</span><i>(2층)</i> 두 번째는 <b>24시간 돌아가는 다른 설비</b>입니다. 수처리, 발전, 반도체 팹 — 바꾸는 건 <b>태그 명세와 데이터 입구 둘뿐</b>이고 검출 알고리즘까지 그대로 씁니다. <b>그 태그의 평소를 스스로 기준 삼기 때문에</b> 사업장마다 다시 튜닝할 필요가 없습니다. <b>결선에서는 가상 수처리 설비를 직접 붙여 보여드리겠습니다.</b><br><span class="tm">0:33</span><i>(3층)</i> 세 번째는 <b>교대 현장 너머</b>입니다. 업무 일지, 주간 보고, 팀 인수인계. 이건 상상이 아닙니다 — <b>지금 제출한 「04. 제작 과정」 문서가 저희 커밋 248건에서 자동으로 만들어진 것</b>입니다.<br><span class="tm">0:44</span>세 층 모두 같은 구조입니다. <b>데이터가 쓰고, 사람이 고르고, 쌓여서 돌아옵니다.</b> <i>⚠ 사내 시스템명·주소는 말하지 않는다 — "폐쇄망 사업장"으로</i></aside>
+</section>
+
+<!-- ═══════════ 10. 마무리 ⓑ 13일 vs 18초 ═══════════ -->
+<section class="s dark">
+  <div class="wrap" style="align-items:center">
+    <div class="eyebrow" style="justify-content:center">WHY IT HAD TO BE BUILT</div>
+    <div class="lead-k">한 근무에 값이 <b>114만 4,800개</b> 찍힙니다.<br>사람이 <b>1초에 하나씩, 잠도 안 자고</b> 본다면 —</div>
+    <div class="vs">
+      <div><div class="big">13일</div><div class="lb"><b>사람</b>이 전부 보는 데</div></div>
+      <div class="mid">vs</div>
+      <div><div class="big r">18초</div><div class="lb"><b>ENGRA</b>가 검출을 끝내는 데</div></div>
+    </div>
+    <div class="final-line">그러니까 지금까지 <strong>안 본 게 아니라,</strong> <span class="r">못 본 겁니다.</span></div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>한 근무에 값이 <b>114만 개</b> 찍힙니다. 사람이 <b>1초에 하나씩, 잠도 안 자고</b> 본다면 — <b>13일</b>이 걸립니다. ENGRA는 <b>18초</b>에 봅니다. <i>(1초)</i> 그러니까 지금까지 <b>안 본 게 아니라, 못 본 겁니다.</b> <i>(15초 · 1,144,800초 = 13.2일 · 검출 실측 18.3초)</i></aside>
+</section>
+
+<!-- ═══════════ 11. 마무리 ⓒ 인계장 ═══════════ -->
+<section class="s dark">
+  <div class="wrap" style="gap:clamp(12px,2.2vh,24px)">
+    <div class="eyebrow" style="justify-content:center">HANDOVER</div>
+    <div class="lead-k">저희 발표도 <b>인수인계로 남기고</b> 내려가겠습니다.</div>
+    <div class="ho">
+      <div class="top"><span class="lg"><b>·</b> engra</span><span class="eng">근무 SK AI 해커톤 2026 · 결선</span><span class="st">확정 일지</span></div>
+      <div class="row"><div class="k">인계자</div><div class="v"><b>팀 앙그라쥬</b> — 박경모 · 정기영 · 임도영</div></div>
+      <div class="row items"><div class="k">특이사항</div><div class="v">
+        <div class="it"><i></i><span>가상 ASU 6근무 — 심어둔 이상 <b>46건 전수 검출 · 미탐지 0</b></span><span class="sv">상</span></div>
+        <div class="it"><i></i><span>정상 14근무 <b>1,600만 점 — 오탐 0건</b></span><span class="sv">상</span></div>
+        <div class="it"><i></i><span>알람보다 <b>최대 11시간 먼저</b> 검출 · AI 숫자 환각 <b>423개 중 0</b></span><span class="sv">상</span></div>
+      </div></div>
+      <div class="row"><div class="k">조치</div><div class="v"><a href="https://engra.64-176-227-85.sslip.io" target="_blank" style="color:var(--red);font-weight:800;text-decoration:none;border-bottom:2px solid rgba(234,0,44,.35)">engra.64-176-227-85.sslip.io</a> — <b>라이브 운영 중, 직접 승인해 보실 수 있습니다.</b><br>확정된 판단은 다음 근무 초안으로 되돌아갑니다.</div></div>
+      <div class="row next"><div class="k">다음 근무자</div><div class="v"><span class="r">심사위원님</span></div></div>
+      <div class="foot"><i></i>지금 열려 있습니다<span>설치·로그인 없음</span></div>
+    </div>
+    <div class="team">TEAM ANGRAGE · SK AI HACKATHON 2026 FINAL</div>
+  </div>
+  <aside class="notes"><span class="tm">0:00</span>저희 발표도 인수인계로 남기고 내려가겠습니다. <b>다음 근무자는 심사위원님입니다.</b> 감사합니다. <i>(10초 · 이 화면은 Q&A 내내 띄워 둔다)</i></aside>
+</section>
+
+<script>
+(function(){
+  var S=[].slice.call(document.querySelectorAll('section.s')), cur=0;
+  var bar=document.getElementById('bar'), cnt=document.getElementById('cnt'),
+      notes=document.getElementById('notes'), nb=document.getElementById('notes-body');
+  function idx(){var y=window.scrollY+window.innerHeight/2,i=0;S.forEach(function(s,k){if(s.offsetTop<=y)i=k;});return i;}
+  function paint(){cur=idx();cnt.textContent=(cur+1)+' / '+S.length;bar.style.width=((cur+1)/S.length*100)+'%';
+    var a=S[cur].querySelector('.notes');nb.innerHTML=a?a.innerHTML:'';}
+  function go(i){i=Math.max(0,Math.min(S.length-1,i));S[i].scrollIntoView({behavior:'smooth'});}
+  window.addEventListener('scroll',paint,{passive:true});
+  // #3 처럼 해시로 열면 그 장으로 바로 (연습·검수용)
+  var hs=(location.hash||'').replace('#',''), solo=/^s\d+$/.test(hs), h=parseInt(hs.replace('s',''),10);
+  if(solo&&h>=1&&h<=S.length){S.forEach(function(s,k){if(k!==h-1)s.style.display='none';});}   // #s5 = 그 장만 (검수·캡처용)
+  else if(h>=1&&h<=S.length){document.documentElement.style.scrollBehavior='auto';window.scrollTo(0,S[h-1].offsetTop);document.documentElement.style.scrollBehavior='';}
+  paint();
+  document.addEventListener('keydown',function(e){
+    var k=e.key;
+    if(k==='ArrowRight'||k==='ArrowDown'||k==='PageDown'||k===' '){e.preventDefault();go(idx()+1);}
+    else if(k==='ArrowLeft'||k==='ArrowUp'||k==='PageUp'){e.preventDefault();go(idx()-1);}
+    else if(k==='Home'){go(0);}else if(k==='End'){go(S.length-1);}
+    else if(k==='n'||k==='N'||k==='ㅜ'){notes.classList.toggle('on');}
+    else if(k==='f'||k==='F'||k==='ㄹ'){if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();}
+  });
+})();
+</script>
+</body>
+</html>
