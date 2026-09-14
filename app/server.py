@@ -84,6 +84,25 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
      cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
 .btn.ghost{background:#fff;color:var(--sub);border:1px solid var(--line)}
 
+/* 완료 / 진행중 — 기본 선택 없음. 고르지 않으면 승인이 막힌다 */
+.st{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;margin:0 0 8px}
+.st label{border:1px solid var(--line);border-radius:14px;padding:2px 10px;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.st input[type=radio]{accent-color:var(--accent);margin:0}
+.st label:has(input:checked){border-color:var(--ink);background:var(--ink);color:#fff}
+.st .lb{font-size:10.5px;font-weight:700;color:var(--sub)}
+.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #ffe0e6}
+.item.need .st .lb{color:var(--accent)}
+.item.need .st .lb::after{content:" — 골라야 승인됩니다"}
+.bar .need{color:var(--accent);font-size:12.5px;font-weight:700}
+.pill.done{background:#dcefe2;color:var(--ok)}.pill.going{background:#fdf0d8;color:var(--warn)}
+
+/* 이월 항목 묶음 — 본문 항목과 섞지 않는다 */
+.carry{border-left:3px solid var(--warn)}
+.carry .ci{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-top:8px;background:#fff}
+.carry .ci .t{font-weight:700;font-size:13px}
+.carry .ci .m{font-size:11.5px;color:var(--sub);margin:2px 0 6px}
+.carry .ci .c{font-size:12.5px;background:#f7f6f4;padding:5px 10px;border-radius:5px;margin-bottom:8px}
+
 /* 수동 추가 */
 .item.man{border-style:dashed}
 .item .tin{flex:1;font:inherit;font-weight:700;font-size:13.5px;border:none;
@@ -203,10 +222,34 @@ function addMan(){
   d.innerHTML='<div class="row1"><input type="checkbox" checked disabled>'+
     '<input class="tin" name="manual_title" placeholder="제목 — 예: 3번 압축기 소음 증가" required>'+
     '<button type="button" class="del" onclick="this.closest(\\'.item\\').remove()">삭제</button></div>'+
-    '<div class="body" style="margin-top:6px"><textarea name="manual_body" '+
+    '<div class="body" style="margin-top:6px">'+
+    // 직접 추가도 상태가 있어야 한다. 라디오 이름은 항목마다 다르고, 서버에는 제목·내용과 같은 순서로 나란히 가는 숨은 칸으로 보낸다
+    '<div class="st"><span class="lb">상태</span>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="완료" onchange="mst(this)">완료</label>'+
+    '<label><input type="radio" name="mst_'+mi+'" value="진행중" onchange="mst(this)">진행중</label>'+
+    '<input type="hidden" name="manual_status" value=""></div>'+
+    '<textarea name="manual_body" '+
     'placeholder="내용 — 언제부터, 무엇을, 다음 근무가 무엇을 봐야 하는지"></textarea></div>';
   document.getElementById('mans').appendChild(d);
   d.querySelector('.tin').focus();
+}
+function mst(r){ r.closest('.st').querySelector('[name=manual_status]').value=r.value; r.closest('.item').classList.remove('need'); }
+// 채택했는데 완료/진행중이 빈 항목이 하나라도 있으면 보내지 않고 그 항목을 짚는다.
+// 서버도 같은 검사를 한다(approve.decide) — 여기는 왕복을 줄이는 것뿐이다.
+function chk(f){
+  var bad=[];
+  f.querySelectorAll('.item:not(.man)').forEach(function(it){
+    var cb=it.querySelector('input[type=checkbox][name=item]'); if(!cb||!cb.checked){it.classList.remove('need');return;}
+    var on=it.querySelector('input[type=radio][name=status_'+cb.value+']:checked');
+    it.classList.toggle('need',!on); if(!on)bad.push(it);
+  });
+  f.querySelectorAll('.item.man').forEach(function(it){
+    var h=it.querySelector('[name=manual_status]'); var ok=h&&h.value;
+    it.classList.toggle('need',!ok); if(!ok)bad.push(it);
+  });
+  var m=document.getElementById('need');
+  if(bad.length){ if(m)m.textContent='완료/진행중이 빈 채택 항목 '+bad.length+'건'; bad[0].scrollIntoView({behavior:'smooth',block:'center'}); return false; }
+  if(m)m.textContent=''; return true;
 }
 document.addEventListener('DOMContentLoaded',cnt);
 """
@@ -696,8 +739,12 @@ def _rounds_html(shift_id):
 
 
 def _view_confirmed(shift_id, draft, handover, active="/"):
-    adopted = [i for i in draft["items"] if i["adopted"] == 1]
-    excluded = [i for i in draft["items"] if i["adopted"] == 0]
+    own = [i for i in draft["items"] if i["origin"] != "carried"]      # 이월 판단 행은 위 묶음에서 보인다
+    adopted = [i for i in own if i["adopted"] == 1]
+    excluded = [i for i in own if i["adopted"] == 0]
+    with db.connect() as conn:
+        opened = db.open_items(conn, shift_id)
+        choices = db.carried_choices(conn, draft["id"])
 
     ents = []
     for it in adopted:
@@ -707,7 +754,7 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
                    if it.get("comment")
                    else '<div class="c muted">코멘트 없음</div>')
         ents.append(
-            f'<div class="ent"><div class="t">{esc(it["title"])} {_sev_pill(it["severity"])}{man}</div>'
+            f'<div class="ent"><div class="t">{esc(it["title"])} {_sev_pill(it["severity"])} {_status_pill(it.get("status"))}{man}</div>'
             f'<div class="m">{esc(it["evidence"] or it["body"])}</div>{comment}</div>'
         )
     if not ents:
@@ -728,11 +775,12 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 
     date, kind = shift_id.rsplit("-", 1)
     return page(shift_id, f"""<a class="back" href="/">‹ 목록으로</a>
+{_carry_box(opened, choices, editable=False)}
 <div class="card det">
 <h3>{esc(date)} {"주간조" if kind == "day" else "야간조"} 인수인계서</h3>
 <div class="sub">분석 구간 {esc(_span(draft.get("window_start")))} · 작성 ENGRA
 {esc((draft["generated_at"] or "").replace("T", " "))} · 승인 {esc(handover["confirmed_by"])}
-{esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(draft["items"])}건 중
+{esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(own)}건 중
 <b>{handover["adopted_count"]}건 채택 / {handover["excluded_count"]}건 제외</b></div>
 {_rounds_html(shift_id)}
 <form method="post" action="/reopen" style="margin:10px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"
@@ -744,6 +792,55 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 </form>
 {"".join(ents)}{ex}
 </div>""", active=active)
+
+
+def _status_pill(status):
+    cls = {"완료": "pill done", "진행중": "pill going"}.get(status, "pill")
+    return f'<span class="{cls}">{esc(status or "상태 없음")}</span>'
+
+
+def _status_radios(name, cur=None, labels=("완료", "진행중")):
+    """완료 / 진행중. 기본 선택이 없다 — 안 읽고 승인하는 것을 막는 자리다 (심사평 08).
+    labels 는 이월 묶음에서 「완료로 닫기 / 계속 진행중」 처럼 문구만 바꿀 때 쓴다(값은 같다)."""
+    opts = "".join(
+        f'<label><input type="radio" name="{name}" value="{v}"{" checked" if cur == v else ""} '
+        f'onchange="this.closest(\'.item,.ci\').classList.remove(\'need\')">{esc(lb)}</label>'
+        for v, lb in zip(db.ITEM_STATUSES, labels))
+    return f'<div class="st"><span class="lb">상태</span>{opts}</div>'
+
+
+def _carry_box(opened, choices, editable):
+    """「이월 항목 N건」 접힌 묶음. 지난 근무들에서 '진행중' 으로 남긴 것을 본문 항목과 섞지 않고 따로 보인다.
+
+    editable=True(대기 초안): 항목마다 「완료로 닫기 / 계속 진행중」 을 고른다. 고르지 않으면 그대로 열린 채 다음 근무로 간다.
+    editable=False(확정 일지): 이 근무가 어떻게 했는지만 보인다. 열린 것이 없으면 아무것도 그리지 않는다.
+    """
+    if not opened:
+        return ""
+    rows = []
+    for o in opened:
+        ch = choices.get(o["id"]) or {}
+        ago = f'{o["shifts_ago"]}근무 전' if o["shifts_ago"] else "직전 근무"
+        last = f' · 마지막 {esc(o["last_shift_id"])}' if o["last_shift_id"] != o["shift_id"] else ""
+        cmt = (f'<div class="c">{esc(o["comment"])} <span class="muted">— 마지막 코멘트</span></div>'
+               if o.get("comment") else '<div class="c muted">코멘트 없음</div>')
+        if editable:
+            act = (_status_radios(f'carry_{o["id"]}', ch.get("status"), labels=("완료로 닫기", "계속 진행중"))
+                   + f'<textarea name="carry_comment_{o["id"]}" placeholder="이번 근무에서 한 일 · 다음 근무가 볼 것 (선택)">{esc(ch.get("comment") or "")}</textarea>')
+        else:
+            verb = {"완료": "이번 근무에서 완료로 닫음", "진행중": "계속 진행중 — 다음 근무로"}.get(ch.get("status"), "이번 근무에서 판단하지 않음 — 그대로 다음 근무로")
+            act = f'<div class="m"><b style="color:var(--ink)">{esc(verb)}</b>' + (f' · {esc(ch["comment"])}' if ch.get("comment") else "") + '</div>'
+        rows.append(
+            f'<div class="ci"><div class="t">{esc(o["title"])} <span class="pill">{esc(o["tag"] or "-")}</span></div>'
+            f'<div class="m">원 근무 {esc(o["shift_id"])} · {ago}{last} · 남긴 사람 {esc(o["confirmed_by"] or "-")}</div>'
+            f'<div class="m">{esc(o["body"] or "")}</div>{cmt}{act}</div>')
+    n = len(opened)
+    hint = ('여기서 완료로 닫으면 다음 근무 초안에서 빠집니다. 고르지 않으면 열린 채로 넘어갑니다.'
+            if editable else '지난 근무에서 「진행중」 으로 남긴 것. 완료로 닫힐 때까지 매 근무 초안에 이어집니다.')
+    return (f'<details class="card carry" style="padding:10px 16px">'
+            f'<summary style="cursor:pointer;font-weight:600">이월 항목 {n}건'
+            f'<span class="muted" style="font-weight:400;font-size:12px"> · 앞 근무에서 진행중으로 남긴 것</span></summary>'
+            f'<p class="note" style="margin:8px 0 4px">{hint}</p>{"".join(rows)}</details>')
 
 
 def _sev_select(it):
@@ -869,11 +966,14 @@ def _view_pending(shift_id, draft, active="/"):
     quality = None
     with db.connect() as conn:
         quality = db.load_quality(conn, shift_id)
+        opened = db.open_items(conn, shift_id)              # 앞 근무에서 진행중으로 남긴 것 — 맨 위 접힌 묶음
+        choices = db.carried_choices(conn, draft["id"])     # 재검토로 돌아왔으면 앞서 고른 것을 되살린다
     qbanner = ""
     qs = pipeline.quality_summary(quality)
     if qs:
         qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — ' + esc(qs[0]) + ' · ' + esc(qs[1]) + '</div>')
-    for it in draft["items"]:
+    own = [it for it in draft["items"] if it["origin"] != "carried"]   # 이월 판단 행은 승인 때 다시 쓴다
+    for it in own:
         sug = ""
         # AI 중요도 판정 — 왜 그 등급인지, 규칙과 다르면 그 사실을 보인다. 사람이 뒤집을 수 있어야 한다.
         judged = ""
@@ -937,7 +1037,7 @@ def _view_pending(shift_id, draft, active="/"):
 <div class="body">
 {_spark(*(waves.get(it.get("event_id")) or (None, {})), unit=((waves.get(it.get("event_id")) or (None, {}))[1] or {}).get("unit", ""))}<div class="why"><b>감지 근거</b> — {esc(it['evidence'])}</div>
 {judged}{sug}
-<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
+{_status_radios(f"status_{it['id']}", it.get("status"))}<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
 
     if not items and not low:
@@ -970,7 +1070,7 @@ def _view_pending(shift_id, draft, active="/"):
             + "".join(low) + '</details>')
 
     date, kind = shift_id.rsplit("-", 1)
-    n = len(draft["items"])
+    n = len(own)
     return page(shift_id, f"""<a class="back" href="/">‹ 목록으로</a>
 {disc}
 {qbanner}
@@ -979,13 +1079,14 @@ def _view_pending(shift_id, draft, active="/"):
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
 인수인계 초안</h2>
 <p class="note" style="margin:0">감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다.
-적을 것을 고르고, 필요하면 코멘트를 답니다. 최종 판단은 근무자가 합니다.</p></div>
+적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. 진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.</p></div>
 <div class="muted" style="font-size:12px;text-align:right">감지
 <b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}</div>
 </div>
-<form method="post" action="/approve">
+<form method="post" action="/approve" onsubmit="return chk(this)">
 <input type="hidden" name="shift_id" value="{esc(shift_id)}">
+{_carry_box(opened, choices, editable=True)}
 {"".join(items)}
 {lowbox}
 <div id="mans"></div>
@@ -995,7 +1096,7 @@ def _view_pending(shift_id, draft, active="/"):
 여러 건을 넣을 수 있습니다.</span>
 <button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>
 <div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건
-<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span></div>
+<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> <span id="need" class="need"></span></div>
 <button type="submit" class="btn">승인하고 확정</button></div>
 </form>""", active=active)
 
@@ -1291,14 +1392,30 @@ class Handler(BaseHTTPRequestHandler):
             shift_id = form["shift_id"][0]
             chosen = {int(v) for v in form.get("item", [])}
 
+            def _back(msg, items=()):
+                """상태가 빈 채택 항목 — 어느 항목인지 짚어 주고 초안으로 되돌려 보낸다. 저장된 것은 없다."""
+                lis = "".join(f'<li>#{i} {esc(t)}</li>' for i, t in items)
+                self._send(400, page("승인 안 됨", f'<div class="card"><h2>승인되지 않았습니다</h2>'
+                                                  f'<p class="note">{esc(msg)}</p>'
+                                                  + (f'<ul style="margin:0 0 10px 18px;font-size:13px">{lis}</ul>' if lis else "")
+                                                  + f'<a class="back" href="/shift/{esc(shift_id)}">‹ 초안으로 돌아가 상태를 고른다</a></div>', active="/draft"))
+
             # 직접 추가는 여러 건이 올 수 있다. 같은 이름으로 반복 전송된다.
+            # 상태는 제목과 같은 순서로 나란히 온다(빈 값 포함). 저장 전에 검사한다 — 상태 없는 수동 항목이 먼저 들어가 남으면 안 된다.
             titles = form.get("manual_title", [])
             bodies = form.get("manual_body", [])
+            mstat = form.get("manual_status", [])
+            manual = []
             for i, title in enumerate(titles):
                 title = title.strip()
                 if title:
-                    body = bodies[i].strip() if i < len(bodies) else ""
-                    approve_mod.add_manual(shift_id, title, body)
+                    st = (mstat[i].strip() if i < len(mstat) else "")
+                    if st not in db.ITEM_STATUSES:
+                        _back("직접 추가한 항목에도 완료/진행중을 골라야 합니다.", [("직접 추가", title)]); return
+                    manual.append((title, bodies[i].strip() if i < len(bodies) else "", st))
+            manual_status = {}
+            for title, body, st in manual:
+                manual_status[approve_mod.add_manual(shift_id, title, body)] = st
 
             with db.connect() as conn:
                 draft = db.load_draft(conn, shift_id)
@@ -1307,10 +1424,22 @@ class Handler(BaseHTTPRequestHandler):
                     "adopted": it["id"] in chosen or it["origin"] == "manual",
                     "comment": (form.get(f"comment_{it['id']}", [""])[0] or "").strip() or None,
                     "severity": (form.get(f"sev_{it['id']}", [""])[0] or "").strip() or None,
+                    "status": manual_status.get(it["id"]) or (form.get(f"status_{it['id']}", [""])[0] or "").strip() or None,
                 }
-                for it in draft["items"]
+                for it in draft["items"] if it["origin"] != "carried"
             }
-            approve_mod.decide(shift_id, decisions)
+            # 이월 항목 판단: carry_<원 항목 id> = 완료 | 진행중. 고르지 않은 것은 그대로 열린 채 넘어간다.
+            carried = {}
+            for k, v in form.items():
+                if k.startswith("carry_") and not k.startswith("carry_comment_"):
+                    st = (v[0] or "").strip()
+                    if st:
+                        rid = int(k[len("carry_"):])
+                        carried[rid] = {"status": st, "comment": (form.get(f"carry_comment_{rid}", [""])[0] or "").strip() or None}
+            try:
+                approve_mod.decide(shift_id, decisions, carried=carried)
+            except approve_mod.StatusMissing as exc:
+                _back("채택한 항목마다 완료 / 진행중을 골라야 승인됩니다. 아래 항목이 비어 있습니다.", exc.items); return
 
             self.send_response(303)
             self.send_header("Location", f"/shift/{shift_id}")

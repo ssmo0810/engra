@@ -32,7 +32,8 @@ def _fresh_db():
     os.remove(path)
     os.environ["ENGRA_DB"] = path
     os.environ["ENGRA_LLM"] = "off"
-    for m in ("db", "collect", "pipeline", "approve", "jobs", "ports", "config", "llm"):
+    # server 도 갈아야 한다 — 남겨 두면 server.db 가 이전 시험의 DB 파일을 계속 가리켜 화면 시험이 빈 DB 를 본다 (상태 스위치 시험에서 실측)
+    for m in ("db", "collect", "pipeline", "approve", "jobs", "ports", "config", "llm", "server"):
         sys.modules.pop(m, None)
     import db
     db.init()
@@ -159,7 +160,7 @@ class ApproveIntegrity(unittest.TestCase):
 
     def test_reapprove_keeps_previous_version(self):
         import approve, db
-        dec = dict((i, {"adopted": True, "comment": None}) for i in self.item_ids)
+        dec = dict((i, {"adopted": True, "comment": None, "status": "완료"}) for i in self.item_ids)
         first = approve.decide("2026-08-25-day", dec, confirmed_by="운전원A")
         self.assertIsNone(first.get("prev_round"), "첫 승인은 이력을 만들지 않는다")
         second = approve.decide("2026-08-25-day", dec, confirmed_by="운전원B")
@@ -600,6 +601,295 @@ class PrevExclusionParking(unittest.TestCase):
         import llm
         self.assertNotIn("prev_excluded", inspect.getsource(llm),
                          "프롬프트·스키마에 이전 제외가 들어가면 안 된다")
+
+
+class StatusSwitchAndCarry(unittest.TestCase):
+    """채택 항목의 완료/진행중 강제와 「진행중」 의 이월 (본선 심사평 08).
+
+    확인·조치·미완료가 자유 코멘트에 묻혀 다음 근무로 이어지지 않는다는 지적. 채택하면 둘 중
+    하나를 골라야 하고(기본값 없음), 진행중은 완료로 닫힐 때까지 다음 근무 초안 맨 위에 남는다.
+    """
+
+    DAY = ("2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+    NIGHT = ("2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
+    NEXT = ("2026-08-26-day", "2026-08-26T06:00:00", "2026-08-26T18:00:00")
+
+    def _shift(self, conn, sid, start, end):
+        import db
+        conn.execute(
+            "INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+            "VALUES (?,?,?,?,'test',?)", (sid, sid.rsplit("-", 1)[1], start, end, db.now()))
+
+    def _draft(self, conn, sid, titles=("항목 1",)):
+        """항목 n 개짜리 대기 초안. 항목 id 목록을 돌려준다."""
+        import db
+        cur = conn.execute(
+            "INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'pending','test',?)",
+            (sid, db.now()))
+        did = cur.lastrowid
+        for seq, t in enumerate(titles, 1):
+            conn.execute(
+                "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, severity) "
+                "VALUES (?, NULL, ?, 'detected', 'TI-403', ?, '본문', '중')", (did, seq, t))
+        return [r[0] for r in conn.execute("SELECT id FROM draft_item WHERE draft_id = ? ORDER BY seq", (did,))]
+
+    def _three_shifts(self):
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            for s in (self.DAY, self.NIGHT, self.NEXT):
+                self._shift(conn, *s)
+            ids = self._draft(conn, self.DAY[0], ("헌팅 확인", "밸브 점검"))
+        return ids
+
+    def test_old_database_gets_status_columns(self):
+        """라이브 DB 에 status·carried_from 이 없다. 재시작(db.init) 한 번으로 붙고 기존 행은 그대로여야 한다."""
+        _fresh_db()
+        import db
+        with db.connect() as conn:
+            self._shift(conn, *self.DAY)
+            ids = self._draft(conn, self.DAY[0], ("옛 항목",))
+            conn.execute("ALTER TABLE draft_item DROP COLUMN status")
+            conn.execute("ALTER TABLE draft_item DROP COLUMN carried_from")
+            self.assertNotIn("status", {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")})
+        db.init()
+        with db.connect() as conn:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
+            row = conn.execute("SELECT title, status, carried_from FROM draft_item WHERE id = ?", (ids[0],)).fetchone()
+        self.assertIn("status", cols)
+        self.assertIn("carried_from", cols)
+        self.assertEqual(row["title"], "옛 항목", "기존 행이 보존돼야 한다")
+        self.assertIsNone(row["status"])
+
+    def test_adopted_without_status_is_rejected_and_nothing_saved(self):
+        """상태 없는 채택은 승인되지 않는다 — 어느 항목인지 짚고, 아무것도 저장되지 않아야 한다."""
+        ids = self._three_shifts()
+        import approve, db
+        dec = {ids[0]: {"adopted": True, "status": "완료"},
+               ids[1]: {"adopted": True}}                       # 두 번째만 상태가 빈다
+        with self.assertRaises(approve.StatusMissing) as cm:
+            approve.decide(self.DAY[0], dec, confirmed_by="운전원A")
+        self.assertEqual([i for i, _ in cm.exception.items], [ids[1]], "빈 항목만 짚어야 한다")
+        self.assertIn("밸브 점검", str(cm.exception))
+        with db.connect() as conn:
+            self.assertIsNone(db.load_handover(conn, self.DAY[0]), "확정되면 안 된다")
+            st = conn.execute("SELECT adopted, status FROM draft_item WHERE id = ?", (ids[0],)).fetchone()
+        self.assertIsNone(st["adopted"], "실패한 승인의 UPDATE 는 되돌아가야 한다")
+
+    def test_unknown_status_value_is_rejected(self):
+        ids = self._three_shifts()
+        import approve
+        with self.assertRaises(ValueError):
+            approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "대충"}})
+
+    def test_excluded_item_needs_no_status(self):
+        ids = self._three_shifts()
+        import approve, db
+        r = approve.decide(self.DAY[0], {ids[0]: {"adopted": False}, ids[1]: {"adopted": False}})
+        self.assertEqual(r["adopted"], 0)
+        with db.connect() as conn:
+            self.assertIsNotNone(db.load_handover(conn, self.DAY[0]))
+
+    def test_in_progress_shows_up_next_shift_until_closed(self):
+        """진행중 → 다음 근무 open_items 에 뜬다. 다음 근무가 완료로 닫으면 그 뒤 근무에는 없다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중", "comment": "야간에 확인 요망"},
+                                     ids[1]: {"adopted": True, "status": "완료"}}, confirmed_by="운전원A")
+        with db.connect() as conn:
+            opened = db.open_items(conn, self.NIGHT[0])
+        self.assertEqual([o["id"] for o in opened], [ids[0]], "진행중 항목만 열려 있어야 한다")
+        o = opened[0]
+        self.assertEqual(o["shift_id"], self.DAY[0])
+        self.assertEqual(o["shifts_ago"], 1)
+        self.assertEqual(o["comment"], "야간에 확인 요망")
+        self.assertEqual(o["confirmed_by"], "운전원A")
+
+        # 야간 근무: 계속 진행중으로 넘긴다 → 그 다음 근무에도 열려 있고, 코멘트는 야간 것이 최신
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}},
+                       carried={ids[0]: {"status": "진행중", "comment": "밸브 교체 대기"}}, confirmed_by="운전원B")
+        with db.connect() as conn:
+            opened = db.open_items(conn, self.NEXT[0])
+            body = db.load_handover(conn, self.NIGHT[0])["body"]
+        self.assertEqual([o["id"] for o in opened], [ids[0]])
+        self.assertEqual(opened[0]["shifts_ago"], 2)
+        self.assertEqual(opened[0]["comment"], "밸브 교체 대기")
+        self.assertEqual(opened[0]["last_shift_id"], self.NIGHT[0])
+        self.assertIn("이월 항목 1건", body)
+        self.assertIn("계속 진행중", body)
+
+        # 다음 주간: 완료로 닫는다 → 그 뒤엔 없다
+        with db.connect() as conn:
+            self._shift(conn, "2026-08-26-night", "2026-08-26T18:00:00", "2026-08-27T06:00:00")
+            xids = self._draft(conn, self.NEXT[0], ("주간 항목",))
+        approve.decide(self.NEXT[0], {xids[0]: {"adopted": False}},
+                       carried={ids[0]: {"status": "완료"}}, confirmed_by="운전원C")
+        with db.connect() as conn:
+            self.assertEqual(db.open_items(conn, "2026-08-26-night"), [], "완료로 닫혔으면 사라져야 한다")
+            # 닫은 근무 자신에게는 여전히 「그 근무 앞에 열려 있던 것」 으로 보인다(확정 화면이 판단을 보이는 자리)
+            self.assertEqual([o["id"] for o in db.open_items(conn, self.NEXT[0])], [ids[0]])
+
+    def test_unconfirmed_close_does_not_close(self):
+        """확정되지 않은 초안의 완료 표시는 닫힘이 아니다 — 재검토로 되돌리면 다시 열린다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료"}})
+        with db.connect() as conn:
+            self.assertEqual(db.open_items(conn, self.NEXT[0]), [])
+            db.reopen_handover(conn, self.NIGHT[0], "실수")
+            self.assertEqual([o["id"] for o in db.open_items(conn, self.NEXT[0])], [ids[0]],
+                             "닫은 근무가 재검토로 돌아가면 닫힘도 풀려야 한다")
+
+    def test_reapprove_does_not_duplicate_carried_rows(self):
+        """재검토 → 재승인이 같은 원 항목을 두 번 가리키면 안 된다."""
+        ids = self._three_shifts()
+        import approve, db
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        for _ in (1, 2):
+            approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "진행중"}})
+        with db.connect() as conn:
+            n = conn.execute("SELECT COUNT(*) FROM draft_item WHERE origin='carried' AND carried_from = ?", (ids[0],)).fetchone()[0]
+        self.assertEqual(n, 1)
+
+    def test_carried_choice_must_point_at_an_open_item(self):
+        ids = self._three_shifts()
+        import approve, db
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        with self.assertRaises(ValueError) as cm:
+            approve.decide(self.NIGHT[0], {nids[0]: {"adopted": False}}, carried={ids[0]: {"status": "완료"}})
+        self.assertIn("열려 있는 이월 항목이 아닙니다", str(cm.exception))
+
+    # --- 화면 ---------------------------------------------------------
+
+    def test_pending_screen_has_radios_without_default_and_carry_box(self):
+        ids = self._three_shifts()
+        import approve, db, server
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+            draft = db.load_draft(conn, self.NIGHT[0])
+        page = server._view_pending(self.NIGHT[0], draft)
+        self.assertIn(f'name="status_{nids[0]}" value="완료"', page)
+        self.assertIn(f'name="status_{nids[0]}" value="진행중"', page)
+        self.assertNotIn(f'name="status_{nids[0]}" value="완료" checked', page, "기본 선택이 있으면 안 된다")
+        self.assertNotIn(f'name="status_{nids[0]}" value="진행중" checked', page, "기본 선택이 있으면 안 된다")
+        self.assertIn("이월 항목 1건", page)
+        self.assertIn(f'name="carry_{ids[0]}"', page)
+        self.assertIn("헌팅 확인", page)
+        self.assertLess(page.index("이월 항목 1건"), page.index("야간 항목"), "이월 묶음은 본문 항목 위, 따로")
+        self.assertIn("<details", page[:page.index("이월 항목 1건")][-400:], "접힌 묶음이어야 한다")
+        self.assertIn('onsubmit="return chk(this)"', page)
+
+    def test_pending_screen_without_open_items_draws_no_box(self):
+        ids = self._three_shifts()
+        import db, server
+        with db.connect() as conn:
+            draft = db.load_draft(conn, self.DAY[0])
+        page = server._view_pending(self.DAY[0], draft)
+        self.assertNotIn('class="card carry"', page, "열린 것이 없으면 묶음을 그리지 않는다")
+        self.assertNotIn("이월 항목 0건", page)
+
+    def test_confirmed_screen_shows_status_and_carry_decision(self):
+        ids = self._three_shifts()
+        import approve, db, server
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": True, "status": "완료"}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+        approve.decide(self.NIGHT[0], {nids[0]: {"adopted": True, "status": "완료"}}, carried={ids[0]: {"status": "완료", "comment": "교체 끝"}})
+        with db.connect() as conn:
+            draft = db.load_draft(conn, self.NIGHT[0])
+            h = db.load_handover(conn, self.NIGHT[0])
+        page = server._view_confirmed(self.NIGHT[0], draft, h)
+        self.assertIn("이월 항목 1건", page)
+        self.assertIn("완료로 닫음", page)
+        self.assertIn("교체 끝", page)
+        self.assertIn('class="pill done">완료', page)
+        self.assertIn("감지 1건 중", page, "이월 판단 행은 감지 건수에 섞이지 않는다")
+
+    def test_server_rejects_form_without_status(self):
+        """폼을 우회해도(라디오 없이 POST) 서버가 400 으로 막고 어느 항목인지 적는다."""
+        ids = self._three_shifts()
+        import server, db
+        from urllib.parse import urlencode
+
+        class Fake(server.Handler):
+            def __init__(self):        # 소켓 없이 핸들러 본체만 쓴다
+                self.path = "/approve"; self.sent = []
+                self.headers = {}
+            def _send(self, code, body, ctype="text/html; charset=utf-8"):
+                self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        raw = urlencode([("shift_id", self.DAY[0]), ("item", ids[0]), ("item", ids[1]),
+                         (f"status_{ids[0]}", "완료")]).encode()
+        h._handle_form(raw)
+        code, body = h.sent[-1]
+        self.assertEqual(code, 400)
+        self.assertIn("밸브 점검", body, "빈 항목을 이름으로 짚어야 한다")
+        with db.connect() as conn:
+            self.assertIsNone(db.load_handover(conn, self.DAY[0]))
+
+    def test_server_accepts_form_with_status_and_carry(self):
+        ids = self._three_shifts()
+        import server, db, approve
+        from urllib.parse import urlencode
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "진행중"}, ids[1]: {"adopted": False}})
+        with db.connect() as conn:
+            nids = self._draft(conn, self.NIGHT[0], ("야간 항목",))
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = "/approve"; self.sent = []; self.headers = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        raw = urlencode([("shift_id", self.NIGHT[0]), ("item", nids[0]), (f"status_{nids[0]}", "완료"),
+                         (f"carry_{ids[0]}", "완료"), (f"carry_comment_{ids[0]}", "끝"),
+                         ("manual_title", "직접 건"), ("manual_body", "내용"), ("manual_status", "진행중")]).encode()
+        h._handle_form(raw)
+        self.assertEqual(h.sent[-1][0], 303, h.sent[-1][1][:300])
+        with db.connect() as conn:
+            self.assertIsNotNone(db.load_handover(conn, self.NIGHT[0]))
+            opened = db.open_items(conn, self.NEXT[0])
+            man = conn.execute("SELECT id, status FROM draft_item WHERE origin='manual' AND title='직접 건'").fetchone()
+        self.assertEqual(man["status"], "진행중")
+        self.assertNotIn(ids[0], [o["id"] for o in opened], "폼으로 닫은 것도 닫혀야 한다")
+        self.assertEqual([o["id"] for o in opened], [man["id"]], "진행중으로 직접 추가한 것은 다음 근무에 이월된다")
+
+    def test_server_rejects_manual_without_status_before_saving(self):
+        ids = self._three_shifts()
+        import server, db
+        from urllib.parse import urlencode
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = "/approve"; self.sent = []; self.headers = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        raw = urlencode([("shift_id", self.DAY[0]), ("manual_title", "직접 건"), ("manual_body", ""), ("manual_status", "")]).encode()
+        h._handle_form(raw)
+        self.assertEqual(h.sent[-1][0], 400)
+        with db.connect() as conn:
+            n = conn.execute("SELECT COUNT(*) FROM draft_item WHERE origin='manual'").fetchone()[0]
+        self.assertEqual(n, 0, "거부됐으면 수동 항목이 저장돼 남으면 안 된다")
 
 
 class LlmGuards(unittest.TestCase):

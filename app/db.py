@@ -129,6 +129,8 @@ CREATE TABLE IF NOT EXISTS draft_item (
     adopted          INTEGER,                -- NULL 미결정 / 1 채택 / 0 제외
     comment          TEXT,
     decided_at       TEXT,
+    status           TEXT,                   -- 채택 항목의 처리 상태: '완료' | '진행중'. 기본값 없음 — 근무자가 골라야 승인된다 (심사평 08)
+    carried_from     INTEGER,                -- 이월 항목이면 원 draft_item id. 「진행중」 은 이 사슬로 다음 근무에 이어지고, '완료' 행이 붙으면 닫힌다
     FOREIGN KEY (draft_id) REFERENCES draft(id),
     FOREIGN KEY (event_id) REFERENCES event(id)
 );
@@ -181,7 +183,7 @@ def connect():
 def _migrate(conn):
     """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게."""
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT"), ("status", "TEXT"), ("carried_from", "INTEGER")):
         if col not in have:
             conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
@@ -621,6 +623,95 @@ def recent_exclusions(conn, before_shift):
             "times": (prev["times"] + 1) if prev else 1,
         }
     return out
+
+
+ITEM_STATUSES = ("완료", "진행중")
+
+
+def open_items(conn, before_shift):
+    """이전 근무들의 확정 일지에서 아직 닫히지 않은 「진행중」 항목 (원 근무 시각순).
+
+    열림의 정의: 채택돼 '진행중' 으로 확정된 원 항목(carried_from IS NULL)이고, 그 뒤·이 근무 앞의
+    **확정된** 근무 어디에도 이 항목을 가리키는(carried_from = 원 id) '완료' 행이 없다.
+    확정되지 않은 초안의 완료 표시는 닫힘이 아니다 — 아직 아무도 승인하지 않았다.
+    이 근무 이후 근무의 판단은 세지 않는다(뒤 근무가 앞 근무 초안에 새면 안 된다).
+
+    돌려주는 것: [{id(원 draft_item), tag, title, body, comment(마지막), shift_id(원 근무),
+                  shifts_ago(몇 근무 전), last_shift_id(마지막으로 다룬 근무), confirmed_by}]
+    초안 조립(pipeline)과 화면이 같은 함수를 쓴다.
+    """
+    row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (before_shift,)).fetchone()
+    if row is None or row["window_start"] is None:
+        return []
+    before = row["window_start"]
+    out = []
+    for r in conn.execute(
+        """SELECT di.id, di.tag, di.title, di.body, di.comment, d.shift_id, s.window_start, h.confirmed_by
+             FROM draft_item di
+             JOIN draft d    ON d.id = di.draft_id
+             JOIN shift s    ON s.id = d.shift_id
+             JOIN handover h ON h.shift_id = d.shift_id
+            WHERE di.adopted = 1 AND di.status = '진행중' AND di.carried_from IS NULL
+              AND s.window_start < ?
+              AND NOT EXISTS (
+                    SELECT 1 FROM draft_item c
+                      JOIN draft cd    ON cd.id = c.draft_id
+                      JOIN shift cs    ON cs.id = cd.shift_id
+                      JOIN handover ch ON ch.shift_id = cd.shift_id
+                     WHERE c.carried_from = di.id AND c.adopted = 1 AND c.status = '완료'
+                       AND cs.window_start < ?)
+            ORDER BY s.window_start, di.seq""",
+        (before, before),
+    ):
+        it = dict(r)
+        # 마지막으로 다룬 확정 근무의 코멘트가 최신이다. 없으면 원 항목의 코멘트.
+        last = conn.execute(
+            """SELECT c.comment, cd.shift_id
+                 FROM draft_item c
+                 JOIN draft cd    ON cd.id = c.draft_id
+                 JOIN shift cs    ON cs.id = cd.shift_id
+                 JOIN handover ch ON ch.shift_id = cd.shift_id
+                WHERE c.carried_from = ? AND c.adopted = 1 AND cs.window_start < ?
+                ORDER BY cs.window_start DESC LIMIT 1""",
+            (it["id"], before),
+        ).fetchone()
+        it["last_shift_id"] = last["shift_id"] if last else it["shift_id"]
+        if last and last["comment"]:
+            it["comment"] = last["comment"]
+        it["shifts_ago"] = conn.execute(
+            "SELECT COUNT(*) FROM shift WHERE window_start > ? AND window_start <= ?",
+            (it.pop("window_start"), before),
+        ).fetchone()[0]
+        out.append(it)
+    return out
+
+
+def carried_choices(conn, draft_id):
+    """이 초안에 기록된 이월 판단 {원 항목 id: {status, comment}}. 재검토 뒤 화면이 앞 선택을 되살릴 때 쓴다."""
+    return {
+        r["carried_from"]: {"status": r["status"], "comment": r["comment"]}
+        for r in conn.execute(
+            "SELECT carried_from, status, comment FROM draft_item WHERE draft_id = ? AND origin = 'carried'",
+            (draft_id,))
+    }
+
+
+def save_carried(conn, draft_id, choices, open_by_id):
+    """이번 근무의 이월 판단을 항목 행으로 기록한다 (origin='carried', carried_from=원 id).
+
+    지난 판단 행은 지우고 다시 쓴다 — 재검토 후 재승인이 같은 원 항목을 두 번 가리키면
+    안 된다. 원 항목의 태그·제목·본문을 복사해 두어 일지 본문과 색인에 그대로 실린다.
+    """
+    conn.execute("DELETE FROM draft_item WHERE draft_id = ? AND origin = 'carried'", (draft_id,))
+    seq = conn.execute("SELECT COALESCE(MAX(seq), 0) FROM draft_item WHERE draft_id = ?", (draft_id,)).fetchone()[0]
+    for i, (root_id, ch) in enumerate(sorted(choices.items()), start=1):
+        src = open_by_id[root_id]
+        conn.execute(
+            """INSERT INTO draft_item
+               (draft_id, event_id, seq, origin, tag, title, body, adopted, comment, decided_at, status, carried_from)
+               VALUES (?, NULL, ?, 'carried', ?, ?, ?, 1, ?, ?, ?, ?)""",
+            (draft_id, seq + i, src["tag"], src["title"], src["body"], ch.get("comment"), now(), ch["status"], root_id),
+        )
 
 
 # --- 확정 일지와 색인 -------------------------------------------------
