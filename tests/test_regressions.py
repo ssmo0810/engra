@@ -1189,5 +1189,104 @@ class LlmGuards(unittest.TestCase):
         self.assertTrue("if not r.stdout" in src or "r.stdout is None" in src)
 
 
+class TwoScreens(unittest.TestCase):
+    """결선 화면 재구성 — DCS(개요 전체 화면) · 초안(근무 목록 → 상세) 두 화면, 관리는 주소를 아는 사람만.
+
+    결선 심사위원들이 「DCS → RTDB → 파이프라인 → 초안 → 일지」 다섯 화면을 따라가기 힘들어했다.
+    옛 화면이 되살아나거나 공개 화면에 관리 링크가 새면 여기서 걸린다.
+    """
+
+    longMessage = False   # 실패하면 화면 전체 대신 이유 한 줄만
+
+    DAY = ("2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+    NIGHT = ("2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
+
+    def _get(self, path):
+        """소켓 없이 GET 핸들러 본체만 부른다. (코드, 본문, 보낸 헤더)."""
+        import server
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = path; self.sent = []; self.headers = {}; self.out = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, k, v): self.out[k] = v
+            def end_headers(self): pass
+
+        h = Fake()
+        h.do_GET()
+        return h.sent[-1] + (h.out,)
+
+    def _add(self, sid, start, end):
+        """근무 하나 + 항목 하나짜리 대기 초안. 항목 id."""
+        import db
+        with db.connect() as conn:
+            conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                         "VALUES (?,?,?,?,'test',?)", (sid, sid.rsplit("-", 1)[1], start, end, db.now()))
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'pending','test',?)",
+                               (sid, db.now())).lastrowid
+            return conn.execute("INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, severity) "
+                                "VALUES (?, NULL, 1, 'detected', 'TI-403', '항목', '본문', '중')", (did,)).lastrowid
+
+    def test_old_screens_are_gone(self):
+        _fresh_db()
+        for p in ("/rtdb", "/pipeline"):
+            code, body, _ = self._get(p)
+            self.assertEqual(code, 404, p)
+            self.assertIn('class="nav"', body, "옛 주소로 들어와도 이동줄로 돌아갈 길이 있다")
+            self.assertNotIn('href="/admin"', body, "404 에도 관리 링크는 없다")
+        code, _, out = self._get("/")
+        self.assertEqual((code, out.get("Location")), (303, "/draft"), "옛 일지 조회 주소는 초안 목록으로")
+
+    def test_dcs_is_the_overview_alone(self):
+        _fresh_db()
+        code, body, _ = self._get("/dcs")
+        self.assertEqual(code, 200)
+        self.assertIn('id="viewOverview"', body, "원본 개요 화면이 떠야 한다")
+        self.assertNotIn('class="nav"', body, "ENGRA 이동줄 없이 전체 화면")
+        self.assertNotIn("<b>ENGRA</b> 교대 인수인계", body, "ENGRA 상단바 없음")
+        self.assertNotIn('href="/admin"', body, "공개 화면에 관리 링크가 새면 안 된다")
+        self.assertIn(".hminav,#viewData,#viewScen,#viewRtdb{display:none!important}", body, "원본 탭 줄·개요 밖 화면을 가린다")
+
+    def test_dcs_keeps_mock_data_notice(self):
+        """전체 화면이어도 원본의 「모의 화면 · 가상 데이터」 안내는 보이게 둔다 — 공개 주소라 심사위원이 보는 화면에서 가상 데이터 표시를 빼지 않는다."""
+        _fresh_db()
+        code, body, _ = self._get("/dcs")
+        self.assertEqual(code, 200)
+        self.assertIn('class="disc"', body, "원본의 가상 데이터 안내가 응답에 있어야 한다")
+        self.assertIn(".wrap>.disc{visibility:visible", body, "전체 화면 CSS 가 그 안내를 가리면 안 된다")
+
+    def test_draft_list_and_detail_without_admin_link(self):
+        _fresh_db()
+        import approve
+        iid = self._add(*self.DAY)
+        approve.decide(self.DAY[0], {iid: {"adopted": True, "status": "완료"}})
+        self._add(*self.NIGHT)
+        code, body, _ = self._get("/draft")
+        self.assertEqual(code, 200)
+        for sid in (self.DAY[0], self.NIGHT[0]):
+            self.assertIn(f'href="/shift/{sid}"', body, "목록에 확정·대기 근무가 다 있어야 한다")
+        self.assertNotIn('href="/admin"', body, "공개 화면에 관리 링크가 새면 안 된다")
+        # 확정 일지 · 승인 대기 초안 — 목록으로 링크가 두 갈래에 따로 있다
+        for sid, mark in ((self.DAY[0], "인수인계서"), (self.NIGHT[0], 'onsubmit="return chk(this)"')):
+            code, body, _ = self._get(f"/shift/{sid}")
+            self.assertEqual(code, 200, sid)
+            self.assertIn(mark, body, sid)
+            self.assertIn('<a class="back" href="/draft">‹ 목록으로</a>', body, sid)
+            self.assertNotIn('href="/admin"', body, sid)
+            self.assertIn('class="on" href="/draft"', body, "상세에서도 초안 칸이 켜진다")
+
+    def test_admin_has_one_pipeline_card(self):
+        """/pipeline 의 업로드·실행·진행과 관리의 정답지 업로드·다시 만들기가 한 카드로 — 같은 폼이 두 번 나오지 않는다."""
+        _fresh_db()
+        code, body, _ = self._get("/admin")
+        self.assertEqual(code, 200)
+        self.assertEqual(body.count('action="/pipeline/upload"'), 1, "업로드 폼은 하나")
+        self.assertEqual(body.count('action="/pipeline/run"'), 1, "실행 폼은 하나")
+        self.assertIn('accept=".csv,.json"', body, "근무 CSV 와 정답지를 같은 폼으로 올린다")
+        self.assertIn('type="checkbox" name="redo" value="1"', body, "「확정돼 있어도 다시 만들기」는 실행의 선택지")
+        self.assertIn('id="joblog"', body, "/pipeline 에만 있던 작업 진행 표시가 관리로 와야 한다")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,6 +1,6 @@
 // 시연 영상 녹화 — Playwright MCP browser_run_code_unsafe 에 그대로 붙여 넣는 함수 본문.
 // 로컬 서버(8000)에 AI 시드 DB 가 올라온 상태에서 돈다. 실시간·무편집. 목표 2~3분.
-// 순서: DCS → RTDB → 초안 검토(AI 필드를 천천히) → 중요도 변경·제외·코멘트 → 승인 → 확정(재검토 버튼) → 일지 조회
+// 순서: DCS(전체 화면) → 초안 목록 → 승인 대기 초안 검토(AI 필드를 천천히) → 중요도 변경·제외·코멘트 → 승인 → 확정(재검토 버튼) → 목록으로
 async (page) => {
   const ctx = await page.context().browser().newContext({
     viewport: { width: 1440, height: 900 },
@@ -11,9 +11,9 @@ async (page) => {
   const pause = (ms) => p.waitForTimeout(ms);
   const scroll = async (y, steps = 8, ms = 600) => { for (let i = 0; i < steps; i++) { await p.mouse.wheel(0, y / steps); await pause(ms); } };
   const log = []; const t0 = Date.now(); const mark = (s) => log.push(`${((Date.now() - t0) / 1000).toFixed(0)}s ${s}`);
-  await p.goto(base + '/dcs'); await pause(2500); mark('DCS'); await scroll(600, 4, 700); await pause(2000);
-  await p.goto(base + '/rtdb'); await pause(2500); mark('RTDB'); await scroll(500, 4, 700); await pause(2000);
-  await p.goto(base + '/draft'); await pause(3000); mark('초안');
+  await p.goto(base + '/dcs'); await pause(2500); mark('DCS'); await pause(4800);   // 전체 화면이라 스크롤이 없다
+  await p.goto(base + '/draft'); await pause(2500); mark('근무 목록');
+  await p.click('a.logrow:has(.pill.amber)'); await pause(3000); mark('초안');
   await scroll(900, 10, 900); await pause(2500);
   const sel = await p.$('select.sevsel');
   if (sel) { await sel.scrollIntoViewIfNeeded(); await pause(800); await sel.selectOption('중'); await pause(1500); mark('중요도 변경'); }
@@ -24,7 +24,7 @@ async (page) => {
   if (ta) { await ta.scrollIntoViewIfNeeded(); await pause(600); await ta.click(); await ta.type('현장 확인 — 인터쿨러 냉각수 유량 정상, 추이 계속 감시 요청', { delay: 45 }); await pause(1200); mark('코멘트'); }
   const btn = await p.$('button[type="submit"]'); await btn.scrollIntoViewIfNeeded(); await pause(1200); await btn.click(); await pause(3500); mark('승인 → ' + p.url());
   await scroll(700, 6, 600); await pause(2500);
-  await p.goto(base + '/'); await pause(2500); mark('일지 조회'); await scroll(400, 3, 600); await pause(2500);
+  await p.click('a.back'); await pause(2500); mark('근무 목록'); await scroll(400, 3, 600); await pause(2500);
   const video = p.video(); await ctx.close();
   return { path: await video.path(), log, total_s: ((Date.now() - t0) / 1000).toFixed(0) };
 }

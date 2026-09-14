@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 import approve as approve_mod
 import db
 import jobs
-import pipeline   # quality_summary — ④ 배너 문구
+import pipeline   # quality_summary — 초안 화면 배너 문구
 import llm
 import ports
 from config import DOCS_DIR
@@ -38,9 +38,7 @@ body{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var
 .nav a:hover{border-color:#c9c6c1}
 .nav a.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .nav a.on small{color:#c9c6c1}
-.frame{width:100%;height:78vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 .uploading .nav a{pointer-events:none;opacity:.45}
-.nav a.admin{margin-left:auto;border:1px dashed var(--line);opacity:.75}.nav a.admin.on{opacity:1}
 .sc{border-collapse:collapse;width:100%;font-size:12.5px}.sc th,.sc td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left}.sc th{color:var(--sub);font-weight:600;font-size:11px}
 .top h1{font-size:20px;letter-spacing:-.4px}.top h1 b{color:var(--accent)}
 .top span{font-size:12.5px;color:var(--sub)}
@@ -115,7 +113,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:5px;padding:6px 9
      border-radius:5px;padding:2px 9px;cursor:pointer}
 .del:hover{border-color:var(--accent);color:var(--accent)}
 
-/* 일지 조회 */
+/* 근무 목록 · 확정 일지 */
 .logrow{display:flex;align-items:center;gap:14px;padding:11px 14px;border:1px solid var(--line);
         border-radius:8px;background:#fff;margin-bottom:8px;transition:.12s;
         text-decoration:none;color:inherit}
@@ -174,7 +172,7 @@ async function upSend(f, fs, m){
     xhr.upload.onprogress=function(e){ if(e.lengthComputable) m.textContent='올리는 중 '+Math.round(100*e.loaded/e.total)+'% ('+mb(e.loaded)+'/'+mb(e.total)+(gz?' · 원본 '+mb(raw):'')+')'; };
     xhr.upload.onload=function(){ m.textContent='서버에서 푸는 중… (원본 '+mb(raw)+')'; };
     xhr.onload=function(){
-      if(xhr.status<400){ window.onbeforeunload=null; location.replace(f.dataset.back||'/pipeline'); return; }
+      if(xhr.status<400){ window.onbeforeunload=null; location.replace('/admin'); return; }
       var d=new DOMParser().parseFromString(xhr.responseText,'text/html'), t=d.querySelector('.empty');
       m.textContent='실패 '+xhr.status+' — '+(t?t.textContent:''); upLock(false);
     };
@@ -255,22 +253,19 @@ document.addEventListener('DOMContentLoaded',cnt);
 """
 
 
+# 결선 심사위원들이 「DCS → RTDB → 파이프라인 → 초안 → 일지」 다섯 칸을 따라가기 힘들어했다 → 두 칸.
+# 관리(/admin)는 주소를 아는 사람만 쓴다 — 어느 화면에서도 잇지 않는다.
 NAV = (
-    ("/dcs", "① DCS", "실시간 감시 · 기존 시스템"),
-    ("/rtdb", "② RTDB", "구간 데이터 추출"),
-    ("/pipeline", "③ 파이프라인", "적재 → 검출 → AI 초안"),
-    ("/draft", "④ 초안 검토", "채택·코멘트·승인"),
-    ("/", "⑤ 일지 조회", "축적 · 검색"),
+    ("/dcs", "DCS", "실시간 감시 · 기존 시스템"),
+    ("/draft", "초안", "검토·승인 → 확정 일지"),
 )
 
 
 def _nav(active):
-    """네 화면을 한 주소에서 이어 보게 한다. DCS·RTDB 는 임도영님 원본을 그대로 띄운다."""
     out = []
     for href, label, sub in NAV:
         on = " on" if href == active else ""
         out.append(f'<a class="{on.strip() or ""}" href="{href}">{label}<small>{sub}</small></a>')
-    out.append(f'<a class="admin{" on" if active == "/admin" else ""}" href="/admin">관리<small>검증·리셋 · 시연용</small></a>')
     return f'<div class="nav">{"".join(out)}</div>'
 
 
@@ -337,33 +332,31 @@ def view_asu():
     return ASU_FILE.read_text(encoding="utf-8") + _ASU_TAB_JS
 
 
-def _embed(title, active, tab, note):
-    """원본 화면을 우리 이동줄 안에 품는다."""
-    return page(title, f"""<div class="card">
-<h2>{esc(title)} <span class="pill">기존 시스템 · ENGRA 개입 없음</span></h2>
-<p class="note">{note}</p>
-<iframe class="frame" src="/asu#{tab}" title="{esc(title)}"></iframe>
-<p class="note" style="margin-top:10px">이 화면은 팀에서 만든 모의 설비 화면
-(<code>docs/asu_dcs_overview.html</code>)을 그대로 띄운 것입니다. 태그 체계·정상범위·
-알람 한계는 <code>docs/tag_master.csv</code>(계측 태그 53점)를 정본으로 씁니다.
-모든 값은 가상 데이터입니다.</p>
-</div>""", active=active)
+# /dcs — 개요 한 화면만 창 가득. ENGRA 상단바·이동줄·카드·설명문을 두르면 결선 심사에서 DCS 가 묻혔다.
+# 원본은 고치지 않고 _ASU_TAB_JS 처럼 서빙 때 CSS 만 덧붙인다 — 원본 스크립트가 쓰는 id·클래스(hmi, hminav, viewOverview …)에만 기댄다.
+# 원본이 #rtdb 해시로 탭을 직접 바꾸므로 개요 밖 화면은 !important 로 눌러 둔다. 세로 화면(폰)은 폭에 맞춰 위에 붙인다.
+# 원본의 「모의 화면 · 가상 데이터」 안내(.disc)만은 가리지 않는다 — 공개 주소라 심사위원이 보는 화면에서 가상 데이터 표시를 빼지 않는다.
+# 흐름도가 비어 있는 오른쪽 아래(범례 줄 위)에 작게 띄운다.
+_DCS_FULL_CSS = """
+<style>
+html{background:#c8c9c4}
+html,body{height:100%;overflow:hidden}
+body{visibility:hidden}
+.hmi{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;border:0;border-radius:0}
+.hminav,#viewData,#viewScen,#viewRtdb{display:none!important}
+#viewOverview{display:flex!important;flex-direction:column;flex:1;min-height:0}
+#viewOverview svg.mimic{flex:1;min-height:0;height:0}
+#sModal{visibility:visible}
+.wrap>.disc{visibility:visible;position:fixed;right:12px;bottom:34px;z-index:5;margin:0;max-width:340px;padding:4px 9px;font-size:10.5px;line-height:1.45;opacity:.92}
+@media (orientation:portrait){.hmi{bottom:auto}#viewOverview{flex:none}#viewOverview svg.mimic{flex:none;height:auto}.wrap>.disc{left:12px;max-width:none;bottom:12px}}
+</style>"""
 
 
 def view_dcs():
-    return _embed("제어시스템 공정 개요 화면", "/dcs", "ovw",
-                  "근무자가 근무 중 주시하는 화면입니다. 공정 흐름도 위에 태그값이 직접 "
-                  "표시되고 임계값을 넘으면 색으로 경보가 뜹니다. 실시간 감시와 알람은 "
-                  "전적으로 DCS 의 역할이며 ENGRA 는 이 화면에 나타나지 않습니다.")
-
-
-def view_rtdb():
-    # 임도영님이 원본에 RTDB 탭을 직접 추가했다(31734e5) — 태그×시각 시간평균 표. 그것을 연다.
-    return _embed("실시간 데이터베이스 — 근무 구간 원본", "/rtdb", "rtdb",
-                  "DCS 가 감시하는 태그값이 2초 주기로 쌓이는 원본 테이블입니다. 가로는 태그, "
-                  "세로는 시각입니다. 12시간이면 태그당 21,600점, 태그 53점이면 114만 점이라 "
-                  "사람이 이 표를 훑어 이상을 찾는 것은 불가능합니다 — ENGRA 는 구간이 닫히는 "
-                  "시각에 이 전체를 한 번에 검토합니다.")
+    """DCS 개요 — 원본 파일 그대로 + 전체 화면 CSS."""
+    if not ASU_FILE.exists():
+        return view_asu()
+    return ASU_FILE.read_text(encoding="utf-8") + _DCS_FULL_CSS
 
 
 def _score_html():
@@ -402,7 +395,7 @@ def _score_html():
         src = esc(jobs.KEYS.get(sid, {}).get("key_file", ""))
         if ev is None:
             rows.append((sid, '<tr><td class="mono">' + link + '</td><td class="muted mono" style="font-size:11px">' + src + '</td>' + when(sid) + '<td>' + str(inj) + '</td>'
-                         '<td class="muted" colspan="6">아직 안 돌림 — ③에서 CSV 를 올리고 「검출 + AI 초안」을 누르면 채점</td></tr>'))
+                         '<td class="muted" colspan="6">아직 안 돌림 — 위 카드에서 「검출 + AI 초안」을 돌리면 채점</td></tr>'))
             continue
         T["inj"] += inj; T["hit"] += hit; T["ev"] += ev; T["fp"] += fp
         miss = inj - hit
@@ -418,7 +411,7 @@ def _score_html():
         total = ('<tr style="border-top:2px solid var(--line);font-weight:700"><td>합계</td><td></td><td></td><td>' + str(T["inj"]) + '</td><td>' + str(T["hit"]) + '</td><td>'
                  + str(T["inj"] - T["hit"]) + '</td><td class="muted">' + (str(T.get("trk", 0)) or '') + '</td><td>' + str(T["ev"]) + '</td><td>' + str(T["ev"] - T["fp"]) + '</td><td>' + str(T["fp"]) + '</td></tr>')
     else:
-        head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 누르면 여기서 바로 채점됩니다') + '</span>'; total = ''
+        head = '<span class="muted">' + ('아직 올린 정답지가 없습니다 — 초안을 만든 뒤 그 근무의 asu_answer_*.json 을 올리면 여기서 대조합니다' if not rows else '아직 돌린 근무가 없습니다 — 「검출 + AI 초안」을 돌리면 여기서 바로 채점됩니다') + '</span>'; total = ''
     legend = ('<p class="note" style="margin:8px 0 0;font-size:12px;line-height:1.6">'
               '<b>읽는 법</b> — <b>주입한 이상</b>: 정답지가 이 근무 데이터에 넣어 둔 이상 상황 수. <b>탐지 성공</b>: 그중 검출 이벤트가 같은 태그·같은 시간대에 하나라도 있는 것. '
               '<b>놓침</b> = 주입한 이상 − 탐지 성공. <b>추적 중</b>: 근무 끝까지 이어지는 이상을 이 근무에서 못 잡은 것 — 다음 근무(이어받은 항목)에서 판정하므로 놓침도 주입 수에도 넣지 않는다. <b>총 검출 수</b>: 엔진이 "이상이다" 하고 낸 이벤트 수 = <b>맞게 잡음</b>(정답지에 있는 이상을 가리킨 이벤트) + <b>잘못 잡음</b>(정답지에 없는데 이상이라고 한 이벤트 = 오탐). '
@@ -489,28 +482,10 @@ def _admin_gate_html(locked):
 
 def view_admin(handler=None):
     """관리 — 검증·리셋·시연용 컨트롤을 한곳에. 경모님(2026-08-27): "관리 버튼이 여기저기 있으면 기존 로직인지
-    관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 ③·⑤ 에서 이쪽으로 옮겼다."""
-    st = jobs.state(); running = st["running"]
+    관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 운영 화면에서 이쪽으로 옮겼다.
+    운영 화면(DCS · 초안)은 여기를 잇지 않는다 — 주소를 아는 사람만 들어온다."""
     locked = not _admin_ok(handler) if handler is not None else False
-    links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + '</a> ' for sid in sorted(jobs.KEYS))
-    opts = "".join('<option value="' + esc(s["shift_id"]) + '">' + esc(s["shift_id"]) + ' · ' + ("확정" if s["status"] == "confirmed" else ("초안 있음" if s["status"] == "pending" else "적재됨")) + '</option>' for s in jobs.sources())
-    body = (_admin_gate_html(locked) + '<div class="card" style="padding:14px 18px"><h2>관리 — 검증 · 리셋 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 제품 흐름(①~⑤)에는 없는 기능만 모았다</span></h2>'
-            '<p class="note" style="margin:0 0 10px"><b>정답지 대조</b> — 생성기가 CSV 와 함께 내려준 asu_answer_*.json 을 올리면, 그 근무에서 엔진이 잡은 것과 심어 둔 이상을 대조한다. '
-            '초안을 먼저 만든 뒤 올리면 「사후 ✓」로 표시된다(검출이 정답지를 볼 수 없었다는 순서 근거).</p>'
-            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" data-back="/admin" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-            '<input type="hidden" name="back" value="/admin">'
-            '<span class="muted" style="font-size:12.5px">정답지 올리기 —</span>'
-            '<input type="file" name="files" multiple accept=".json" style="font-size:12.5px">'
-            '<button class="btn"' + (' disabled title="열쇠 필요"' if locked else '') + ' style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
-            '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span></form>' + _upload_result_html()
-            + (('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>') if jobs.KEYS else '')
-            + '</div>' + _score_html()
-            + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">다시 만들기</h2>'
-            '<p class="note" style="margin:0 0 8px">확정된 근무를 지우고 처음부터 다시 검출·초안. 원본이 정리됐으면 올린 CSV 에서 다시 적재한다. 확정 일지는 이력에 남지 않고 지워진다.</p>'
-            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
-            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:300px">' + opts + '</select>'
-            '<input type="hidden" name="redo" value="1">'
-            '<button class="btn"' + (' disabled title="열쇠 필요"' if locked else '') + '' + (' disabled' if (running or not opts) else '') + ' onclick="return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\')">확정돼 있어도 다시 만들기</button></form></div>'
+    body = (_admin_gate_html(locked) + _pipeline_card(locked) + _score_html()
             + '<div class="card" style="padding:14px 18px"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
             '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
             '<ol style="margin:0 0 6px 18px;font-size:12.5px;line-height:1.6">'
@@ -547,7 +522,7 @@ def view_answer(shift_id):
             + (f' · 동시 발생 {len(sh.get("overlaps") or [])}건' if sh.get("overlaps") else "") + '</p>')
     if not d:
         head += ('<p class="note"><b>아직 이 근무를 돌리지 않았습니다.</b> 아래는 심어둔 시나리오만 보입니다. '
-                 '③ 파이프라인에서 실행하면 검출 결과와 대조가 붙습니다.</p>')
+                 '관리에서 이 근무를 돌리면 검출 결과와 대조가 붙습니다.</p>')
     else:
         hit = sum(1 for i in d["injected"] if i["hit"]); tot = len(d["injected"])
         head += (f'<p class="note"><b>대조 결과 — 주입 {tot}건 중 {hit}건 잡음 · 오탐 {len(d["fp"])}건</b> '
@@ -589,21 +564,19 @@ def view_answer(shift_id):
     return page(f"정답지 {shift_id}", head + "".join(rows) + fp_html + ov_html, active="/admin")
 
 
-def view_pipeline():
-    """전체 흐름을 화면에서 돌린다. 적재 → 검출·AI 초안 → (초안 검토로) → 정답지 대조."""
+def _pipeline_card(locked):
+    """근무 올리기 → 검출 + AI 초안 → 진행을 한 카드에. 「확정돼 있어도 다시 만들기」는 실행의 선택지다.
+
+    /pipeline 화면(CSV 업로드·실행·진행)과 관리의 정답지 업로드·다시 만들기가 같은 폼을 두 번 보였다.
+    결선에서 /pipeline 을 없애며 관리 한 카드로 합쳤다. 정답지 JSON·다시 만들기의 열쇠는 서버가 따로 본다."""
     st = jobs.state()
-    with db.connect() as conn:
-        have = {r["id"]: (bool(db.load_draft(conn, r["id"])), bool(db.load_handover(conn, r["id"]))) for r in db.list_shifts(conn)}
-    opts = []
-    ingested = (st.get("result") or {}).get("ingested") if isinstance(st.get("result"), dict) else None
-    cur = st.get("shift_id") or (ingested[-1] if ingested else None)   # 새로고침마다 1번으로 돌아가던 것 (경모님 QA)
-    for src in jobs.sources():
-        d, h = have.get(src["shift_id"], (False, False))
-        tag = "확정" if h else ("초안 있음" if d else "적재됨")
-        opts.append('<option value="' + esc(src["shift_id"]) + '"' + (' selected' if src["shift_id"] == cur else '') + '>' + esc(src["shift_id"]) + ' · ' + tag + '</option>')
-    up_html = _upload_result_html()
     log = "\n".join(esc(x) for x in st["lines"][-40:])
     running = st["running"]
+    ingested = (st.get("result") or {}).get("ingested") if isinstance(st.get("result"), dict) else None
+    cur = st.get("shift_id") or (ingested[-1] if ingested else None)   # 새로고침마다 1번으로 돌아가던 것 (경모님 QA)
+    opts = "".join('<option value="' + esc(s["shift_id"]) + '"' + (' selected' if s["shift_id"] == cur else '') + '>' + esc(s["shift_id"]) + ' · '
+                   + ("확정" if s["status"] == "confirmed" else ("초안 있음" if s["status"] == "pending" else "적재됨")) + '</option>' for s in jobs.sources())
+    links = "".join('<a href="/answer/' + esc(sid) + '" class="pill" style="text-decoration:none;font-size:11.5px">' + esc(sid) + '</a> ' for sid in sorted(jobs.KEYS))
     skip_html = "".join(
         '<form method="post" action="/pipeline/ingest_skip" style="display:inline-block;margin:4px 8px 8px 0"><input type="hidden" name="file" value="' + esc(fn) + '">'
         '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px" onclick="return window.confirm(\'깨진 행을 건너뛰고 적재합니다. 건너뛴 사실은 근무 품질 기록으로 남아 초안과 AI 판단에 들어갑니다.\')">'
@@ -614,10 +587,10 @@ def view_pipeline():
     link = ""
     lr = st.get("last_run") or {}
     if not running and lr.get("shift_id"):   # 뒤이어 적재가 돌았어도 마지막 실행의 링크는 남는다
-        link = ('<p class="note"><a href="/shift/' + esc(lr["shift_id"]) + '"><b>→ ④ 초안 검토로 (' + esc(lr["shift_id"]) + ')</b></a>'
+        link = ('<p class="note"><a href="/shift/' + esc(lr["shift_id"]) + '"><b>→ 초안 검토로 (' + esc(lr["shift_id"]) + ')</b></a>'
                 ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
-    hint = ('<span class="muted" style="font-size:12px">AI 단계는 5항목 묶음당 약 2~3분 (6~8항목 ≈ 3분대 · 16항목 ≈ 6.5~7.2분, 실측) · 진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
-            '<a id="jobdone" href="/pipeline" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
+    hint = ('<span class="muted" style="font-size:12px">진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
+            '<a id="jobdone" href="/admin" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
     # 새로고침이 아니라 /api/job 폴링으로 로그·경과만 바꾼다 — 새로고침은 파일 선택을 지우고 업로드를 끊었다 (경모님 QA)
     reload_js = ('<script>(function(){function tick(){fetch("/api/job").then(function(r){return r.json()}).then(function(j){'
                  'var pre=document.getElementById("joblog");if(pre)pre.textContent=(j.lines||[]).slice(-40).join("\\n")||"여기에 진행이 표시됩니다.";'
@@ -626,61 +599,41 @@ def view_pipeline():
                  'if(!window.__uploading&&!(f&&f.files.length)){location.reload();return;}'
                  'var p=document.getElementById("jobpill");if(p){p.textContent="완료";p.classList.remove("on");}var d=document.getElementById("jobdone");if(d)d.style.display="inline";return;}'
                  'setTimeout(tick,3000);}).catch(function(){setTimeout(tick,5000);});}setTimeout(tick,3000);})();</script>') if running else ""
-    body = ('<div class="card" style="padding:14px 18px">'
-            '<h2>파이프라인 — ENGRA Simulation</h2>'
-            '<p class="note" style="margin:0 0 10px">② RTDB 에서 내려받은 근무 CSV 를 올리면 바로 적재돼 그 안의 근무가 목록에 뜬다 → 「검출 + AI 초안」 → ④ 초안 검토에서 승인·확정. '
-            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. 검증·시연용 기능(정답지 채점·리셋·다시 만들기)은 <a href="/admin">관리</a>에 있다.</p>'
-            '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>① 파일 올리기</b></div>'
-            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" data-back="/pipeline" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-            '<input type="hidden" name="back" value="/pipeline">'
-            '<span class="muted" style="font-size:12.5px">생성기에서 받은 파일 올리기 —</span>'
-            '<input type="file" name="files" multiple accept=".csv" style="font-size:12.5px">'
+    lock = ' disabled title="열쇠 필요"' if locked else ''
+    return ('<div class="card" style="padding:14px 18px"><h2>관리 — 근무 올리기 · 검출 + AI 초안 <span class="muted" style="font-weight:400;font-size:12px">시연·QA 용. 운영 화면(DCS · 초안)에는 없는 기능만 모았다</span></h2>'
+            '<p class="note" style="margin:0 0 10px">생성기(<a href="/asu#rtdb">RTDB 탭</a>)에서 내려받은 근무 CSV 를 올리면 바로 적재돼 아래 목록에 뜬다 → 「검출 + AI 초안」 → 초안 화면에서 승인·확정. '
+            '다음 근무를 올리면 앞 근무의 확정 조치가 <b>과거 조치</b>로 회수된다. '
+            '<b>정답지</b>(생성기가 CSV 와 함께 내려준 asu_answer_*.json)를 올리면 아래 대조표가 그 근무에서 엔진이 잡은 것과 심어 둔 이상을 대조한다 — '
+            '초안을 먼저 만든 뒤 올리면 「사후 ✓」(검출이 정답지를 볼 수 없었다는 순서 근거).</p>'
+            '<div class="muted" style="font-size:12px;margin:6px 0 2px"><b>파일 올리기</b></div>'
+            f'<form method="post" action="/pipeline/upload" enctype="multipart/form-data" onsubmit="return upCheck(this)" data-max="{Handler.MAX_UPLOAD}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+            '<input type="file" name="files" multiple accept=".csv,.json" style="font-size:12.5px">'
             '<button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">업로드</button>'
-            '<span class="muted" style="font-size:11.5px">근무 CSV(여러 개 가능). 올리면 바로 적재된다</span>'
-            '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span>'
-            '</form>' + up_html +
-            '<div class="muted" style="font-size:12px;margin:12px 0 2px"><b>② 검출 + AI 초안</b>' + ('' if opts else ' <span style="color:var(--bad)">— 먼저 파일을 올리세요</span>') + '</div>'
-            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:340px">' + "".join(opts) + '</select>'
-            '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="var o=this.form.shift_id.selectedOptions[0].text; if(o.indexOf(\'초안 있음\')>=0 && !window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\')) return false;">적재 + 검출 + AI 초안 생성</button>'
-            '</form>'
-
-            + '<div style="display:flex;gap:10px;align-items:center;margin:8px 0 4px">'
+            '<span class="muted" style="font-size:11.5px">근무 CSV · 정답지 JSON, 여러 개 가능. CSV 는 올리면 바로 적재된다' + (' · 정답지는 열쇠가 필요' if locked else '') + '</span>'
+            '<span class="upmsg" style="font-size:12px;color:var(--bad)"></span></form>' + _upload_result_html()
+            + (('<div style="margin:0 0 12px;font-size:12px;color:var(--sub)">정답지 보기 — 무엇을 심었고 무엇을 잡았나: ' + links + '</div>') if jobs.KEYS else '')
+            + '<div class="muted" style="font-size:12px;margin:12px 0 2px"><b>검출 + AI 초안</b>' + ('' if opts else ' <span style="color:var(--bad)">— 먼저 파일을 올리세요</span>') + '</div>'
+            '<form method="post" action="/pipeline/run" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">'
+            '<select name="shift_id" class="pill" style="font-size:13px;padding:6px 10px;min-width:300px">' + opts + '</select>'
+            '<label style="font-size:12.5px;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" name="redo" value="1"' + lock + '>확정돼 있어도 다시 만들기</label>'
+            '<button class="btn"' + (' disabled' if (running or not opts) else '') + ' onclick="var f=this.form, o=f.shift_id.selectedOptions[0].text;'
+            ' if(f.redo.checked) return window.confirm(\'이 근무의 확정 일지와 초안을 지우고 다시 만듭니다. 계속할까요?\');'
+            ' if(o.indexOf(\'초안 있음\')>=0) return window.confirm(\'이 근무는 검토 중인 초안이 있습니다. 지금 초안을 지우고 새로 만듭니다. 계속할까요?\');">적재 + 검출 + AI 초안 생성</button></form>'
+            '<p class="note" style="margin:0 0 10px;font-size:12px">「확정돼 있어도 다시 만들기」 — 확정 일지와 초안을 지우고 처음부터 다시 검출·초안(확정 일지는 이력에 남지 않는다). 원본이 정리됐으면 올린 CSV 에서 다시 적재한다.</p>'
+            '<div style="display:flex;gap:10px;align-items:center;margin:0 0 4px">'
             '<span id="jobpill" class="pill' + (' on' if running else '') + '">' + status + '</span>'
             '<span class="muted" style="font-size:12px">' + esc(st["shift_id"] or "") + '</span>' + hint + '</div>'
             '<pre id="joblog" class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
             + (log or "여기에 진행이 표시됩니다.") + '</pre>' + err + link + '</div>'
             + reload_js)
-    return page("파이프라인", body, active="/pipeline")
 
 
 def view_draft():
-    """승인 대기 중인 가장 최근 근무의 초안을 띄운다.
+    """초안 — 근무 목록. 누르면 /shift/<근무> 에서 승인 대기 초안을 검토하거나 확정 일지를 본다.
 
-    이동줄에서 초안 검토를 누를 때 근무 ID 를 몰라도 되게 하려는 것이다.
-    대기 중인 것이 없으면 (전부 확정됐으면) 가장 최근 근무를 보여준다.
+    「초안 검토」(가장 최근 대기 초안으로 바로)와 「일지 조회」(목록)가 따로였다. 같은 근무가 두 화면에
+    나뉘어 결선 심사위원들이 흐름을 따라가기 힘들어했다 → 목록 → 상세 한 줄기로 합쳤다.
     """
-    with db.connect() as conn:
-        rows = db.list_shifts(conn)
-        pending = None
-        newest = None
-        for r in rows:
-            if newest is None:
-                newest = r["id"]
-            if db.load_handover(conn, r["id"]) is None and db.load_draft(conn, r["id"]):
-                pending = r["id"]
-                break
-    if not pending:
-        latest = f'<br><a href="/shift/{esc(newest)}">가장 최근 확정 일지 보기 ({esc(newest)}) ›</a>' if newest else ""
-        return page("초안", f'<div class="card"><div class="empty">'
-                            f'<b>승인 대기 중인 초안이 없습니다.</b><br>모든 근무가 확정됐습니다. '
-                            f'다음 근무 초안은 교대 1시간 전에 자동 생성됩니다.{latest}<br><br>'
-                            f'<span class="muted">QA 중이면 일지 조회의 「데모 상태 되돌리기」로 대기 건을 복원할 수 있습니다.</span>'
-                            f'</div></div>', active="/draft")
-    return view_shift(pending, active="/draft")
-
-
-def view_index():
     with db.connect() as conn:
         rows = db.list_shifts(conn)
         summaries = {
@@ -691,7 +644,7 @@ def view_index():
     rows = [r for r in rows if r["draft_status"] in ("pending", "confirmed")]   # 경모님: "미생성은 있을 필요 없다" — 초안·확정만
     if not rows:
         why = (f'적재된 근무 {len(only_ingested)}개가 있지만 아직 초안이 없습니다.' if only_ingested else '아직 근무가 없습니다.')
-        return page("일지", '<div class="card"><div class="empty">' + why + '<br><a href="/pipeline"><b>③ 파이프라인</b></a>에서 ' + ('「검출 + AI 초안」을 누르면' if only_ingested else '생성기 CSV 를 올리고 「검출 + AI 초안」을 누르면') + ' 여기에 쌓입니다.</div></div>', active="/")
+        return page("초안", '<div class="card"><div class="empty">' + why + '<br>초안이 만들어지면 여기에 쌓입니다.</div></div>', active="/draft")
 
     out = []
     for r in rows:
@@ -714,11 +667,11 @@ def view_index():
         )
 
     body = (f'<div class="card" style="padding:14px 18px">'
-            f'<h2>근무 일지</h2>'
-            f'<p class="note" style="margin:0">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다. '
+            f'<h2>초안 · 근무 일지</h2>'
+            f'<p class="note" style="margin:0">근무를 누르면 승인 대기 초안의 검토 또는 확정 일지로 들어갑니다. '
             f'분석 구간은 교대 1시간 전을 경계로 나뉩니다.</p></div>'
             f'{"".join(out)}')
-    return page("일지 조회", body, active="/")
+    return page("초안", body, active="/draft")
 
 
 def _rounds_html(shift_id):
@@ -738,7 +691,7 @@ def _rounds_html(shift_id):
     return "".join(parts)
 
 
-def _view_confirmed(shift_id, draft, handover, active="/"):
+def _view_confirmed(shift_id, draft, handover, active="/draft"):
     own = [i for i in draft["items"] if i["origin"] != "carried"]      # 이월 판단 행은 위 묶음에서 보인다
     adopted = [i for i in own if i["adopted"] == 1]
     excluded = [i for i in own if i["adopted"] == 0]
@@ -774,7 +727,7 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
               f'같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>')
 
     date, kind = shift_id.rsplit("-", 1)
-    return page(shift_id, f"""<a class="back" href="/">‹ 목록으로</a>
+    return page(shift_id, f"""<a class="back" href="/draft">‹ 목록으로</a>
 {_carry_box(opened, choices, editable=False)}
 <div class="card det">
 <h3>{esc(date)} {"주간조" if kind == "day" else "야간조"} 인수인계서</h3>
@@ -959,7 +912,7 @@ def _prev_ex_note(pe):
             + rep + tail + '</div>')
 
 
-def _view_pending(shift_id, draft, active="/"):
+def _view_pending(shift_id, draft, active="/draft"):
     waves = _waves(shift_id)
     items = []
     low = []            # 지난 근무에서 제외한 것 — 지우지 않고 최하단으로 내린다 (#30)
@@ -1073,7 +1026,7 @@ def _view_pending(shift_id, draft, active="/"):
 
     date, kind = shift_id.rsplit("-", 1)
     n = len(own)
-    return page(shift_id, f"""<a class="back" href="/">‹ 목록으로</a>
+    return page(shift_id, f"""<a class="back" href="/draft">‹ 목록으로</a>
 {disc}
 {qbanner}
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
@@ -1103,7 +1056,7 @@ def _view_pending(shift_id, draft, active="/"):
 </form>""", active=active)
 
 
-def view_shift(shift_id, active="/"):
+def view_shift(shift_id, active="/draft"):
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
         handover = db.load_handover(conn, shift_id)
@@ -1112,7 +1065,7 @@ def view_shift(shift_id, active="/"):
         ).fetchone()
 
     if draft is None:
-        return page(shift_id, f'<a class="back" href="/">‹ 목록으로</a>'
+        return page(shift_id, f'<a class="back" href="/draft">‹ 목록으로</a>'
                               f'<div class="card"><div class="empty">{esc(shift_id)} 의 초안이 '
                               f'없습니다.<br><code class="mono">python3 app/cli.py run '
                               f'{esc(shift_id)}</code></div></div>', active=active)
@@ -1146,12 +1099,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         try:
-            if path == "/":
-                self._send(200, view_index())
+            if path == "/":   # 옛 일지 조회 주소 — 초안 목록으로 합쳤다
+                self.send_response(303); self.send_header("Location", "/draft"); self.end_headers()
             elif path == "/draft":
                 self._send(200, view_draft())
-            elif path == "/pipeline":
-                self._send(200, view_pipeline())
             elif path == "/admin":
                 self._send(200, view_admin(self))
             elif path.startswith("/answer/"):
@@ -1160,8 +1111,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(jobs.state())
             elif path == "/dcs":
                 self._send(200, view_dcs())
-            elif path == "/rtdb":
-                self._send(200, view_rtdb())
             elif path == "/asu":
                 self._send(200, view_asu())
             elif path.startswith("/shift/"):
@@ -1192,7 +1141,7 @@ class Handler(BaseHTTPRequestHandler):
         cap = self.MAX_UPLOAD if is_upload else self.MAX_BODY
         if length < 0 or length > cap:
             self._send(413, page("요청이 너무 큽니다", f'<div class="card"><div class="empty">'
-                                                  f'본문 {length:,}B — 허용 {cap:,}B</div></div>', active="/pipeline"))
+                                                  f'본문 {length:,}B — 허용 {cap:,}B</div></div>', active="/admin"))
             return
         if is_upload:
             # 한 번에 하나만 — 본문을 읽기 전에 줄을 서므로 두 번째 업로드는 메모리를 안 먹고 기다린다.
@@ -1230,7 +1179,7 @@ class Handler(BaseHTTPRequestHandler):
             print(f"  UPLOAD 시간 초과 {len(buf):,}/{length:,}B")
             self.connection.settimeout(self.UPLOAD_STALL_S)   # 마지막 반복의 극소 timeout 이 응답 전송까지 남지 않게 (Codex 4차)
             try:
-                self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>', active="/pipeline"))
+                self._send(408, page("업로드 시간 초과", '<div class="card"><div class="empty">전송이 멎어 끊었습니다. 다시 올려 주세요.</div></div>', active="/admin"))
             except OSError:
                 pass
             return None
@@ -1268,13 +1217,9 @@ class Handler(BaseHTTPRequestHandler):
         msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
             b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
         saved, paths, key_sids = [], [], []
-        back = "/pipeline"
         try:
             for part in msg.iter_parts():
                 fn = part.get_filename()
-                if not fn and part.get_param("name", header="content-disposition") == "back":
-                    back = "/admin" if (part.get_payload(decode=True) or b"").strip() == b"/admin" else "/pipeline"
-                    continue
                 if fn:
                     data = part.get_payload(decode=True)
                     if fn.endswith(".gz"):
@@ -1285,13 +1230,13 @@ class Handler(BaseHTTPRequestHandler):
                     p, sids = jobs.save_upload(fn, data)
                     saved.append(p.name); paths.append(p); key_sids += sids
         except Exception as exc:
-            self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline"))
+            self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin"))
             return
         print("  UPLOAD " + str(saved))
         csvs = [p for p in paths if p.suffix == ".csv"]
         queued = (not jobs.ingest_async(csvs)) if csvs else False   # 올린 CSV 는 바로 적재 → 그 안의 근무가 전부 목록에
         jobs.note_upload(saved, key_sids, queued)
-        self.send_response(303); self.send_header("Location", back); self.end_headers()
+        self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
         return
 
     def _handle_form(self, raw):
@@ -1319,13 +1264,13 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     started = jobs.ingest_skip(form.get("file", [""])[0])
                 except FileNotFoundError as exc:
-                    self._send(400, page("없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
-                self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers(); return
+                    self._send(400, page("없음", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin")); return
+                self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/pipeline/run":
                 sid = form["shift_id"][0]
                 redo = form.get("redo", ["0"])[0] == "1"
                 if not any(x["shift_id"] == sid for x in jobs.sources()):
-                    self._send(400, page("없음", '<div class="card"><div class="empty">적재된 근무가 아닙니다. 먼저 CSV 를 올리세요.</div></div>', active="/pipeline")); return
+                    self._send(400, page("없음", '<div class="card"><div class="empty">적재된 근무가 아닙니다. 먼저 CSV 를 올리세요.</div></div>', active="/admin")); return
                 with db.connect() as conn:
                     row = conn.execute("SELECT ingested_at FROM shift WHERE id = ?", (sid,)).fetchone()
                     confirmed = db.load_handover(conn, sid) is not None
@@ -1340,17 +1285,17 @@ class Handler(BaseHTTPRequestHandler):
                     except (OSError, TypeError, ValueError):
                         newer = False
                 if confirmed and not redo:   # 확정 근무는 제품 흐름에서 다시 돌리지 않는다 — 비동기 실패 대신 바로 안내
-                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무입니다. 다시 만들려면 <a href="/admin">관리</a>의 「확정돼 있어도 다시 만들기」를 쓰세요.</div></div>', active="/pipeline")); return
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무입니다. 다시 만들려면 <a href="/admin">관리</a>에서 「확정돼 있어도 다시 만들기」를 켜고 실행하세요.</div></div>', active="/admin")); return
                 if (newer or stale) and csv is None:
-                    self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>', active="/pipeline")); return
+                    self._send(400, page("원본 없음", '<div class="card"><div class="empty">' + esc(sid) + ' 의 원본이 보관 기간(3일)이 지나 정리됐고 올린 파일도 없습니다. 그 근무의 CSV 를 다시 올리세요.</div></div>', active="/admin")); return
                 if (newer or stale) and confirmed and not redo:   # 재적재 뒤 비동기로 "확정된 근무" 실패하지 않게 먼저 막는다 (Codex)
-                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 원본을 다시 적재해야 합니다. 새로 만들려면 「확정 data 다시 만들기」를 켜세요.</div></div>', active="/pipeline")); return
+                    self._send(400, page("확정된 근무", '<div class="card"><div class="empty">' + esc(sid) + ' 는 확정된 근무인데 원본을 다시 적재해야 합니다. 새로 만들려면 「확정돼 있어도 다시 만들기」를 켜세요.</div></div>', active="/admin")); return
                 try:
                     jobs.run_async(sid, csv_path=str(csv) if (newer or stale) else None, redo=redo,
                                    reingest=(newer or stale), why=("새 파일" if newer else "보관 기간(3일)이 지나 원본이 정리됨") if (newer or stale) else None)
                 except RuntimeError as exc:
-                    self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/pipeline")); return
-                self.send_response(303); self.send_header("Location", "/pipeline"); self.end_headers()
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin")); return
+                self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
                 return
             if path == "/reopen":
                 # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.
@@ -1374,7 +1319,7 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 held = jobs.hold()   # 실행 스레드가 DB 파일을 잡고 있는데 파일을 갈아끼우면 그 스레드는 지워진 inode 에 쓴다 — 락을 잡은 채 교체 (Codex TOCTOU)
                 if held is None:
-                    self._send(409, page("실행 중", '<div class="card"><div class="empty">③ 파이프라인이 돌고 있습니다. 끝난 뒤 리셋하세요.</div></div>')); return
+                    self._send(409, page("실행 중", '<div class="card"><div class="empty">적재·검출 작업이 돌고 있습니다. 끝난 뒤 리셋하세요.</div></div>')); return
                 try:
                     jobs.mark_qa_active()
                     what = db.reset(empty=empty)

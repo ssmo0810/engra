@@ -66,7 +66,7 @@ PORT=$((20000 + RANDOM % 20000))
 ENGRA_LLM=off python3 app/cli.py serve --port "$PORT" >/tmp/engra_smoke_serve.log 2>&1 &
 SPID=$!; sleep 1.5
 SID=$(python3 -c "import sqlite3,os; c=sqlite3.connect(os.environ.get('ENGRA_DB','app/engra.db')); r=c.execute('select id from shift order by id desc limit 1').fetchone(); print(r[0] if r else '')")
-pages="/ /pipeline /draft /admin"
+pages="/ /dcs /draft /admin"
 [ -n "$SID" ] && pages="$pages /shift/$SID /answer/$SID"
 bad=0
 for pg in $pages; do
