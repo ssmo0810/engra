@@ -1390,6 +1390,11 @@ _LANES = ("ai_failed", "writing", "observing", "ready")
 _LANE_NAME = {"ai_failed": "AI 서술 실패", "writing": "AI 작성 중", "observing": "관찰 중", "ready": "초안"}
 
 
+# 빈 안내에도 표식을 단다. 표식이 없으면 폴링이 지우지 못해, 0건일 때 연 화면은 카드가 쌓여도
+# 「감지된 항목이 없습니다」가 그대로 남았다(경모님 지적 2026-09-15).
+_EMPTY_CARD = '<div class="card" data-key="__empty"><div class="empty">감지된 항목이 없습니다.</div></div>'
+
+
 def _lane_head(state, n):
     return f'<div class="lane" data-state="head" data-key="__h_{state}">{esc(_LANE_NAME[state])} <b>{n}</b></div>'
 
@@ -1430,6 +1435,11 @@ def _live_rows(shift_id, draft, views, same, heads=True):
             if heads:
                 rows.append({"key": f"__h_{st}", "state": "head", "html": _lane_head(st, len(lanes[st]))})
             rows += lanes[st]
+    # 빈 안내는 화면이 보여 주는 것과 같은 규칙으로 — 최하단 「이전에 제외한 것」 칸에 뭔가 있으면 빈 화면이 아니다
+    # (_view_pending 의 조건과 같다). 초안에 그런 항목만 있을 때 빈 안내를 안 내보내면 목록만 비고 까닭이 없다(codex 반증).
+    own = [x for x in draft["items"] if x["origin"] != "carried"]
+    if not rows and not [x for x in own if x.get("prev_excluded")]:
+        rows.append({"key": "__empty", "state": "empty", "html": _EMPTY_CARD})
     return rows
 
 
@@ -1651,7 +1661,7 @@ def _view_pending(shift_id, draft):
         items = [r["html"] for r in rows]
 
     if not items and not low:
-        items.append('<div class="card"><div class="empty">감지된 항목이 없습니다.</div></div>')
+        items.append(_EMPTY_CARD)
 
     disc = ""
     if ports.engine_source() == "stub":
