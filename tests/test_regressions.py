@@ -373,8 +373,9 @@ class RelatedTagsGuard(unittest.TestCase):
         import inspect
         _fresh_db()
         import llm
-        src = inspect.getsource(llm.rewrite)
-        self.assertIn('rewritten[j].get("tag")', src,
+        # 묶음 합치기는 2026-09-14 항목별 병렬화로 rewrite → _merge 로 옮겼다. 걸러내는 자리는 그대로다.
+        src = inspect.getsource(llm._merge)
+        self.assertIn('whole[j].get("tag")', src,
                       "태그를 .get 으로 꺼내 None 을 걸러야 한다")
 
 
