@@ -1,0 +1,147 @@
+{
+  "idx": 2,
+  "shift_id": "2026-09-14-day",
+  "kind": "day",
+  "kind_ko": "주간",
+  "from": "2026-09-14T06:00:00",
+  "to": "2026-09-14T18:00:00",
+  "base_seed": 1852883416,
+  "placement_seed": 1852883418,
+  "sampling_interval_sec": 2,
+  "tag_count": 53,
+  "injected": [
+    {
+      "scenario_id": 1,
+      "name": "순도 헌팅",
+      "description": "평소 변동폭 6배 하향 0.42%p (99.60 → 99.18) 감쇠 진동 후 자연 안정",
+      "trigger_tag": "AI-707",
+      "affected_tags": [
+        "AI-707",
+        "AI-803"
+      ],
+      "start": "2026-09-14T06:00:00",
+      "end": "2026-09-14T06:15:32",
+      "duration_sec": 932,
+      "minutes": 16,
+      "carried_in": true,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 14,
+      "name": "터빈 회전수 순간 강하",
+      "description": "−800 rpm 로 20초간 강하 후 즉시 복귀",
+      "trigger_tag": "SI-507",
+      "affected_tags": [
+        "SI-507"
+      ],
+      "start": "2026-09-14T10:08:00",
+      "end": "2026-09-14T10:08:20",
+      "duration_sec": 20,
+      "minutes": 0,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 18,
+      "name": "HP Column 고레벨",
+      "description": "25 → 44% 상승 후 유지 — H(40%) 초과, 방치 시 캐리오버",
+      "trigger_tag": "LI-701",
+      "affected_tags": [
+        "LI-701"
+      ],
+      "start": "2026-09-14T10:50:02",
+      "end": "2026-09-14T12:20:02",
+      "duration_sec": 5400,
+      "minutes": 90,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "발생 · LI-701 H"
+    },
+    {
+      "scenario_id": 21,
+      "name": "LIN 탱크 출하",
+      "description": "LV-802 개도 38.5 → 67.5% 로 열어 2시간 출하 — LIN 레벨 약 25%p 하강 후 재충전",
+      "trigger_tag": "LI-806",
+      "affected_tags": [
+        "ZI-805",
+        "LI-806"
+      ],
+      "start": "2026-09-14T14:17:32",
+      "end": "2026-09-14T17:07:32",
+      "duration_sec": 10200,
+      "minutes": 170,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": true,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 8,
+      "name": "압축기 서지 전조",
+      "description": "토출압 +3% 상승과 유량 −6% 감소가 동시 진행",
+      "trigger_tag": "PI-203",
+      "affected_tags": [
+        "PI-203",
+        "FI-204",
+        "JI-206",
+        "TI-205"
+      ],
+      "start": "2026-09-14T16:25:42",
+      "end": "2026-09-14T16:50:42",
+      "duration_sec": 1500,
+      "minutes": 25,
+      "carried_in": false,
+      "continues_next": false,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 15,
+      "name": "순도 동반 저하",
+      "description": "LP 순도 −0.3%p 하락, 3분 뒤 LOX 탱크 순도가 따라 하락",
+      "trigger_tag": "AI-707",
+      "affected_tags": [
+        "AI-707",
+        "AI-803"
+      ],
+      "start": "2026-09-14T16:29:38",
+      "end": "2026-09-14T18:00:00",
+      "duration_sec": 5422,
+      "minutes": 90,
+      "carried_in": false,
+      "continues_next": true,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    },
+    {
+      "scenario_id": 2,
+      "name": "토출온도 드리프트",
+      "description": "시간당 +0.68℃ 완만 상승 24시간 — 근무 경계를 넘는다. H(125℃) 도달 여부는 끝나는 시각의 외기에 달렸다",
+      "trigger_tag": "TI-205",
+      "affected_tags": [
+        "TI-205"
+      ],
+      "start": "2026-09-14T17:28:06",
+      "end": "2026-09-14T18:00:00",
+      "duration_sec": 1914,
+      "minutes": 32,
+      "carried_in": false,
+      "continues_next": true,
+      "operation": false,
+      "first_out": null,
+      "dcs_alarm": "미발생"
+    }
+  ],
+  "overlaps": []
+}
