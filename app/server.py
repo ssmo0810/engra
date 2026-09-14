@@ -37,6 +37,7 @@ STYLE = """
       --ready:#3a4aa0;--ready-soft:#ecedfa;        /* 선택 가능 */
       --chart:#0b62c4;--band:#f0b323;              /* 그래프 선 · 감지 구간 음영 */
       --why-bg:#f6f5f2;--why-line:#d5d1ca;--sug-bg:#f1f6f2;--sug-line:#a9cdb6;
+      --flash:#fdf2c9;                             /* 값이 바뀐 자리가 한 번 밝아진다 */
       --disc-bg:#fff8e6;--disc-line:#efe2bd;--off-bg:#fbfaf8}
 
 /* 어두운 화면 — 토큰만 다시 정한다. 규칙은 하나고 색만 갈린다 */
@@ -52,6 +53,7 @@ STYLE = """
       --ready:#9aa6ee;--ready-soft:#1d2040;
       --chart:#5aa2f5;--band:#d9a03c;
       --why-bg:#232120;--why-line:#3d3a36;--sug-bg:#16251b;--sug-line:#2f5c3f;
+      --flash:#4a3f1c;
       --disc-bg:#2a2413;--disc-line:#4a3f1f;--off-bg:#191817}
 }
 *{margin:0;padding:0;box-sizing:border-box}
@@ -143,6 +145,13 @@ a{color:inherit}
 .item.obs .pill{background:var(--card);color:var(--obs);border:1px solid var(--obs)}
 .item[data-state="ai_failed"] .pill{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
+/* 값이 바뀐 관찰 카드만 한 번 깜빡인다 — 폴링이 새 마디를 끼울 때 class 가 붙어 애니메이션이 한 번 돈다 */
+@keyframes flash{from{background:var(--flash)}to{background:var(--why-bg)}}
+.item.flash .why{animation:flash 1.6s ease-out}
+.det{position:relative}
+.det .edit{position:absolute;top:14px;right:16px;background:none;border:0;color:var(--sub);
+           font-size:13px;text-decoration:underline;cursor:pointer;padding:2px 4px;font-family:inherit}
+.det .edit:hover{color:var(--ink)}
 .item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
 .item .ttl{font-weight:700;font-size:16px;flex:1;letter-spacing:-.01em}
 .item .meta{font-size:13px;color:var(--sub);margin:4px 0 10px 28px}
@@ -863,7 +872,6 @@ def _one_page(sel):
     left = (f'<input type="checkbox" id="pick" class="pickbox">'
             f'<label for="pick" class="pickbtn">근무 고르기</label>'
             f'<div class="split"><nav class="side"><h2>근무 일지</h2>'
-            f'<p class="note">근무를 누르면 초안 검토 또는 확정 일지로 들어갑니다.</p>'
             f'{"".join(nav)}</nav>' if nav else '<div class="split">')
     return page("근무 일지", f'{left}<section class="detail">{right}</section></div>')
 
@@ -934,10 +942,7 @@ def _view_confirmed(shift_id, draft, handover):
             for i in excluded
         )
         ex = (f'<div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>'
-              f'<p class="note" style="margin-bottom:8px"><b style="color:var(--ink)">제외된 항목</b>'
-              f' — 근무자가 전달 대상이 아니라고 판단한 항목도 기록으로 남습니다.</p>{rows}'
-              f'<p class="note" style="margin-top:14px">이 기록은 감지 감도 조정의 근거로 사용되며, '
-              f'같은 유형이 반복 제외될 경우 해당 검출기의 임계값을 상향합니다.</p>')
+              f'<p class="note" style="margin-bottom:8px"><b style="color:var(--ink)">제외된 항목</b></p>{rows}')
 
     date, kind = shift_id.rsplit("-", 1)
     # 「‹ 일지 목록」 줄은 없다 — 목록이 늘 왼쪽에 있다(모바일은 「근무 고르기」).
@@ -949,11 +954,8 @@ def _view_confirmed(shift_id, draft, handover):
 {esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(own)}건 중
 <b>{handover["adopted_count"]}건 채택 / {handover["excluded_count"]}건 제외</b></div>
 {_rounds_html(shift_id)}
-<form method="post" action="/reopen" style="margin:10px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-<input type="hidden" name="shift_id" value="{esc(shift_id)}">
-<button class="btn" style="background:var(--ready)">수정</button>
-<span class="muted" style="font-size:13px">눌러서 바로 고칩니다 — 채택·코멘트는 그대로이고, 지금 확정본은 이력에 남습니다</span>
-</form>
+<form method="post" action="/reopen" style="margin:0"><input type="hidden" name="shift_id" value="{esc(shift_id)}">
+<button class="edit">수정</button></form>
 {"".join(ents)}{ex}
 </div>"""
 
@@ -1121,7 +1123,7 @@ def _shift_curve(shift_id, tag):
         return db.raw_curve(conn, shift_id, tag)
 
 
-def _spark(w, metrics=None, unit="", full=None):
+def _spark(w, metrics=None, unit="", full=None, height=150, ticks=5, legend=True):
     """항목 그래프 — 근무 구간 전체 하나. 감지 구간은 빨간 음영, 마우스를 올리면 가장 가까운 점의 시각·값.
 
     경모님 지적(2026-08-27) "trend 가 보기 불편하다" → 눈금·한계선·음영이 있는 차트로, (2026-09-14) "근무 어디쯤이었는지
@@ -1140,13 +1142,15 @@ def _spark(w, metrics=None, unit="", full=None):
     band = None
     if w and w.get("mark"):
         band = (_frac(full["t0"], full["t1"], w["mark"][0]), _frac(full["t0"], full["t1"], w["mark"][1]))
-    note = "근무 구간 전체 · 음영 = 감지 구간" + (" · 빨간 점선 = 알람 한계" if isinstance(limit, (int, float)) else "")
-    if w and w.get("v"):
-        note += (f" · 감지 구간 ±30분 최저 {numfmt.fmt(min(w['v']))} · 최고 {numfmt.fmt(max(w['v']))}"
-                 + (f" {esc(unit)}" if unit else ""))
+    note = ""
+    if legend:
+        note = "근무 구간 전체 · 음영 = 감지 구간" + (" · 빨간 점선 = 알람 한계" if isinstance(limit, (int, float)) else "")
+        if w and w.get("v"):
+            note += (f" · 감지 구간 ±30분 최저 {numfmt.fmt(min(w['v']))} · 최고 {numfmt.fmt(max(w['v']))}"
+                     + (f" {esc(unit)}" if unit else ""))
     pts = [(m / span_m, v) for m, v in zip(full["m"], full["v"])]
     return _curve(pts, full["t0"], full["t1"], band=band, limit=limit, unit=unit, gap=0.01, note=note,
-                  minutes=full["m"], span_m=span_m)
+                  minutes=full["m"], span_m=span_m, height=height, ticks=ticks)
 
 
 def _waves(shift_id):
@@ -1262,16 +1266,36 @@ def _item_card(it, wf, wm, full, key=None):
 _LIVE_STATE = {"observing": "관찰 중", "writing": "AI 서술 중", "ai_failed": "AI 서술 실패"}
 
 
-def _live_gray_card(v):
-    """아직 고를 수 없는 카드 — 관찰 중·서술 중·AI 서술 실패. 입력 요소를 두지 않는다(못 건드린다, 경모님 결정 §0)."""
+def _held(first_seen, clock):
+    """처음 잡힌 뒤 얼마나 됐나 — 재생 시계 기준. 지속 시간은 관찰 카드가 살아 있다는 표시라 매 폴링 달라진다."""
+    from datetime import datetime as _d
+    try:
+        m = int((_d.fromisoformat(clock) - _d.fromisoformat(first_seen)).total_seconds() // 60)
+    except (TypeError, ValueError):
+        return ""
+    if m < 0:
+        return ""
+    return f"{m}분째" if m < 90 else f"{m / 60:.1f}시간째"
+
+
+def _live_gray_card(v, full=None, clock=None, value=None):
+    """아직 고를 수 없는 카드 — 관찰 중·서술 중·AI 서술 실패. 입력 요소를 두지 않는다(못 건드린다, 경모님 결정 §0).
+
+    폴링이 이 카드를 매 번 다시 그린다. 경모님 지적(2026-09-15) "40초를 봐도 카드 글자가 하나도 안 바뀐다" →
+    지금 값·지속 시간을 맨 앞에 세우고 작은 추이를 붙였다. 추이는 근무 구간 전체 위에 그려 틱마다 오른쪽으로 자란다.
+    """
     when = (v.get("first_seen") or "")[11:16]
     err = (f'<div class="note" style="margin:6px 0 0;color:var(--accent)">{esc(v.get("error") or "")}</div>'
            if v.get("state") == "ai_failed" else "")
+    now = [x for x in (f"지금 {numfmt.fmt(value)}" if isinstance(value, (int, float)) else "",
+                       _held(v.get("first_seen"), clock)) if x]
+    head = ('<b>' + ' · '.join(esc(x) for x in now) + '</b> — ') if now else '<b>지금까지</b> — '
     return (f'<div class="item obs off" data-state="{esc(v["state"])}" data-key="{esc(v["key"])}" data-tag="{esc(v.get("tag") or "")}">'
             f'<div class="row1"><span class="pill">{esc(_LIVE_STATE.get(v["state"], v["state"]))}</span>'
             f'<div class="ttl">{esc(v.get("title") or "")}</div></div>'
             f'<div class="meta">{esc(v.get("tag") or "")}{f" · {when} 부터" if when else ""}</div>'
-            f'<div class="body"><div class="why"><b>지금까지</b> — {esc(v.get("evidence") or "")}</div>{err}</div></div>')
+            f'<div class="body">{_spark(None, None, full=full, height=96, ticks=3, legend=False)}'
+            f'<div class="why">{head}{esc(v.get("evidence") or "")}</div>{err}</div></div>')
 
 
 def live_cards(shift_id, have=()):
@@ -1292,15 +1316,39 @@ def live_cards(shift_id, have=()):
     views = live.items(shift_id)
     keyed = {v["draft_item_id"]: v for v in views if v.get("draft_item_id")}
     waves = _waves(shift_id)
+    ready = []
     for it in _by_time([x for x in draft["items"] if x["origin"] != "carried"], _starts(shift_id)):
         key = (keyed.get(it["id"]) or {}).get("key") or f"i{it['id']}"
+        ready.append(key)
         if key in have:
             continue
         wf, wm = waves.get(it.get("event_id")) or (None, {})
         out["cards"].append({"key": key, "state": "ready",
                              "html": _item_card(it, wf, wm, it.get("curve") or _shift_curve(shift_id, it["tag"]), key=key)})
-    for v in sorted((x for x in views if x["state"] in _LIVE_STATE), key=lambda x: x.get("first_seen") or ""):
-        out["cards"].append({"key": v["key"], "state": v["state"], "html": _live_gray_card(v)})
+    # 관찰 중은 have 와 무관하게 매 번 다시 보낸다 — 값이 움직이는 것이 이 카드의 전부다(경모님 지적 2026-09-15)
+    gray = _gray_cards(shift_id, views, same)
+    out["cards"] += gray
+    out["order"] = [c["key"] for c in gray] + ready
+    return out
+
+
+def _gray_cards(shift_id, views, same):
+    """회색 카드 — 가장 최근에 잡힌 것이 맨 위. 같은 태그를 여러 카드가 보면 곡선은 한 번만 읽는다."""
+    vals = (live.values() or {}) if same else {}
+    now = vals.get("clock")
+    curves = {}
+
+    def curve(tag):
+        if tag not in curves:
+            curves[tag] = _shift_curve(shift_id, tag)
+        return curves[tag]
+
+    out = []
+    for v in sorted((x for x in views if x["state"] in _LIVE_STATE),
+                    key=lambda x: x.get("first_seen") or "", reverse=True):
+        cur = ((vals.get("values") or {}).get(v.get("tag")) or [None, None])[1]
+        out.append({"key": v["key"], "state": v["state"],
+                    "html": _live_gray_card(v, full=curve(v.get("tag")), clock=now, value=cur)})
     return out
 
 
@@ -1316,8 +1364,21 @@ function tick(){
   (j.cards||[]).forEach(function(c){ seen[c.key]=1;
    var el=box.querySelector('.item[data-key="'+c.key+'"]');
    if(el&&el.getAttribute('data-state')==='ready') return;
+   var was=el?((el.querySelector('.why')||{}).textContent||''):'';
    if(el){el.outerHTML=c.html;} else {box.insertAdjacentHTML('beforeend',c.html);}
+   var now=box.querySelector('.item[data-key="'+c.key+'"]');
+   if(now&&was&&((now.querySelector('.why')||{}).textContent||'')!==was) now.classList.add('flash');
   });
+  /* 차례 — 관찰 중이 위(최근 것이 맨 위), 그 아래 선택 가능. 고르던 칸에 글을 쓰는 중이면 건드리지 않는다 */
+  if((j.order||[]).length&&!box.contains(document.activeElement)){
+   var prev=null;
+   j.order.forEach(function(k){
+    var e=box.querySelector('.item[data-key="'+k+'"]'); if(!e) return;
+    var want=prev?prev.nextElementSibling:box.firstElementChild;
+    if(e!==want) box.insertBefore(e,want);
+    prev=e;
+   });
+  }
   Array.prototype.forEach.call(box.querySelectorAll('.item[data-key]'),function(e){
    var k=e.getAttribute('data-key');
    if(!seen[k]&&e.getAttribute('data-state')!=='ready') e.remove();   /* 관찰 후 사라진 카드 */
@@ -1369,12 +1430,11 @@ def _view_pending(shift_id, draft):
         # 표식은 재생이 떠난 뒤에도 있어야 한다 — 없으면 폴링이 같은 카드를 못 알아보고 한 장 더 넣는다(실제 재생에서 봤다)
         (low if pe else items).append(
             _item_card(it, wf, wm, it.get("curve") or curve(it["tag"]), key=keys.get(it["id"]) or f"i{it['id']}"))
-    gray = [_live_gray_card(v) for v in sorted((v for v in lives if v["state"] in _LIVE_STATE),
-                                               key=lambda v: v.get("first_seen") or "")]
+    same = live.status().get("shift_id") == shift_id if live_mode else False
+    gray = [c["html"] for c in _gray_cards(shift_id, lives, same)]
 
     if not items and not low and not gray:
-        items.append('<div class="card"><div class="empty">감지된 항목이 없습니다. '
-                     '아래에서 직접 추가할 수 있습니다.</div></div>')
+        items.append('<div class="card"><div class="empty">감지된 항목이 없습니다.</div></div>')
 
     disc = ""
     if ports.engine_source() == "stub":
@@ -1389,12 +1449,7 @@ def _view_pending(shift_id, draft):
         lowbox = (
             '<details class="card" style="padding:10px 16px">'
             '<summary style="cursor:pointer;font-weight:600">이전에 제외한 것 — '
-            + str(len(low)) + '건'
-            + '<span class="muted" style="font-weight:400;font-size:12px"> · 지난 근무에서 '
-            '근무자가 제외한 것과 같은 태그·종류입니다</span></summary>'
-            '<p class="note" style="margin:8px 0 10px">숨기지 않고 여기에 계속 둡니다. '
-            '체크하면 이번 일지에 들어갑니다 — <b style="color:var(--ink)">한 번의 제외가 '
-            '영구 삭제가 되지 않게</b> 하려는 자리입니다.</p>'
+            + str(len(low)) + '건</summary>'
             + "".join(low) + '</details>')
 
     date, kind = shift_id.rsplit("-", 1)
@@ -1407,32 +1462,23 @@ def _view_pending(shift_id, draft):
     # 쌓이는 중에는 「감지 N건」이 초안 표에 든 수라 화면의 회색 카드와 어긋난다(지휘자 실측: 회색 2장인데 「감지 0건」).
     # 지금 보이는 것을 그대로 센다. 「전체 표시」는 마감 뒤 초안에서만 뜻이 있다.
     summary = (f'관찰 중 <b style="color:var(--ink)">{len(gray)}</b> · 초안 <b style="color:var(--ink)">{n}</b>' if live_mode
-               else f'감지\n<b style="color:var(--ink)">{n}</b>건<br>전체 표시 (걸러내지 않음)')
+               else f'감지 <b style="color:var(--ink)">{n}</b>건')
     head = ('<form method="post" action="/approve" onsubmit="return chk(this)">'
             f'<input type="hidden" name="shift_id" value="{esc(shift_id)}">')
-    tail = ('<div class="card" style="padding:12px 16px;display:flex;justify-content:space-between;'
-            'gap:12px;flex-wrap:wrap;align-items:center">'
-            '<span class="note" style="margin:0">감지되지 않았지만 넘겨야 할 것이 있으면 직접 추가합니다. '
-            '여러 건을 넣을 수 있습니다.</span>'
+    tail = ('<div class="card" style="padding:12px 16px;display:flex;justify-content:flex-end">'
             '<button type="button" class="btn ghost" onclick="addMan()">+ 항목 직접 추가</button></div>'
-            f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건'
-            '<span class="muted" style="font-size:12px">· 제외 항목도 기록으로 남습니다</span> '
+            f'<div class="bar"><div class="cnt">채택 <b id="n">{on_n}</b> / <span>{n}</span>건 '
             '<span id="need" class="need"></span>'
             f'<span id="approvelock" class="need">{esc(lock or "")}</span></div>'
             f'<button type="submit" id="approve" class="btn"{" disabled" if lock else ""}>승인하고 확정</button></div></form>')
-    lead = ('감지가 지금도 쌓이고 있습니다. <b style="color:var(--ink)">회색은 관찰 중이라 고를 수 없고, '
-            'AI 가 다 쓴 항목부터 고를 수 있습니다.</b>' if live_mode else
-            '감지된 항목을 <b style="color:var(--ink)">전부</b> 보여줍니다. '
-            '적을 것을 고르고 <b style="color:var(--ink)">완료 / 진행중</b>을 표시합니다. '
-            '진행중은 다음 근무 초안에 이월됩니다. 최종 판단은 근무자가 합니다.')
+    # 설명 문구는 화면에 두지 않는다 — 상태 이름과 잠금 사유만 남긴다(경모님 지시 2026-09-15).
     # 「‹ 일지 목록」 줄은 없다 — 목록이 늘 왼쪽에 있다(모바일은 「근무 고르기」).
     return f"""{disc}
 {qbanner}
 <div class="card" style="display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
      align-items:flex-start">
 <div><h2 style="margin-bottom:4px">{esc(date)} {"주간조" if kind == "day" else "야간조"}
-인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2>
-<p class="note" style="margin:0">{lead}</p></div>
+인수인계 초안 {'<span class="pill live">LIVE · 쌓이는 중</span>' if live_mode else ""}</h2></div>
 <div class="muted" style="font-size:13px">{summary}
 {f'<br><span style="font-size:11.5px">이전에 제외한 것 {len(low)}건은 최하단</span>' if low else ""}
 </div>
@@ -1440,7 +1486,7 @@ def _view_pending(shift_id, draft):
 {head}
 {_carry_box(opened, choices, editable=True)}
 <div id="items" data-shift="{esc(shift_id)}"{' data-live="1"' if live_mode else ""}>
-{"".join(items)}{"".join(gray)}
+{"".join(gray)}{"".join(items)}
 </div>
 {lowbox}
 <div id="mans"></div>

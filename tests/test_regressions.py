@@ -1453,7 +1453,7 @@ class TwoScreens(unittest.TestCase):
         self.assertTrue('action="/approve"' in body, "고르기·코멘트는 미리 할 수 있다")
         self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled', "승인 버튼은 잠긴다")
         self.assertRegex(body, r'id="approvelock"[^>]*>[^<]+<', "왜 못 누르는지 문구가 있다")
-        self.assertTrue("쌓이고 있습니다" in body, "쌓이는 중이라는 안내")
+        self.assertIn("LIVE · 쌓이는 중", body, "상태 이름은 남는다 — 설명 문장은 없앴다(경모님 지시 2026-09-15)")
         self.assertTrue("TI-403" in body, "쌓인 항목은 읽을 수 있다")
         with self.assertRaises(ValueError):     # 폼을 우회한 POST
             approve.decide(live_sid, {iid: {"adopted": True, "status": "완료"}})

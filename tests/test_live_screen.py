@@ -359,7 +359,8 @@ class LiveSummaryLine(unittest.TestCase):
         live.approve_lock = lambda shift_id: None
         import server
         body = server.view_shift(H.SID)
-        self.assertIn("전체 표시 (걸러내지 않음)", body, "마감 뒤 초안에는 그대로 둔다")
+        self.assertRegex(body, r"감지 <b[^>]*>\d+</b>건", "건수는 남고")
+        self.assertNotIn("전체 표시 (걸러내지 않음)", body, "설명은 뺀다(경모님 지시 2026-09-15)")
 
 
 class StaleLiveDraftScreen(unittest.TestCase):
@@ -461,6 +462,118 @@ class AiFailureRetry(unittest.TestCase):
         self.assertIn('<div class="item obs off" data-state="ai_failed"', body, "실패한 항목이 화면에서 사라지면 안 된다")
         self.assertIn("AI 호출 실패 — 시험용", body)
         self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled', "실패가 남아 있으면 승인은 잠긴다")
+
+
+class PlainScreens(unittest.TestCase):
+    """경모님 지시 — 화면에서 기능을 설명하는 문장을 전부 뺀다. 상태 이름과 잠금 사유 한 줄만 남긴다.
+    「수정」은 확정 일지 오른쪽 위에 작은 글자 버튼으로."""
+
+    GONE = ("감지가 지금도 쌓이고 있습니다", "회색은 관찰 중이라", "감지된 항목을 <b", "최종 판단은 근무자가 합니다",
+            "전체 표시 (걸러내지 않음)", "근무를 누르면 초안 검토", "눌러서 바로 고칩니다",
+            "감지되지 않았지만 넘겨야 할 것이 있으면", "제외 항목도 기록으로 남습니다")
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            (self.iid,) = H._pending_draft(conn, H.SID)
+
+    def test_draft_and_list_have_no_explaining_sentences(self):
+        import server
+        body = server.view_shift(H.SID)
+        for phrase in self.GONE:
+            self.assertNotIn(phrase, body, f"설명 문장이 남았다: {phrase}")
+        self.assertIn("승인하고 확정", body, "버튼과 상태 이름은 남는다")
+
+    def test_confirmed_log_has_a_small_edit_link_on_the_right(self):
+        import approve
+        import server
+        approve.decide(H.SID, {self.iid: {"adopted": True, "status": "완료"}})
+        body = server.view_shift(H.SID)
+        for phrase in self.GONE:
+            self.assertNotIn(phrase, body, f"설명 문장이 남았다: {phrase}")
+        self.assertRegex(body, r'class="edit"[^>]*>\s*수정\s*<', "오른쪽 위 작은 글자 버튼")
+        self.assertIn('action="/reopen"', body)
+
+    def test_live_screen_keeps_only_the_lock_reason(self):
+        import db
+        import live
+        import server
+        with db.connect() as conn:
+            conn.execute("DELETE FROM draft_item WHERE draft_id IN (SELECT id FROM draft WHERE shift_id = ?)", (H.SID,))
+            conn.execute("DELETE FROM draft WHERE shift_id = ?", (H.SID,))
+            db.open_live_draft(conn, H.SID, "live")
+        live.items = lambda shift_id=None: []
+        live.approve_lock = lambda shift_id: "06:00 마감 후 승인"
+        body = server.view_shift(H.SID)
+        for phrase in self.GONE:
+            self.assertNotIn(phrase, body, f"설명 문장이 남았다: {phrase}")
+        self.assertIn("06:00 마감 후 승인", body, "왜 못 누르는지는 남긴다")
+
+
+class LiveCardOrderAndRefresh(unittest.TestCase):
+    """경모님 지시 — 관찰 중을 맨 위에, 그 안에서 가장 최근에 잡힌 것이 위로. 관찰 카드는 폴링마다 다시 그려 값이 움직여야 한다."""
+
+    def setUp(self):
+        H._fresh_db()
+        import db
+        with db.connect() as conn:
+            H._shift_row(conn, H.SID, H.WS, H.T(720))
+            did = db.open_live_draft(conn, H.SID, "live")
+            self.item_id = db.add_live_item(
+                conn, did,
+                {"origin": "detected", "tag": "TI-101", "title": "TI-101 드리프트", "body": "문장",
+                 "evidence": "근거", "severity": "중", "live": {"key": "p1"}},
+                [H.ev("TI-101", "드리프트", 0, 30, 1)], "engine")
+
+    def _views(self, evidence="지금 크기 10.0"):
+        base = {"key": "p1", "state": "ready", "origin": "detected", "confirm": "ended", "ongoing": False,
+                "not_in_close": False, "recurrence_of": None, "tag": "TI-101", "kind": "드리프트",
+                "title": "TI-101 드리프트", "severity": "중", "evidence": "근거", "score": 1.0, "score_max": 1.0,
+                "start": H.iso(H.T(0)), "end": H.iso(H.T(30)), "members": [], "related_tags": [], "recurrences": [],
+                "stop": None, "first_seen": H.iso(H.T(5)), "confirmed": H.iso(H.T(35)), "ai_sec": 1.0,
+                "draft_item_id": self.item_id, "error": None}
+        old = dict(base, key="p2", state="observing", tag="PI-201", title="PI-201 헌팅", evidence=evidence,
+                   confirm=None, confirmed=None, draft_item_id=None, first_seen=H.iso(H.T(10)))
+        new = dict(old, key="p3", tag="MI-804", title="MI-804 이탈", first_seen=H.iso(H.T(200)))
+        return base, old, new
+
+    def test_observing_cards_come_first_newest_on_top(self):
+        import live
+        import server
+        ready, old, new = self._views()
+        live.items = lambda shift_id=None: [ready, old, new]
+        live.approve_lock = lambda shift_id: "06:00 마감 후 승인"
+        body = server.view_shift(H.SID)
+        order = [k for k in ("p3", "p2", "p1") if f'data-key="{k}"' in body]
+        pos = {k: body.index(f'data-key="{k}"') for k in order}
+        self.assertEqual(sorted(pos, key=pos.get), ["p3", "p2", "p1"],
+                         "관찰 중이 위(최근 것이 맨 위) · 선택 가능은 그 아래")
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}")[1])
+        self.assertEqual(j["order"], ["p3", "p2", "p1"], "폴링도 같은 차례를 준다")
+
+    def test_observing_cards_are_sent_again_even_when_the_screen_has_them(self):
+        import live
+        ready, old, new = self._views()
+        live.items = lambda shift_id=None: [ready, old, new]
+        live.approve_lock = lambda shift_id: None
+        j = json.loads(_get(f"/api/live/cards?shift={H.SID}&have=p1,p2,p3")[1])
+        got = {c["key"] for c in j["cards"]}
+        self.assertEqual(got, {"p2", "p3"}, "관찰 카드는 매번 다시 보내 값이 움직이게 한다(선택 가능 카드는 그대로 둔다)")
+
+    def test_observing_card_shows_a_small_trend(self):
+        import db
+        import live
+        import server
+        with db.connect() as conn:      # 원본이 쌓이면 관찰 카드에도 추이가 붙는다
+            conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                             [("PI-201", H.iso(H.T(i)), 10.0 + i * 0.5) for i in range(0, 60, 2)])
+        ready, old, new = self._views()
+        live.items = lambda shift_id=None: [old]
+        live.approve_lock = lambda shift_id: None
+        card = _card(server.view_shift(H.SID), "p2")
+        self.assertIn("<svg", card, "관찰 중에도 추이가 보여야 한다")
 
 
 if __name__ == "__main__":
