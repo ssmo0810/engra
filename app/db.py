@@ -16,6 +16,7 @@ import sqlite3
 from datetime import datetime, timedelta
 
 from config import DB_PATH, RAW_RETENTION_DAYS
+import numfmt
 
 SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -131,6 +132,7 @@ CREATE TABLE IF NOT EXISTS draft_item (
     decided_at       TEXT,
     status           TEXT,                   -- 채택 항목의 처리 상태: '완료' | '진행중'. 기본값 없음 — 근무자가 골라야 승인된다 (심사평 08)
     carried_from     INTEGER,                -- 이월 항목이면 원 draft_item id. 「진행중」 은 이 사슬로 다음 근무에 이어지고, '완료' 행이 붙으면 닫힌다
+    curve_json       TEXT,                   -- 근무 구간 전체 추이(1분 평균). 원본이 회전으로 지워져도 그래프가 남게 저장한다. 옛 기록은 NULL
     FOREIGN KEY (draft_id) REFERENCES draft(id),
     FOREIGN KEY (event_id) REFERENCES event(id)
 );
@@ -181,16 +183,27 @@ def connect():
 
 
 def _migrate(conn):
-    """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게."""
+    """예전 DB 에 새 컬럼을 더한다. 서버 시드 DB 를 다시 만들지 않아도 되게.
+
+    서버·교대 타이머·명령줄이 같은 옛 DB 에 동시에 init 하면, 칸이 없다고 본 뒤 다른 프로세스가 먼저 더해 ALTER 가
+    「duplicate column name」 으로 죽었다(반증 워커 재현: 6개 동시 120회 중 81회). 그 오류만 넘기고 다른 오류는 그대로 올린다.
+    """
+    def add(table, col, typ):
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e):
+                raise
+
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT"), ("status", "TEXT"), ("carried_from", "INTEGER")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT"), ("status", "TEXT"), ("carried_from", "INTEGER"), ("curve_json", "TEXT")):
         if col not in have:
-            conn.execute(f"ALTER TABLE draft_item ADD COLUMN {col} {typ}")
+            add("draft_item", col, typ)
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
     if "waveform_json" not in have_ev:
-        conn.execute("ALTER TABLE event ADD COLUMN waveform_json TEXT")
+        add("event", "waveform_json", "TEXT")
     if "quality_json" not in {r[1] for r in conn.execute("PRAGMA table_info(shift)")}:
-        conn.execute("ALTER TABLE shift ADD COLUMN quality_json TEXT")
+        add("shift", "quality_json", "TEXT")
 
 
 def reopen_handover(conn, shift_id, reason=None):
@@ -617,8 +630,69 @@ def load_draft(conn, shift_id):
             it["related_tags_ai"] = json.loads(it.get("related_tags_ai") or "[]")
         except (TypeError, ValueError):
             it["related_tags_ai"] = []
+        try:
+            it["curve"] = json.loads(it.pop("curve_json", None) or "null")
+        except (TypeError, ValueError):
+            it["curve"] = None
         draft["items"].append(it)
     return draft
+
+
+def raw_curve(conn, shift_id, tag):
+    """근무 구간 전체의 태그 곡선 — 원본 표본을 1분 평균으로 줄인다(12시간이면 720점). 원본이 2점도 없거나 값 폭이 무한대면 None.
+
+    {"t0": 구간 시작, "t1": 구간 끝, "m": [구간 시작부터 몇 분], "v": [1분 평균]}.
+    값은 곡선 모양이 남을 만큼만 자리수를 줄인다 — 화면 자리수로 자르면 99.6±0.3 같은 좁은 폭의 곡선이 계단이 된다.
+    """
+    import math
+    from datetime import datetime
+    row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    if row is None:
+        return None
+    rows = conn.execute(
+        "SELECT substr(ts, 1, 16) AS m, AVG(value) FROM raw_sample "
+        "WHERE tag = ? AND ts >= ? AND ts < ? GROUP BY m ORDER BY m",
+        (tag, row["window_start"], row["window_end"])).fetchall()
+    pts = [(m, float(v)) for m, v in rows if v is not None]
+    if len(pts) < 2:
+        return None
+    vals = [v for _, v in pts]
+    span = max(vals) - min(vals)
+    if not math.isfinite(span):
+        # ±1e308 처럼 폭이 부동소수 범위를 넘으면 자리수를 못 정한다 — 아래 계산이 OverflowError 를 내 승인 전체가 되돌아갔다(반증 워커 재현).
+        # 그릴 수 없는 곡선은 원본이 없을 때처럼 없는 것으로 둔다.
+        return None
+    d = numfmt.decimals(sorted(abs(v) for v in vals)[len(vals) // 2])
+    if span / 200 > 0:      # 폭이 비정규 소수만큼 작으면 200 으로 나눈 값이 0 이 되어 log10 이 ValueError 를 냈다(탐침 재현) — 그때는 값 크기 자리수만 쓴다
+        d = max(d, min(12, math.ceil(-math.log10(span / 200))))   # 폭을 200단계 이상으로 — 그래프 높이보다 촘촘하면 충분하다
+    t0 = datetime.fromisoformat(row["window_start"])
+    return {"t0": row["window_start"], "t1": row["window_end"],
+            "m": [int((datetime.fromisoformat(m + ":00") - t0).total_seconds() // 60) for m, _ in pts],
+            "v": [round(v, d) for v in vals]}
+
+
+def save_curves(conn, shift_id):
+    """그 근무 초안 항목 가운데 곡선이 빈 것에 원본 1분 평균 곡선을 저장한다. (채운 항목 수, 원본이 없어 못 채운 항목 수).
+
+    원본은 보관 기간 뒤 회전으로 지워지는데 확정 일지는 오래 남는 기록이라, 그래프도 함께 남아야 한다.
+    초안을 만들 때(pipeline.run)와 확정할 때(approve.decide) 부르고, 그 전에 확정된 기록은 tools/backfill_curves.py 로 채운다.
+    이월 판단 행은 원 근무의 항목이라 이 근무 구간의 곡선을 붙이지 않는다.
+    """
+    rows = conn.execute(
+        "SELECT i.id, i.tag FROM draft_item i JOIN draft d ON d.id = i.draft_id "
+        "WHERE d.shift_id = ? AND i.tag IS NOT NULL AND i.origin != 'carried' AND i.curve_json IS NULL",
+        (shift_id,)).fetchall()
+    curves, filled, missing = {}, 0, 0
+    for iid, tag in rows:
+        if tag not in curves:
+            curves[tag] = raw_curve(conn, shift_id, tag)
+        if curves[tag] is None:
+            missing += 1
+            continue
+        conn.execute("UPDATE draft_item SET curve_json = ? WHERE id = ?",
+                     (json.dumps(curves[tag], separators=(",", ":")), iid))
+        filled += 1
+    return filled, missing
 
 
 

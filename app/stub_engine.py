@@ -19,6 +19,7 @@ import statistics
 from datetime import datetime
 
 from config import TAG_MASTER
+from numfmt import fmt
 
 _MAD_TO_SIGMA = 1.4826
 
@@ -157,9 +158,9 @@ def detect(series, baselines):
                 "severity": severity,
                 "score": abs(peak - limit),
                 "metrics": {"limit": limit, "peak": round(peak, 3), "unit": unit},
-                "evidence": (
-                    f"{tag}({spec['description']}) {key} 한계 {limit}{unit} {direction} — "
-                    f"{extreme} {round(peak, 3)}{unit}"
+                "evidence": (      # 숫자는 앱 규칙 하나로(app/numfmt) — 서식 없이 끼우면 규칙과 다른 모양·지수 표기가 된다
+                    f"{tag}({spec['description']}) {key} 한계 {fmt(limit, unit)} {direction} — "
+                    f"{extreme} {fmt(peak, unit)}"
                 ),
             })
             break  # 같은 방향에서 더 심한 것 하나만 남긴다

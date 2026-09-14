@@ -547,19 +547,18 @@ class PrevExclusionParking(unittest.TestCase):
         page, ids = self._pending(pj, adopted="1")
         self.assertIn('value="%d" checked onchange=' % ids[1], page)
 
-    def test_high_severity_is_named_in_the_folded_summary(self):
-        """접힌 채로도 무거운 것이 들었는지는 보여야 한다.
+    def test_previously_excluded_stays_at_bottom_without_severity(self):
+        """지난 근무에서 제외한 항목은 최하단 접힌 묶음에 둔다(#30 결정 — 승격 규칙은 넣지 않는다).
 
-        실측: 근무 A 에서 제외한 MI-804 HH 초과(중요도 상)가 근무 B 에서 최하단으로
-        내려갔다. 「중요도 상이면 본문으로 올린다」 는 판정 규칙이라 넣지 않기로 했으므로
-        (#30 결정), 자리는 그대로 두고 제목에 밝히는 것으로 대신한다.
+        예전에는 접힌 제목에 「중요도 상 N건 포함」 을 밝혔는데, 경모님이 중요도를 화면에서 없애기로 해
+        (2026-09-14) 그 표시도 뺐다. 자리는 그대로 최하단이다.
         """
         import json
         pj = json.dumps({"shift_id": "2026-08-25-day", "by": "운전원A", "times": 1},
                         ensure_ascii=False)
         page, ids = self._pending(pj, sev="상")
-        self.assertIn("중요도 상 1건 포함", page, "접힌 제목에 중요도를 밝혀야 한다")
-        # 그래도 자리는 최하단이다 — 승격 규칙을 넣은 것이 아니다
+        self.assertNotIn("중요도", page, "중요도는 화면에서 뺐다 — 접힌 제목에도 밝히지 않는다")
+        # 자리는 최하단이다 — 승격 규칙을 넣은 것이 아니다
         self.assertLess(page.index("이전에 제외한 것 —"), page.index("내려갈 항목"))
 
     def test_old_database_gets_the_new_column(self):
@@ -1690,6 +1689,426 @@ class UploadAllOrNothing(unittest.TestCase):
         self.assertTrue({"shift_b.csv", "asu_answer_all.json"} <= set(os.listdir(self.dir)), "압축은 풀고 이름에서 .gz 를 뗀다")
         self.assertTrue({"s1", "s2"} <= set(jobs.KEYS))
         self.assertEqual([p.name for p in self.ingested], ["shift_a.csv", "shift_b.csv"])
+
+
+class ScreenNumbersAndTrends(unittest.TestCase):
+    """경모님 화면 지적(2026-09-14) — 숫자 지수 표기 금지 · 그래프는 근무 구간 전체 하나 · 중요도는 화면에서 뺀다 ·
+    확정 일지에도 추이(기본 접힘) · 곡선은 항목에 저장해 원본이 회전돼 지워져도 남는다."""
+
+    longMessage = False
+    SID = ("2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+    # 값이 큰 태그(40,000대 · 18,000대)와 1 미만의 아주 작은 값 — 지수 표기가 나오는 두 끝
+    TAGS = {"FI-602": 40131.0, "SI-507": 18500.0, "XI-001": 0.000032}
+
+    @staticmethod
+    def _exp(body):
+        """지수 표기 숫자. CSS 색상값(#e4e1dc)·태그(A1E5)처럼 앞뒤가 영문·숫자·# 인 것은 숫자가 아니라 뺀다.
+        경계는 ASCII 로만 잡는다 — \\w 는 한글도 글자로 봐서 「1e8배」 처럼 한글이 바로 붙은 지수 표기를 놓쳤다."""
+        import re
+        return re.findall(r"(?<![0-9A-Za-z_#.])\d+(?:\.\d+)?[eE][+-]?\d+(?![0-9A-Za-z_.])", body)
+
+    @staticmethod
+    def _detail(body):
+        """한 화면의 오른쪽만 — 파비콘의 <svg> 와 바닥 스크립트를 세지 않게."""
+        return body.split('class="detail"', 1)[1].split("</main>", 1)[0]
+
+    def _seed(self, raw=True):
+        """근무 하나 · 태그마다 12시간 1분 원본 · 감지 이벤트(파형) · 초안 항목. 엔진·AI 문장처럼 제목·근거에 `.4g` 수치를 넣는다."""
+        _fresh_db()
+        import db
+        import json
+        import math
+        from engine.detectors import _fmt as fmt      # 엔진 근거 문장과 같은 수치 표기 — 손으로 지수 문자열을 넣지 않는다
+        sid, start, end = self.SID
+        ids = []
+        with db.connect() as conn:
+            conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                         "VALUES (?, 'day', ?, ?, 'test', ?)", (sid, start, end, db.now()))
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) "
+                               "VALUES (?, 'pending', 'test', ?)", (sid, db.now())).lastrowid
+            for seq, (tag, base) in enumerate(self.TAGS.items(), 1):
+                if raw:
+                    conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                                     [(tag, f"2026-08-25T{6 + m // 60:02d}:{m % 60:02d}:00",
+                                       base * (1 + 0.002 * math.sin(m / 40))) for m in range(720)])
+                wave = {"v": [base * (1 + 0.001 * i) for i in range(60)],
+                        "t0": "2026-08-25T09:00:00", "t1": "2026-08-25T10:00:00",
+                        "mark": ["2026-08-25T09:20:00", "2026-08-25T09:40:00"]}
+                eid = conn.execute(
+                    "INSERT INTO event (shift_id, tag, kind, start_ts, end_ts, severity, score, metrics_json, evidence, "
+                    "detector, created_at, waveform_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (sid, tag, "드리프트", "2026-08-25T09:20:00", "2026-08-25T09:40:00", "상", 3.0,
+                     json.dumps({"unit": ""}), f"{tag} 변화율 {fmt(0.000032, '/h')}", "engine", db.now(), json.dumps(wave))).lastrowid
+                ids.append(conn.execute(
+                    "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, evidence, severity, "
+                    "severity_rule, severity_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (did, eid, seq, "detected", tag, f"{tag} 드리프트 — {fmt(base)} 부근", "문장",
+                     f"{tag} 변화율 {fmt(0.000032, '/h')} · 지금 {fmt(base)} · 흔들림 평소의 {fmt(1200)}배", "상", "중",
+                     "놓치면 설비에 직결")).lastrowid)
+        return ids
+
+    def _approve(self, ids, adopted=None):
+        import approve
+        adopted = ids if adopted is None else adopted
+        approve.decide(self.SID[0], {i: ({"adopted": True, "status": "완료"} if i in adopted else {"adopted": False})
+                                     for i in ids})
+
+    def test_numbers_never_use_exponent_notation(self):
+        """축 눈금이 `1.77e+04` 처럼 지수로 나왔다(경모님 지적 — 미리보기 21곳). 값이 큰 태그의 눈금이 `:.4g` 로 찍혔고,
+        엔진 근거 문장도 1 미만 값을 `.4g`(detectors._fmt)로 만들어 `3.2e-05` 가 됐다. 화면 직전에 가리면 정적 스냅숏·
+        AI 입력·명령줄 같은 다른 출구로 다시 새므로 원인(엔진 _fmt · 앱 눈금)에서 고친다. 시드 문장은 엔진 _fmt 가 만든다."""
+        ids = self._seed()
+        import server
+        sys.path.append(os.path.join(ROOT, "tools"))
+        import snapshot
+        body = server.view_shift(self.SID[0])
+        self.assertEqual(self._exp(body), [], "초안 화면에 지수 표기가 남았다")
+        self.assertTrue("40,1" in self._detail(body), "큰 값은 천 단위 쉼표 붙은 보통 숫자로")
+        self.assertEqual(self._exp(snapshot.to_static(body, "index.html")), [], "초안 정적 스냅숏에 지수 표기가 남았다")
+        self._approve(ids)
+        body = server.view_shift(self.SID[0])
+        self.assertEqual(self._exp(body), [], "확정 일지에 지수 표기가 남았다")
+        self.assertEqual(self._exp(snapshot.to_static(body, "handover.html")), [], "확정 일지 정적 스냅숏에 지수 표기가 남았다")
+
+    def test_engine_fmt_never_uses_exponent_notation(self):
+        """엔진 근거 문장의 수치(detectors._fmt)가 1 미만 값을 `.4g` 로 찍어 3.2e-05 같은 지수 표기가 나왔다.
+        원인에서 고친다(경모님 확인 — 팀원 파일 수정 허용): 1 미만은 유효숫자 4자리 고정소수, 0 은 0, 1 이상 규칙은 그대로."""
+        from engine.detectors import _fmt
+        cases = {1e8: "100,000,000", 3.2e-05: "0.000032", 3.214e-05: "0.00003214", 1.234e-03: "0.001234", 0.5: "0.5", 0: "0",
+                 -3.2e-05: "-0.000032", 0.99996: "1.00", -0.99996: "-1.00", 9.996: "10.0", 999.95: "1,000", 1: "1.00", 9.994: "9.99", 10: "10.0", 999.94: "999.9",
+                 1000: "1,000", 40131.4: "40,131"}
+        for v, want in cases.items():
+            with self.subTest(v=v):
+                self.assertEqual(_fmt(v), want)
+        self.assertEqual(_fmt(3.2e-05, "/h"), "0.000032/h", "단위는 그대로 붙는다")
+        self.assertEqual(_fmt(None), "?")
+
+    def test_app_number_rule_matches_engine(self):
+        """숫자 표기 규칙은 하나다 — 엔진 근거 문장은 엔진 _fmt 가, 앱이 만드는 숫자(그래프 눈금·호버·최저·최고 · 임시 엔진 근거 ·
+        곡선 반올림)는 app/numfmt.fmt 가 찍는다. 엔진은 앱 없이, 앱은 엔진 없이 돌아야 해서 코드가 두 곳이라 여기서 맞춰 본다."""
+        from engine.detectors import _fmt
+        import numfmt
+        for v in (1e8, 40131.4, 18500.4, -1234.5, 1000, 999.95, 999.94, 121.83, 10, 9.996, 9.994, 1, 0.99996, -0.99996, 0.5, 0.001234,
+                  3.214e-05, -3.2e-05, 0, None):
+            with self.subTest(v=v):
+                self.assertEqual(numfmt.fmt(v), _fmt(v))
+                if v is not None:
+                    self.assertEqual(numfmt.fmt(v, "℃"), _fmt(v, "℃"), "단위를 붙여도 같다")
+
+    def test_stub_engine_evidence_uses_the_number_rule(self):
+        """임시 엔진(엔진이 없을 때 도는 앱 쪽 검출)의 근거 문장이 한계·최고값을 서식 없이 끼워 넣었다 — 「최고 126.345℃」 처럼
+        규칙과 다른 모양이고, 실수를 그대로 글자로 만들면 아주 작거나 큰 값에서 지수 표기가 된다. 앱 규칙(numfmt.fmt) 하나로 찍는다."""
+        import stub_engine
+        pts = [("2026-08-25T06:00:00", 120.0), ("2026-08-25T06:01:00", 126.345), ("2026-08-25T06:02:00", 121.0)]
+        events = stub_engine.detect({"TI-205": pts}, {})
+        self.assertEqual(len(events), 1, events)
+        ev = events[0]["evidence"]
+        self.assertTrue("한계 125.0℃" in ev and "최고 126.3℃" in ev, ev)
+        self.assertEqual(self._exp(ev), [])
+
+    def test_item_cards_have_no_left_color_band(self):
+        """중요도 색 띠를 뺀 뒤에도 확정 일지·제외·이월 카드에 두꺼운 왼쪽 선(회색·호박색)이 남았다. 색이 남으면 근무자는
+        중요도로 읽고, 회색 띠는 「하」 로 읽힌다(경모님 지적). 항목 카드는 무채색 1px 테두리뿐 — 왼쪽 선 규칙 0건."""
+        import re
+        import server
+        css = re.sub(r"/\*.*?\*/", "", server.STYLE, flags=re.S)
+        rules = {}
+        for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+            rules.setdefault(sel.strip(), []).append(body)
+        for sel in (".item", ".ent", ".ex", ".carry .ci"):
+            with self.subTest(selector=sel):
+                self.assertTrue(sel in rules, f"{sel} 규칙을 못 찾음")        # 이름이 바뀌어 검사가 공허해지지 않게
+                self.assertFalse(any("border-left" in b for b in rules[sel]), f"{sel} 에 왼쪽 선이 남았다")
+        # 이월 묶음 카드(.card.carry)는 따로 규칙을 두지 않는다 — 두게 되면 왼쪽 선이 없어야 한다
+        self.assertFalse(any("border-left" in b for b in rules.get(".carry", [])), ".carry 에 왼쪽 선이 남았다")
+        self.assertIsNone(re.search(r"sev-|data-sev", css), "중요도 값을 쓰는 CSS 선택자가 남았다")
+
+    def test_each_item_has_one_full_shift_trend_with_hover(self):
+        """확대 그래프(±30분)를 없애고 근무 구간 전체 그래프 하나만 둔다(경모님 정정). 호버는 그 하나에 붙는다.
+        확대 쪽에만 있던 최저·최고는 없애지 않고 전체 그래프 아래로 옮긴다."""
+        self._seed()
+        import server
+        part = self._detail(server.view_shift(self.SID[0]))
+        n = len(self.TAGS)
+        self.assertEqual(part.count("<svg"), n, "항목마다 그래프 하나")
+        self.assertEqual(part.count("data-trend="), n, "그 그래프에 호버 데이터가 붙는다")
+        self.assertFalse("확대" in part, "확대 그래프와 그 설명줄은 없앴다")
+        self.assertTrue("최저" in part and "최고" in part, "최저·최고는 전체 그래프 아래로 옮겼다")
+
+    def test_severity_is_gone_from_every_screen(self):
+        """중요도를 화면에서 뺀다(경모님 지시) — 선택 상자 · 왼쪽 색 띠 · 「중요도 판단」 줄 · 「통계 기준 → AI 판정」.
+        엔진·AI 가 만든 DB 값은 남긴다(지우면 엔진·AI·측정이 줄줄이 흔들린다)."""
+        ids = self._seed()
+        import db
+        import server
+        sys.path.append(os.path.join(ROOT, "tools"))
+        import snapshot
+        pages = {"초안": server.view_shift(self.SID[0]), "목록": server.view_draft()}
+        self._approve(ids, adopted=ids[:2])
+        pages["확정"] = server.view_shift(self.SID[0])
+        pages["정적본"] = snapshot.to_static(pages["확정"], "handover.html")
+        for name, body in pages.items():
+            for mark in ("중요도", "sevsel", 'name="sev_', "sev-high", "sev-mid", "통계 기준"):
+                self.assertFalse(mark in body, f"{name} 화면에 {mark!r} 가 남았다")
+        with db.connect() as conn:
+            self.assertEqual({it["severity"] for it in db.load_draft(conn, self.SID[0])["items"]}, {"상"},
+                             "DB 의 중요도 값은 그대로 남아야 한다")
+
+    def test_server_ignores_severity_in_the_approval_form(self):
+        """화면에서 중요도를 뺐으니 승인할 때 sev_* 로 중요도를 바꾸는 경로도 없앤다 — 옛 폼이 보내와도 쓰지 않는다."""
+        from urllib.parse import urlencode
+        ids = self._seed()
+        import db      # _fresh_db 가 모듈을 갈아 끼우므로 _seed 뒤에 가져온다 — 앞에서 가져오면 옛 DB 를 본다
+        import server
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = "/approve"; self.sent = []; self.headers = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        h._handle_form(urlencode([("shift_id", self.SID[0]), ("item", ids[0]), (f"status_{ids[0]}", "완료"),
+                                  (f"sev_{ids[0]}", "하")]).encode())
+        self.assertEqual(h.sent[-1][0], 303, "중요도 없이 승인은 그대로 된다")
+        with db.connect() as conn:
+            got = {it["id"]: it["severity"] for it in db.load_draft(conn, self.SID[0])["items"]}
+        self.assertEqual(got[ids[0]], "상", "sev_* 를 받아 중요도를 바꾸면 안 된다")
+
+    def test_items_are_ordered_by_first_detection_time(self):
+        """엔진은 항목을 중요도 순으로 정렬해 넘긴다(engine/api.py compose). 중요도를 화면에서 뺐으니 그 순서는 근거 없이
+        뒤섞여 보인다 — 화면 순서를 처음 감지된 시각으로 바꾼다(초안·확정 일지 둘 다). DB 의 seq 는 그대로 둔다."""
+        ids = self._seed()
+        import db
+        import server
+        with db.connect() as conn:      # seq 순서(FI-602 → SI-507 → XI-001)와 다른 감지 시각
+            for tag, start in (("FI-602", "2026-08-25T11:00:00"), ("SI-507", "2026-08-25T09:00:00"), ("XI-001", "2026-08-25T10:00:00")):
+                conn.execute("UPDATE event SET start_ts = ? WHERE tag = ?", (start, tag))
+        want = ["SI-507 드리프트", "XI-001 드리프트", "FI-602 드리프트"]
+        part = self._detail(server.view_shift(self.SID[0]))
+        self.assertEqual(sorted(want, key=part.index), want, "초안 화면이 처음 감지된 시각 순이 아니다")
+        self._approve(ids)
+        part = self._detail(server.view_shift(self.SID[0]))
+        self.assertEqual(sorted(want, key=part.index), want, "확정 일지가 처음 감지된 시각 순이 아니다")
+
+    def test_confirmed_log_has_a_folded_trend_per_item(self):
+        """확정 일지에 추이가 없었다(지휘자 실측 — 전체 그래프 0). 항목마다 넣되 기본은 접고 「<태그> 추이 보기」로 편다(JS 없이).
+        일지는 읽는 문서라 기본으로 펴 두면 길어진다. 초안 화면은 펼친 채 둔다."""
+        ids = self._seed()
+        import server
+        self._approve(ids, adopted=ids[:2])       # 채택 둘 · 제외 하나 — 제외 항목에도 추이를 붙인다
+        part = self._detail(server.view_shift(self.SID[0]))
+        for tag in self.TAGS:
+            self.assertTrue(f"{tag} 추이 보기" in part, f"{tag} 추이 보기 버튼이 없다")
+        self.assertEqual(part.count('class="trbox"'), len(self.TAGS), "접기 체크박스는 항목마다")
+        self.assertEqual(part.count("<svg"), len(self.TAGS), "펼치면 그래프가 있다")
+        self.assertTrue(".trbox:checked~.trwrap{display:block}" in server.STYLE.replace(" ", ""),
+                        "기본은 접혀 있고 체크하면 편다")
+
+    def test_stored_curve_draws_after_raw_is_gone(self):
+        """전체 곡선을 원본에서 그때그때 읽어, 원본이 3일 보관 뒤 회전으로 지워지면 오래된 확정 일지는 그래프를 영영 못 그렸다.
+        확정 때 항목에 1분 평균 곡선을 저장한다 — 원본을 지운 뒤에도 저장된 곡선으로 그려야 한다."""
+        ids = self._seed()
+        import db
+        import server
+        self._approve(ids)
+        with db.connect() as conn:
+            conn.execute("DELETE FROM raw_sample")
+            stored = [it.get("curve") for it in db.load_draft(conn, self.SID[0])["items"]]
+        self.assertTrue(stored and all(stored), "확정 때 모든 항목에 곡선이 저장돼야 한다")
+        self.assertLessEqual(max(len(c["v"]) for c in stored), 720, "12시간 1분 평균 = 720점 이하")
+        self.assertEqual(self._detail(server.view_shift(self.SID[0])).count("<svg"), len(self.TAGS),
+                         "원본이 없어도 저장된 곡선으로 그린다")
+
+    def test_no_curve_and_no_raw_means_no_trend_button(self):
+        """저장된 곡선도 원본도 없으면 「추이 보기」 버튼을 그리지 않는다 — 빈 그래프·오류 없이 근거만 보인다."""
+        ids = self._seed(raw=False)
+        import server
+        self._approve(ids)
+        body = server.view_shift(self.SID[0])
+        part = self._detail(body)
+        self.assertFalse("추이 보기" in part, "그릴 곡선이 없으면 버튼도 없다")
+        self.assertFalse("<svg" in part, "빈 그래프도 없다")
+        self.assertTrue("변화율" in part, "근거는 그대로 보인다")
+
+    def test_backfill_tool_fills_old_confirmed_records_while_raw_remains(self):
+        """이 변경 전에 확정된 기록은 곡선이 없다. 원본이 남은 근무는 도구로 채우고, 원본이 이미 지워진 항목은 센다."""
+        ids = self._seed()
+        import db
+        self._approve(ids)
+        with db.connect() as conn:
+            conn.execute("UPDATE draft_item SET curve_json = NULL")     # 옛 기록 흉내
+        sys.path.append(os.path.join(ROOT, "tools"))
+        sys.modules.pop("backfill_curves", None)
+        import backfill_curves
+        got = backfill_curves.backfill()
+        self.assertEqual((got["shifts"], got["filled"], got["no_raw"]), (1, len(ids), 0), f"원본이 있으면 전부 채운다: {got}")
+        with db.connect() as conn:
+            self.assertTrue(all(it.get("curve") for it in db.load_draft(conn, self.SID[0])["items"]))
+            conn.execute("UPDATE draft_item SET curve_json = NULL")
+            conn.execute("DELETE FROM raw_sample")
+        got = backfill_curves.backfill()
+        self.assertEqual((got["filled"], got["no_raw"]), (0, len(ids)), f"원본이 없으면 못 채운 수를 센다: {got}")
+
+    def test_cli_approve_adds_missing_columns_before_approving(self):
+        """곡선 칸(curve_json)이 없는 옛 DB 에 명령줄로 승인하면 곡선 저장에서 「no such column」 으로 승인 전체가 되돌아갔다(반증 워커 재현).
+        배포(rsync) 뒤 서버를 다시 켜기 전에 명령줄 승인이 먼저 돌 수 있다 — 교대 타이머의 `cli.py run` 처럼 명령이 스스로 칸을 맞춘다."""
+        self._seed()
+        import sqlite3
+        import subprocess
+        c = sqlite3.connect(os.environ["ENGRA_DB"])
+        c.execute("ALTER TABLE draft_item DROP COLUMN curve_json")          # 이 변경 전 DB 흉내
+        c.close()
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "app", "cli.py"), "approve", self.SID[0], "--all", "--status", "완료"],
+                           capture_output=True, text=True, env=dict(os.environ))
+        self.assertEqual(r.returncode, 0, f"옛 DB 에서도 승인돼야 한다: {(r.stdout + r.stderr).strip()[-300:]}")
+        import db
+        with db.connect() as conn:
+            self.assertIsNotNone(db.load_handover(conn, self.SID[0]), "확정 일지가 남아야 한다")
+            self.assertTrue(all(it.get("curve") for it in db.load_draft(conn, self.SID[0])["items"]), "칸을 더한 뒤 곡선도 저장한다")
+
+    # 곡선 자리수 계산이 못 받는 원본 두 가지 — 폭이 부동소수 범위를 넘어 무한대가 되는 ±1e308, 폭을 200 으로 나누면 0 이 되는 비정규 소수
+    EXTREME = {"폭 무한대 ±1e308": [1e308, -1e308, 5.0], "폭이 0 으로 사라지는 비정규 소수": [5e-324, 1e-323, 0.0]}
+
+    def _extreme_raw(self, vals):
+        """FI-602 원본에 vals 를 1분 간격으로 넣는다. 다른 태그는 원본 없음."""
+        ids = self._seed(raw=False)
+        import db
+        with db.connect() as conn:
+            conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                             [("FI-602", f"2026-08-25T07:{k:02d}:00", v) for k, v in enumerate(vals)])
+        return ids
+
+    def test_extreme_raw_values_do_not_undo_approval(self):
+        """곡선 폭이 무한대면 자리수 계산이 OverflowError 를 내 승인 전체가 되돌아갔다(반증 워커 재현). 폭이 비정규 소수만큼 작으면
+        같은 자리의 log10 이 ValueError 를 내 역시 되돌아갔다(그 수정 뒤 탐침으로 찾음). 곡선을 못 만들면 곡선만 빼고
+        승인·확정 일지는 그대로 간다. 저장한 곡선에는 유한한 값만 있다."""
+        import math
+        for name, vals in self.EXTREME.items():
+            with self.subTest(name):
+                ids = self._extreme_raw(vals)
+                import db
+                import server
+                self._approve(ids)
+                with db.connect() as conn:
+                    self.assertIsNotNone(db.load_handover(conn, self.SID[0]), "승인이 되돌아가지 않는다")
+                    items = db.load_draft(conn, self.SID[0])["items"]
+                self.assertEqual([it["adopted"] for it in items], [1] * len(ids))
+                self.assertTrue(all(math.isfinite(v) for it in items if it.get("curve") for v in it["curve"]["v"]),
+                                "저장한 곡선에 무한대가 없다")
+                self.assertTrue("FI-602" in self._detail(server.view_shift(self.SID[0])), "확정 일지 화면이 그려진다")
+
+    def test_extreme_raw_values_do_not_break_the_draft_screen(self):
+        """초안 화면도 저장된 곡선이 없으면 같은 계산으로 원본 곡선을 그린다 — 같은 오류로 화면이 멈추면 안 된다."""
+        for name, vals in self.EXTREME.items():
+            with self.subTest(name):
+                self._extreme_raw(vals)
+                import server
+                self.assertTrue("FI-602" in self._detail(server.view_shift(self.SID[0])), "초안 화면이 그려진다")
+
+    def test_migration_skips_a_column_another_process_just_added(self):
+        """서버·교대 타이머·명령줄이 칸 없는 옛 DB 에 동시에 init 하면, 칸이 없다고 본 뒤 다른 프로세스가 먼저 더해 ALTER 가
+        「duplicate column name」 으로 죽었다(반증 워커 재현: 6개 동시 120회 중 81회). 그 오류만 넘기고 다른 오류는 그대로 올린다.
+        시각에 기대지 않게 「칸 확인 → 다른 연결이 먼저 더함 → ALTER」 순서를 그대로 만든다."""
+        _fresh_db()
+        import sqlite3
+        import db
+        path = os.environ["ENGRA_DB"]
+        c = sqlite3.connect(path)
+        c.execute("ALTER TABLE draft_item DROP COLUMN curve_json")
+        c.close()
+
+        class Racing:
+            """ALTER 바로 앞에서 다른 연결이 같은 칸을 먼저 더한다. fail 을 주면 그 대신 그 오류를 낸다."""
+            def __init__(self, conn, fail=None):
+                self.conn, self.fail = conn, fail
+
+            def execute(self, sql, *args):
+                if sql.startswith("ALTER TABLE draft_item ADD COLUMN curve_json"):
+                    if self.fail:
+                        raise self.fail
+                    other = sqlite3.connect(path)
+                    other.execute(sql)
+                    other.close()
+                return self.conn.execute(sql, *args)
+
+        conn = db.connect()
+        try:
+            with self.assertRaises(sqlite3.OperationalError, msg="칸 중복 말고 다른 오류는 삼키지 않는다"):
+                db._migrate(Racing(conn, fail=sqlite3.OperationalError("disk I/O error")))
+            db._migrate(Racing(conn))
+            self.assertTrue("curve_json" in {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")})
+        finally:
+            conn.close()
+
+    def test_concurrent_init_on_an_old_db_all_succeed(self):
+        """위 순서를 실제 프로세스로 — 칸 없는 옛 DB 에 6개가 같은 순간 init 해도 전부 성공하고 칸이 생긴다(반증 워커 race.py 를 줄인 것)."""
+        import shutil
+        import sqlite3
+        import subprocess
+        import time
+        _fresh_db()
+        base = os.environ["ENGRA_DB"]
+        c = sqlite3.connect(base)
+        c.execute("ALTER TABLE draft_item DROP COLUMN curve_json")
+        busy = c.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]     # 본 파일만 복사하므로 WAL 을 먼저 옮긴다
+        c.close()
+        self.assertEqual(busy, 0)
+        child = ("import sys, time\nsys.path.insert(0, sys.argv[2])\nimport db\n"
+                 "while time.time() < float(sys.argv[1]):\n    pass\ndb.init()\n")
+        died = []
+        for trial in range(3):
+            path = f"{base}.race{trial}"
+            shutil.copyfile(base, path)
+            start = time.time() + 1.0
+            ps = [subprocess.Popen([sys.executable, "-c", child, str(start), os.path.join(ROOT, "app")],
+                                   env=dict(os.environ, ENGRA_DB=path), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                  for _ in range(6)]
+            for p in ps:
+                _, err = p.communicate()
+                if p.returncode != 0:
+                    died.append((err.strip().splitlines() or [f"exit {p.returncode}"])[-1])
+            c = sqlite3.connect(path)
+            cols = {r[1] for r in c.execute("PRAGMA table_info(draft_item)")}
+            c.close()
+            for s in ("", "-wal", "-shm"):
+                if os.path.exists(path + s):
+                    os.remove(path + s)
+            self.assertTrue("curve_json" in cols, f"{trial}회차: 칸이 생기지 않았다")
+        self.assertEqual(died, [], f"동시에 init 한 프로세스가 {len(died)}개 죽었다: {sorted(set(died))}")
+
+    def test_real_12h_shift_shows_no_exponent_sigma_or_severity(self):
+        """합성 데이터로는 엔진·AI 문장이 실제로 만드는 숫자를 못 본다 — 실데이터(12시간 114만 행)로 적재·실행해 그린다.
+        σ 는 main 의 통계 기호 제거(2ccd3a8)가 합쳐져야 사라진다."""
+        _fresh_db()
+        import approve
+        import collect
+        import db
+        import pipeline
+        import server
+        path = os.path.join(ROOT, "data", "asu_shift_day_12h.csv")
+        self.assertTrue(os.path.exists(path), "실데이터 파일이 저장소에 있어야 한다")
+        collect.ingest(collect.source_for(path))
+        sid = "2026-08-21-day"
+        pipeline.run(sid, verbose=False)
+        with db.connect() as conn:
+            items = db.load_draft(conn, sid)["items"]
+            evidence = [r[0] or "" for r in conn.execute("SELECT evidence FROM event WHERE shift_id = ?", (sid,))]
+        self.assertTrue(items, "항목이 있어야 이 검사가 뜻이 있다")
+        # 가림 없이 엔진이 낸 그대로 — 검출 근거와 조립한 항목의 제목·본문·근거 원문에 지수 표기가 없어야 한다
+        raw = evidence + [t or "" for it in items for t in (it["title"], it["body"], it["evidence"])]
+        self.assertTrue(len(evidence) > 10, "엔진 이벤트가 있어야 이 검사가 뜻이 있다")
+        self.assertEqual([e for t in raw for e in self._exp(t)], [], "엔진·조립이 낸 문장 원문에 지수 표기")
+        self.assertTrue(all(it.get("curve") for it in items if it["tag"]), "초안을 만들 때 곡선을 저장한다")
+        pending = server.view_shift(sid)
+        approve.decide(sid, {it["id"]: {"adopted": True, "status": "완료"} for it in items if it["origin"] != "carried"})
+        confirmed = server.view_shift(sid)
+        for name, body in (("초안", pending), ("확정", confirmed)):
+            self.assertEqual(self._exp(body), [], f"{name}: 지수 표기")
+            self.assertFalse("σ" in body, f"{name}: σ 가 남았다")
+            self.assertFalse("중요도" in body, f"{name}: 중요도가 남았다")
 
 
 class SnapshotLinks(unittest.TestCase):

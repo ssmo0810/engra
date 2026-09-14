@@ -217,6 +217,8 @@ def run(shift_id, verbose=True, redo=False, say=None):
             say(f"지난 근무에서 제외했던 항목 {marked}개 — 최하단으로 내립니다 (숨기지 않음)")
 
         db.save_draft(conn, shift_id, items, ports.engine_source(), model=(llm.MODEL if llm.mode() != "off" else None))
+        # 근무 구간 전체 추이를 항목에 저장한다 — 원본은 아래 회전으로 지워지지만 일지의 그래프는 남아야 한다.
+        db.save_curves(conn, shift_id)
         result["items"] = len(items)
         say(f"초안 {len(items)}개 항목 생성 — 승인 대기")
 

@@ -9,12 +9,14 @@
 """
 import html
 import json
+import re
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 import approve as approve_mod
 import db
+import numfmt   # 앱이 찍는 숫자 규칙 하나 — 엔진 detectors._fmt 와 같다
 import jobs
 import pipeline   # quality_summary — 초안 화면 배너 문구
 import llm
@@ -100,11 +102,9 @@ a{color:inherit}
   .pickbox:focus-visible ~ .pickbtn{outline:2px solid var(--accent);outline-offset:2px}
 }
 
-/* 초안 항목 — 왼쪽 띠가 중요도(상 빨강 · 중 호박 · 하 회색). 제목 → 본문 → 근거 순 */
-.item{border:1px solid var(--line);border-left:3px solid #cfcbc4;border-radius:10px;
+/* 초안 항목 — 제목 → 본문 → 근거 순. 왼쪽 색 띠는 뺐다(경모님 2026-09-14) — 경계는 카드 테두리가 잡는다 */
+.item{border:1px solid var(--line);border-radius:10px;
       padding:14px 16px;margin-bottom:10px;background:var(--card);transition:.15s}
-.item.sev-high{border-left-color:var(--accent)}
-.item.sev-mid{border-left-color:#d9a441}
 .item.off{opacity:.55;background:#fbfaf8}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
 .item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
@@ -146,7 +146,6 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .item.need .st .lb::after{content:" — 골라야 승인됩니다"}
 
 /* 이월 항목 묶음 — 접힌 채로 두고 본문 항목과 섞지 않는다 */
-.carry{border-left:3px solid #d9a441}
 .carry .ci{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:10px;background:var(--card)}
 .carry .ci .t{font-weight:700;font-size:14px}
 .carry .ci .m{font-size:13px;color:var(--sub);margin:3px 0 7px}
@@ -165,14 +164,23 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .del:hover{border-color:var(--accent);color:var(--accent)}
 
 /* 확정 일지 */
-.ent{border-left:3px solid #cfcbc4;padding:2px 0 2px 14px;margin-bottom:16px}
-.ent.sev-high{border-left-color:var(--accent)}
-.ent.sev-mid{border-left-color:#d9a441}
+.ent{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:12px;background:var(--card);position:relative}
 .ent .t{font-weight:700;font-size:14px}
 .ent .m{font-size:13px;color:var(--sub);margin-bottom:5px}
 .ent .c{font-size:13px;background:#f6f5f2;padding:8px 12px;border-radius:6px}
-.ex{border-left:3px solid #d9d5ce;padding:2px 0 2px 14px;margin-bottom:10px;opacity:.75}
+.ex{border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-bottom:10px;opacity:.75;position:relative}
 .ex .t{font-size:13px}
+
+/* 확정 일지의 추이 — 기본은 접고 「<태그> 추이 보기」로 편다(JS 없이). 일지는 읽는 문서라 펴 두면 길어진다.
+   체크박스는 보이지 않되 초점은 받는다 */
+.trbox{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.trbtn{display:inline-block;margin:8px 0 2px;padding:3px 12px;border:1px solid var(--line);border-radius:999px;
+       font-size:12.5px;font-weight:700;color:var(--sub);background:var(--card);cursor:pointer}
+.trbtn::before{content:"▸ "}
+.trbox:checked+.trbtn::before{content:"▾ "}
+.trbox:focus-visible+.trbtn{outline:2px solid var(--accent);outline-offset:2px}
+.trwrap{display:none;margin-top:8px}
+.trbox:checked~.trwrap{display:block}
 """
 
 # 트렌드 호버. 목업(demo/index.html)의 move()/out() 을 서버 차트 좌표계로 옮겼다.
@@ -219,18 +227,26 @@ async function upSend(f, fs, m){
   }catch(e){ m.textContent='실패 — '+e; upLock(false); }
 }
 document.querySelectorAll('.trend[data-trend]').forEach(function(box){
+  // 근무 구간 전체 그래프의 호버. 1분 평균은 원본이 빈 곳에서 간격이 벌어지므로, 마우스 가로 위치에서 가장 가까운
+  // 실제 점을 찾아 그 점의 시각·값을 띄운다(없는 값을 만들지 않는다). 값은 서버가 화면 표기(쉼표·지수 없음)로 보낸다.
   var d; try{ d=JSON.parse(box.getAttribute('data-trend')); }catch(e){ return; }
   var svg=box.querySelector('svg'), cur=svg.querySelector('.cur'), dot=svg.querySelector('.dot'), tip=box.querySelector('.tip');
-  var n=d.v.length, t0=Date.parse(d.t0), t1=Date.parse(d.t1);
+  var n=d.m.length, t0=Date.parse(d.t0);
+  if(n<2) return;
   function hm(ms){ var x=new Date(ms); return ('0'+x.getHours()).slice(-2)+':'+('0'+x.getMinutes()).slice(-2); }
+  function near(mm){
+    var lo=0, hi=n-1;
+    while(hi-lo>1){ var mid=(lo+hi)>>1; if(d.m[mid]<mm) lo=mid; else hi=mid; }
+    return (Math.abs(d.m[hi]-mm)<Math.abs(mm-d.m[lo]))?hi:lo;
+  }
   function move(ev){
     var r=svg.getBoundingClientRect(), sc=r.width/720;
-    var cx=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left, x=cx/sc;
-    var g=Math.max(0,Math.min(1,(x-d.L)/d.pw)), i=Math.round(g*(n-1)), val=d.v[i];
-    var px=d.L+g*d.pw, py=d.T+d.ph-(val-d.ylo)/d.span*d.ph;
+    var x=((ev.touches?ev.touches[0].clientX:ev.clientX)-r.left)/sc;
+    if(x<d.L-4||x>d.L+d.pw+4){ out(); return; }
+    var i=near((x-d.L)/d.pw*d.span_m), px=d.L+d.m[i]/d.span_m*d.pw;
     cur.setAttribute('x1',px); cur.setAttribute('x2',px); cur.style.display='';
-    dot.setAttribute('cx',px); dot.setAttribute('cy',py); dot.style.display='';
-    tip.textContent=hm(t0+g*(t1-t0))+'  '+(Math.abs(val)>=100?val.toFixed(1):val.toFixed(3))+(d.unit?' '+d.unit:'');
+    dot.setAttribute('cx',px); dot.setAttribute('cy',d.y[i]); dot.style.display='';
+    tip.textContent=hm(t0+d.m[i]*60000)+'  '+d.v[i]+(d.unit?' '+d.unit:'');
     tip.style.left=(px*sc)+'px'; tip.style.display='';
   }
   function out(){ cur.style.display='none'; dot.style.display='none'; tip.style.display='none'; }
@@ -320,14 +336,12 @@ def _span(ts):
     return (ts or "")[5:16].replace("T", " ")
 
 
-def _sev_class(sev):
-    """초안 항목 왼쪽 띠 — 상 빨강 · 중 호박 · 하 회색(기본)."""
-    return {"상": " sev-high", "중": " sev-mid"}.get(sev, "")
+_OLD_SEV = re.compile(r"^(\s*\d+\. )\[(?:상|중|하|-)\] ")
 
 
-def _sev_pill(sev):
-    cls = {"상": "pill red", "중": "pill amber"}.get(sev, "pill")
-    return f'<span class="{cls}">중요도 {esc(sev or "-")}</span>'
+def _old_body(body):
+    """이전 확정본 본문. 옛 기록의 「1. [상] 제목」 같은 중요도 표시만 뗀다(중요도는 화면에서 뺐다). 문장은 고쳐 쓰지 않는다."""
+    return "\n".join(_OLD_SEV.sub(r"\1", ln) for ln in (body or "").split("\n"))
 
 
 # --- 화면 -------------------------------------------------------------
@@ -523,8 +537,8 @@ def view_admin(handler=None):
             '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
             '<details style="margin:0 0 8px"><summary style="cursor:pointer;font-size:13px;color:var(--sub)">네 가지 — 펼쳐 보기</summary>'
             '<ol style="margin:8px 0 0 18px">'
-            '<li><b>서술</b> — 엔진의 근거 수치(σ, 기울기, 한계 대비, 지속 시간)를 근무자 말투의 문장으로. 근거에 있는 숫자만 쓴다.</li>'
-            '<li><b>중요도 재판정</b> — 통계 크기가 매긴 상/중/하를 "놓치면 무엇이 일어나는가"(품질·안전·설비 직결 / 손실·비효율 / 후속 영향 작음)로 다시 매기고 이유를 쓴다. 규칙과 다르면 화면에 「통계 기준 → AI 판정」으로 드러나고 사람이 되돌릴 수 있다.</li>'
+            '<li><b>서술</b> — 엔진의 근거 수치(정상범위 폭 대비 크기, 기울기, 한계 대비, 지속 시간)를 근무자 말투의 문장으로. 근거에 있는 숫자만 쓴다.</li>'
+            '<li><b>중요도 재판정</b> — 통계 크기가 매긴 상/중/하를 "놓치면 무엇이 일어나는가"(품질·안전·설비 직결 / 손실·비효율 / 후속 영향 작음)로 다시 매기고 이유를 쓴다. 판정은 기록으로 남기지만 근무 화면에는 보이지 않는다 — 무엇을 넘길지는 근무자가 고른다.</li>'
             '<li><b>전달 가치</b> — 외기(TI-101·MI-102) 하루 주기와 그에 따라 함께 움직인 완만한 변화는 정상 운전으로 보고 「전달 가치 낮음」. 한계 접근·다른 이상과 겹침이면 전달. 갈리면 전달(놓치는 쪽이 비싸다).</li>'
             '<li><b>사례 적합성 · 연관</b> — 같은 태그의 확정 일지 중 이번 현상에 맞는 것만 남기고(기각 사유 기록), 태그 마스터 연결이 놓친 인과(예: 순도 하강 ↔ Cold end 온도)를 「함께 봐야 할 항목」으로 잇는다. 근거 없으면 잇지 않는다.</li></ol></details>'
             '<form method="post" action="/admin/ai_check" style="margin:6px 0 10px"><button class="btn" style="background:var(--sub);padding:6px 12px;font-size:12.5px">AI 연결 점검 — 실제로 한 번 호출(수 초)</button>'
@@ -622,7 +636,7 @@ def _pipeline_card(locked):
     lr = st.get("last_run") or {}
     if not running and lr.get("shift_id"):   # 뒤이어 적재가 돌았어도 마지막 실행의 링크는 남는다
         link = ('<p class="note"><a href="/shift/' + esc(lr["shift_id"]) + '"><b>→ 초안 검토로 (' + esc(lr["shift_id"]) + ')</b></a>'
-                ' — 채택·제외·중요도·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
+                ' — 채택·제외·상태·코멘트 후 승인하면 아래 대조표가 갱신됩니다.</p>')
     hint = ('<span class="muted" style="font-size:12px">진행은 자동 갱신 · <span id="jobelapsed"></span></span>'
             '<a id="jobdone" href="/admin" class="pill" style="display:none">완료 — 결과 보기</a>') if running else ""
     # 새로고침이 아니라 /api/job 폴링으로 로그·경과만 바꾼다 — 새로고침은 파일 선택을 지우고 업로드를 끊었다 (경모님 QA)
@@ -720,18 +734,37 @@ def _rounds_html(shift_id):
         why = f' · 사유: {esc(r["reopened_reason"])}' if r.get("reopened_reason") else ""
         parts.append(f'<details style="margin-top:4px"><summary>{r["round"]}차 · {esc((r["confirmed_at"] or "")[:16].replace("T"," "))} · '
                      f'채택 {r["adopted_count"]}/제외 {r["excluded_count"]} · 되돌림 {esc((r["reopened_at"] or "")[:16].replace("T"," "))}{why}</summary>'
-                     f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:6px 0 0">{esc(r["body"] or "")}</pre></details>')
+                     f'<pre class="mono" style="white-space:pre-wrap;font-size:11.5px;margin:6px 0 0">{esc(_old_body(r["body"]))}</pre></details>')
     parts.append("</div>")
     return "".join(parts)
 
 
 def _view_confirmed(shift_id, draft, handover):
-    own = [i for i in draft["items"] if i["origin"] != "carried"]      # 이월 판단 행은 위 묶음에서 보인다
+    own = _by_time([i for i in draft["items"] if i["origin"] != "carried"], _starts(shift_id))      # 이월 판단 행은 위 묶음에서 보인다
     adopted = [i for i in own if i["adopted"] == 1]
     excluded = [i for i in own if i["adopted"] == 0]
     with db.connect() as conn:
         opened = db.open_items(conn, shift_id)
         choices = db.carried_choices(conn, draft["id"])
+
+    waves = _waves(shift_id)
+    curves = {}
+
+    def trend(it):
+        """접힌 추이 — 저장된 곡선, 없으면 남은 원본. 둘 다 없으면 버튼도 그리지 않는다(빈 그래프·오류 금지)."""
+        full = it.get("curve")
+        if not full and it.get("tag"):
+            if it["tag"] not in curves:
+                curves[it["tag"]] = _shift_curve(shift_id, it["tag"])
+            full = curves[it["tag"]]
+        wf, wm = waves.get(it.get("event_id")) or (None, {})
+        graph = _spark(wf, wm, unit=(wm or {}).get("unit", ""), full=full)
+        if not graph:
+            return ""
+        key = f"tr{it['id']}"
+        return (f'<input type="checkbox" id="{key}" class="trbox">'
+                f'<label for="{key}" class="trbtn">{esc(it["tag"])} 추이 보기</label>'
+                f'<div class="trwrap">{graph}</div>')
 
     ents = []
     for it in adopted:
@@ -741,8 +774,8 @@ def _view_confirmed(shift_id, draft, handover):
                    if it.get("comment")
                    else '<div class="c muted">코멘트 없음</div>')
         ents.append(
-            f'<div class="ent{_sev_class(it["severity"])}"><div class="t">{esc(it["title"])} {_sev_pill(it["severity"])} {_status_pill(it.get("status"))}{man}</div>'
-            f'<div class="m">{esc(it["evidence"] or it["body"])}</div>{comment}</div>'
+            f'<div class="ent"><div class="t">{esc(it["title"])} {_status_pill(it.get("status"))}{man}</div>'
+            f'<div class="m">{esc(it["evidence"] or it["body"])}</div>{comment}{trend(it)}</div>'
         )
     if not ents:
         ents.append('<div class="empty">채택된 항목이 없습니다.</div>')
@@ -750,8 +783,8 @@ def _view_confirmed(shift_id, draft, handover):
     ex = ""
     if excluded:
         rows = "".join(
-            f'<div class="ex"><div class="t">{esc(i["title"])} {_sev_pill(i["severity"])}</div>'
-            f'<div class="m">{esc(i["evidence"] or i["body"])} · <b>제외</b></div></div>'
+            f'<div class="ex"><div class="t">{esc(i["title"])}</div>'
+            f'<div class="m">{esc(i["evidence"] or i["body"])} · <b>제외</b></div>{trend(i)}</div>'
             for i in excluded
         )
         ex = (f'<div style="border-top:1px solid var(--line);margin:18px 0 12px"></div>'
@@ -832,13 +865,6 @@ def _carry_box(opened, choices, editable):
             f'<p class="note" style="margin:8px 0 4px">{hint}</p>{"".join(rows)}</details>')
 
 
-def _sev_select(it):
-    """대기 초안에서 근무자가 중요도를 바꾼다. AI 판정은 기본값일 뿐이다."""
-    cur = it["severity"] or "중"
-    opts = "".join(f'<option value="{s}"{" selected" if s == cur else ""}>중요도 {s}</option>' for s in ("상", "중", "하"))
-    return f'<select name="sev_{it["id"]}" class="pill sevsel" title="중요도를 바꿀 수 있습니다">{opts}</select>'
-
-
 def _frac(t0, t1, t):
     """t0~t1 안에서 t 의 가로 위치(0~1)."""
     from datetime import datetime as _d
@@ -850,12 +876,14 @@ def _frac(t0, t1, t):
     return max(0.0, min(1.0, (x - a).total_seconds() / span))
 
 
-def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=False, ticks=5, gap=0.0, note=""):
+def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, gap=0.0, note="", minutes=None, span_m=None):
     """(가로 위치 0~1, 값) 점들 → 인라인 SVG 한 장. 외부 라이브러리 없음.
 
-    band=(f0,f1) 는 감지 구간 음영, gap 보다 벌어진 자리는 선을 끊는다(원본이 빈 구간). hover 면 마우스 툴팁 데이터를 붙인다
-    (TREND_JS 가 .trend[data-trend] 를 찾는다 — 표본이 고르게 놓인 확대 그래프에만 붙인다).
+    band=(f0,f1) 는 감지 구간 음영, gap 보다 벌어진 자리는 선을 끊는다(원본이 빈 구간).
+    minutes(구간 시작부터 분)를 주면 호버 데이터를 붙인다 — TREND_JS 가 .trend[data-trend] 에서 가장 가까운 실제 점을 띄운다.
+    숫자는 전부 numfmt.fmt 로 낸다 — 눈금을 `:.4g` 로 찍어 값이 큰 태그에서 `1.77e+04` 가 나왔다(경모님 지적 2026-09-14).
     """
+    import math
     if len(pts) < 2:
         return ""
     vals = [v for _, v in pts]
@@ -863,13 +891,18 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=Fal
     ylo, yhi = lo, hi
     if isinstance(limit, (int, float)) and abs(limit - (lo + hi) / 2) < (hi - lo or 1) * 6:
         ylo, yhi = min(ylo, limit), max(yhi, limit)
-    pad = (yhi - ylo or 1.0) * 0.08
+    pad = ((yhi - ylo) or abs(yhi) * 0.01 or 1.0) * 0.08
     ylo -= pad
     yhi += pad
     span = (yhi - ylo) or 1.0
     W, H = 720, height
-    L, R, T, B = 56, 12, 10, 26            # 축 여백
+    L, R, T, B = 64, 12, 10, 26            # 축 여백 — 쉼표 붙은 큰 수(40,131)가 들어갈 만큼
     pw, ph = W - L - R, H - T - B
+    # 눈금 자리수 = 값 크기의 표시 자리수와, 눈금 간격이 구별되는 자리수 중 큰 쪽
+    step = span / 3
+    d = numfmt.decimals(sorted(abs(v) for v in vals)[len(vals) // 2])
+    if step > 0:
+        d = min(12, max(d, math.ceil(-math.log10(step))))
 
     def X(f):
         return L + f * pw
@@ -889,7 +922,7 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=Fal
                    for s in segs if len(s) > 1)
     yt = "".join(
         f'<line x1="{L}" y1="{Y(ylo + span * k / 3):.1f}" x2="{W - R}" y2="{Y(ylo + span * k / 3):.1f}" stroke="var(--line)" stroke-dasharray="2 3"/>'
-        f'<text x="{L - 6}" y="{Y(ylo + span * k / 3) + 3.5:.1f}" font-size="10" text-anchor="end" fill="var(--sub)">{ylo + span * k / 3:.4g}</text>'
+        f'<text x="{L - 6}" y="{Y(ylo + span * k / 3) + 3.5:.1f}" font-size="10" text-anchor="end" fill="var(--sub)">{numfmt.fmt(ylo + span * k / 3, d=d)}</text>'
         for k in range(4))
     xt = ""
     try:
@@ -908,12 +941,15 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=Fal
     lim = ""
     if isinstance(limit, (int, float)) and ylo <= limit <= yhi:
         lim = (f'<line x1="{L}" y1="{Y(limit):.1f}" x2="{W - R}" y2="{Y(limit):.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
-               f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {limit:g}{esc(unit)}</text>')
+               f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {numfmt.fmt(limit)}{esc(unit)}</text>')
     end = f'<circle cx="{X(pts[-1][0]):.1f}" cy="{Y(pts[-1][1]):.1f}" r="3" fill="var(--ink)"/>'
     data = ""
-    if hover:
-        data = " data-trend='" + esc(json.dumps({"v": vals, "t0": t0, "t1": t1, "L": L, "pw": pw, "T": T, "ph": ph,
-                                                 "ylo": ylo, "span": span, "unit": unit}, ensure_ascii=False)) + "'"
+    if minutes and len(minutes) == len(pts):
+        # 정수 분 · 소수 한 자리 화면 좌표 · 화면 표기 문자열만 보낸다 — 실수를 그대로 JSON 에 넣으면 3.2e-05 가 나온다
+        data = " data-trend='" + esc(json.dumps({
+            "t0": t0, "span_m": span_m or 1, "L": L, "pw": pw, "unit": unit,
+            "m": [int(m) for m in minutes], "y": [round(Y(v), 1) for v in vals], "v": [numfmt.fmt(v, d=d) for v in vals]},
+            ensure_ascii=False, separators=(",", ":"))) + "'"
     return (f'<div class="trend"{data} style="position:relative;margin-bottom:10px">'
             f'<svg viewBox="0 0 {W} {H}" style="display:block;width:100%;height:auto;background:var(--card);'
             f'border:1px solid var(--line);border-radius:8px">{yt}{shade}{poly}{lim}{end}{xt}'
@@ -927,45 +963,43 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", hover=Fal
 
 
 def _shift_curve(shift_id, tag):
-    """근무 구간 전체의 태그 곡선 — 원본 표본을 1분 평균으로 줄여 읽는다(12시간이면 720점). 원본이 회전돼 없으면 None.
+    """근무 구간 전체의 태그 곡선을 남은 원본에서 읽는다(1분 평균, db.raw_curve). 원본이 회전돼 없으면 None.
 
-    감지 구간 ±30분만 그리니 12시간 근무의 어디쯤이었는지 알 수 없었다(경모님 2026-09-14).
+    항목에 저장된 곡선(draft_item.curve_json)이 없을 때만 부른다 — 저장은 db.save_curves 가 초안·확정 때 한다.
     """
+    if not tag:
+        return None
     with db.connect() as conn:
-        row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
-        if not row:
-            return None
-        rows = conn.execute(
-            "SELECT substr(ts, 1, 16) AS m, AVG(value) FROM raw_sample "
-            "WHERE tag = ? AND ts >= ? AND ts < ? GROUP BY m ORDER BY m",
-            (tag, row["window_start"], row["window_end"])).fetchall()
-    pts = [(_frac(row["window_start"], row["window_end"], m + ":00"), float(v)) for m, v in rows if v is not None]
-    return {"pts": pts, "t0": row["window_start"], "t1": row["window_end"]} if len(pts) >= 2 else None
+        return db.raw_curve(conn, shift_id, tag)
 
 
 def _spark(w, metrics=None, unit="", full=None):
-    """항목 그래프 — 위는 근무 구간 전체(감지 구간 음영), 아래는 그 구간 확대(마우스 호버로 값·시각).
+    """항목 그래프 — 근무 구간 전체 하나. 감지 구간은 빨간 음영, 마우스를 올리면 가장 가까운 점의 시각·값.
 
-    경모님 지적(2026-08-27) "trend 가 보기 불편하다, 자리를 더 써도 되니 제대로" → 눈금·한계선·음영이 있는 차트로,
-    (2026-09-14) "근무 어디쯤이었는지 알 수 없다" → 근무 구간 전체를 먼저 보이고 확대를 아래에 붙였다.
+    경모님 지적(2026-08-27) "trend 가 보기 불편하다" → 눈금·한계선·음영이 있는 차트로, (2026-09-14) "근무 어디쯤이었는지
+    알 수 없다" → 근무 구간 전체를 그리고, 같은 날 "트렌드 두 개 말고 전체 근무 기준 하나만" → 확대 그래프(±30분)를 없앴다.
+    확대 쪽에만 있던 최저·최고(감지 구간 ±30분 파형)는 그래프 아래 설명줄로 옮겼다.
+    full = 저장된 곡선 또는 남은 원본에서 읽은 곡선({"t0","t1","m","v"}). 없으면 그리지 않는다(빈 그래프 금지).
     """
+    from datetime import datetime as _d
+    if not full or len(full.get("m") or []) < 2:
+        return ""
+    try:
+        span_m = max(1, int((_d.fromisoformat(full["t1"]) - _d.fromisoformat(full["t0"])).total_seconds() // 60))
+    except (TypeError, ValueError, KeyError):
+        return ""
     limit = (metrics or {}).get("limit")
-    out = ""
-    if full and len(full.get("pts") or []) >= 2:
-        band = None
-        if w and w.get("mark"):
-            band = (_frac(full["t0"], full["t1"], w["mark"][0]), _frac(full["t0"], full["t1"], w["mark"][1]))
-        out += _curve(full["pts"], full["t0"], full["t1"], band=band, limit=limit, unit=unit, gap=0.01,
-                      note="근무 구간 전체 · 음영 = 감지 구간" + (" · 빨간 점선 = 알람 한계" if isinstance(limit, (int, float)) else ""))
-    if w and w.get("v") and len(w["v"]) >= 2:
-        v = w["v"]
-        n = len(v)
-        pts = [(i / (n - 1), x) for i, x in enumerate(v)]
-        band = (_frac(w["t0"], w["t1"], w["mark"][0]), _frac(w["t0"], w["t1"], w["mark"][1])) if w.get("mark") else None
-        out += _curve(pts, w["t0"], w["t1"], height=110 if out else 150, band=band, limit=limit, unit=unit, hover=True,
-                      note=("감지 구간 확대 ±30분" if out else "감지 구간 ±30분")
-                           + f" · 최저 {min(v):g} · 최고 {max(v):g}{(' ' + esc(unit)) if unit else ''}")
-    return out
+    band = None
+    if w and w.get("mark"):
+        band = (_frac(full["t0"], full["t1"], w["mark"][0]), _frac(full["t0"], full["t1"], w["mark"][1]))
+    note = "근무 구간 전체 · 음영 = 감지 구간" + (" · 빨간 점선 = 알람 한계" if isinstance(limit, (int, float)) else "")
+    if w and w.get("v"):
+        note += (f" · 감지 구간 ±30분 최저 {numfmt.fmt(min(w['v']))} · 최고 {numfmt.fmt(max(w['v']))}"
+                 + (f" {esc(unit)}" if unit else ""))
+    pts = [(m / span_m, v) for m, v in zip(full["m"], full["v"])]
+    return _curve(pts, full["t0"], full["t1"], band=band, limit=limit, unit=unit, gap=0.01, note=note,
+                  minutes=full["m"], span_m=span_m)
+
 
 def _waves(shift_id):
     """근무의 이벤트 파형·지표를 event_id → (파형, metrics) 로."""
@@ -980,6 +1014,23 @@ def _waves(shift_id):
                 except ValueError:
                     pass
     return out
+
+
+def _starts(shift_id):
+    """근무의 이벤트 id → 처음 감지된 시각."""
+    with db.connect() as conn:
+        return {e["id"]: e["start_ts"] for e in db.load_events(conn, shift_id)}
+
+
+def _by_time(items, starts):
+    """화면 순서 = 처음 감지된 시각. 엔진은 항목을 중요도 순으로 정렬해 넘기는데(engine/api.py compose),
+    중요도를 화면에서 뺐으니(경모님 2026-09-14) 그 순서는 근거 없이 뒤섞여 보인다. 원본 품질 항목은 맨 앞,
+    직접 추가는 맨 뒤, 시각을 모르는 것(이벤트 없는 항목)은 감지 항목 뒤, 같은 시각이면 원래 순서. DB 의 seq 는 그대로 둔다."""
+    def key(pair):
+        seq, it = pair
+        group = {"quality": 0, "manual": 2}.get(it.get("origin"), 1)
+        return (group, starts.get(it.get("event_id")) or "9999", seq)
+    return [it for _, it in sorted(enumerate(items), key=key)]
 
 
 def _prev_ex_note(pe):
@@ -1008,7 +1059,6 @@ def _view_pending(shift_id, draft):
 
     items = []
     low = []            # 지난 근무에서 제외한 것 — 지우지 않고 최하단으로 내린다 (#30)
-    low_hi = 0          # 그중 중요도 '상' 건수
     on_n = 0
     quality = None
     with db.connect() as conn:
@@ -1019,18 +1069,14 @@ def _view_pending(shift_id, draft):
     qs = pipeline.quality_summary(quality)
     if qs:
         qbanner = ('<div class="note" style="margin:0 0 10px;border-left:3px solid var(--accent);padding-left:10px"><b>원본 데이터 품질</b> — ' + esc(qs[0]) + ' · ' + esc(qs[1]) + '</div>')
-    own = [it for it in draft["items"] if it["origin"] != "carried"]   # 이월 판단 행은 승인 때 다시 쓴다
+    own = _by_time([it for it in draft["items"] if it["origin"] != "carried"], _starts(shift_id))   # 이월 판단 행은 승인 때 다시 쓴다
     for it in own:
         sug = ""
-        # AI 중요도 판정 — 왜 그 등급인지, 규칙과 다르면 그 사실을 보인다. 사람이 뒤집을 수 있어야 한다.
+        # 중요도 판단 줄은 뺐다(경모님 2026-09-14 — 중요도는 화면에서 없앤다). AI 가 매긴 값·이유는 DB 에 기록으로 남는다.
+        # 「전달 가치 낮음」 은 중요도가 아니라 넘길지에 대한 AI 판단이라 따로 남긴다.
         judged = ""
-        reason = it.get("severity_reason") if isinstance(it, dict) or hasattr(it, "keys") else None
-        if reason:
-            rule = it.get("severity_rule")
-            diff = f' <span class="muted">(통계 기준 {esc(rule)} → AI 판정 {esc(it["severity"])})</span>' if rule and rule != it["severity"] else ""
-            worthy = it.get("handover_worthy")
-            flag = "" if worthy in (None, 1, True) else ' <span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span>'
-            judged = f'<div class="note" style="margin:6px 0 4px"><b>중요도 판단</b> — {esc(reason)}{diff}{flag}</div>'
+        if it.get("handover_worthy") in (0, False):
+            judged = '<div class="note" style="margin:6px 0 4px"><span class="pill">전달 가치 낮음 — 정상 운전 범위로 판단</span></div>'
         rel = it.get("related_tags_ai") if hasattr(it, "keys") else None
         if rel:
             judged += (f'<div class="note" style="margin:4px 0"><b>함께 봐야 할 항목</b> — '
@@ -1075,8 +1121,6 @@ def _view_pending(shift_id, draft):
         on = it.get("adopted") == 1 or (it.get("adopted") is None and not pe)
         if on:
             on_n += 1
-        if pe and it.get("severity") == "상":
-            low_hi += 1
         # 설명은 사람이 읽는 문장만, 수치는 「감지 근거」 칸에만 — 엔진이 만든 body 가 문장 + 태그별 근거 줄이라
         # 두 자리에 같은 숫자가 나왔다(경모님 2026-09-14). AI 가 서술을 다시 쓰면 body 는 문장뿐이라 그대로 보인다.
         lines = [ln.strip() for ln in (it["body"] or "").split("\n") if ln.strip()]
@@ -1086,12 +1130,12 @@ def _view_pending(shift_id, draft):
         why = ('<div class="why"><b>감지 근거</b> — ' + esc(ev)
                + "".join(f'<div style="margin-top:5px">{esc(n)}</div>' for n in nums) + '</div>')
         wf, wm = waves.get(it.get("event_id")) or (None, {})
-        (low if pe else items).append(f"""<div class="item{_sev_class(it['severity'])}{"" if on else " off"}">
+        (low if pe else items).append(f"""<div class="item{"" if on else " off"}">
 <div class="row1"><input type="checkbox" name="item" value="{it['id']}"{" checked" if on else ""} onchange="tg(this)">
-<div class="ttl">{esc(it['title'])} {_sev_select(it)}</div></div>
+<div class="ttl">{esc(it['title'])}</div></div>
 <div class="meta">{esc(it['tag'])}{(" · " + esc(say)) if say else ""}</div>
 <div class="body">
-{_spark(wf, wm, unit=(wm or {}).get("unit", ""), full=curve(it["tag"]))}{why}
+{_spark(wf, wm, unit=(wm or {}).get("unit", ""), full=it.get("curve") or curve(it["tag"]))}{why}
 {judged}{sug}
 {_status_radios(f"status_{it['id']}", it.get("status"))}<textarea name="comment_{it['id']}" placeholder="코멘트 (선택)">{esc(it.get("comment") or "")}</textarea>
 </div></div>""")
@@ -1114,10 +1158,6 @@ def _view_pending(shift_id, draft):
             '<details class="card" style="padding:10px 16px">'
             '<summary style="cursor:pointer;font-weight:600">이전에 제외한 것 — '
             + str(len(low)) + '건'
-            # 접힌 채로도 무거운 것이 들었는지는 보여야 한다. 자리를 바꾸지는 않는다 —
-            # 「중요도 상이면 본문으로 올린다」 는 판정 규칙이라 넣지 않기로 했다 (#30 결정).
-            + (' <b style="color:var(--bad,#c0392b)">중요도 상 ' + str(low_hi) + '건 포함</b>'
-               if low_hi else '')
             + '<span class="muted" style="font-weight:400;font-size:12px"> · 지난 근무에서 '
             '근무자가 제외한 것과 같은 태그·종류입니다</span></summary>'
             '<p class="note" style="margin:8px 0 10px">숨기지 않고 여기에 계속 둡니다. '
@@ -1523,7 +1563,6 @@ class Handler(BaseHTTPRequestHandler):
                 it["id"]: {
                     "adopted": it["id"] in chosen or it["origin"] == "manual",
                     "comment": (form.get(f"comment_{it['id']}", [""])[0] or "").strip() or None,
-                    "severity": (form.get(f"sev_{it['id']}", [""])[0] or "").strip() or None,
                     "status": (form.get(f"status_{it['id']}", [""])[0] or "").strip() or None,
                 }
                 for it in draft["items"] if it["origin"] != "carried"

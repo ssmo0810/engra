@@ -140,6 +140,8 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
         if db.load_handover(conn, shift_id) is not None:
             round_no = db.reopen_handover(conn, shift_id, reason=f"재승인 — {confirmed_by}")
         db.confirm_handover(conn, shift_id, confirmed_by, body, len(adopted), len(excluded))
+        # 확정 일지는 오래 남는 기록이라 추이 곡선을 항목에 붙여 둔다 — 초안 때 못 붙인 것(실시간 초안 · 이 변경 전 초안)까지.
+        db.save_curves(conn, shift_id)
         # 색인에는 닫은 이월 판단(완료)만 넣는다. 계속 진행중까지 넣으면 같은 원 항목 복제본이 태그 검색 상위(limit 3)를
         # 독점해 다른 과거 사례가 밀려난다(codex 반증). 조치가 끝난 기록이 다음 초안의 과거 조치가 된다.
         db.index_handover(conn, shift_id, adopted + [it for it in carried_rows if it["status"] == "완료"])
@@ -162,7 +164,7 @@ def render(shift_id, adopted, carried=()):
     for i, it in enumerate(adopted, start=1):
         mark = {"detected": "", "quality": " (원본 품질)"}.get(it["origin"], " (직접 추가)")
         status = f" — {it['status']}" if it.get("status") else ""
-        lines.append(f"{i}. [{it['severity'] or '-'}] {it['title']}{mark}{status}")
+        lines.append(f"{i}. {it['title']}{mark}{status}")    # 중요도는 화면에서 뺐다(경모님 2026-09-14) — 일지 본문에도 적지 않는다
         if it.get("body"):
             lines.append(f"   {it['body']}")
         if it.get("evidence"):
