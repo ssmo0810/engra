@@ -1083,6 +1083,17 @@ class WindowAndRawJudgement(unittest.TestCase):
         self.assertEqual(len(d["items"]), 1, "끝 시각이 없다고 실시간에서만 사라지면 안 된다")
         self.assertEqual(d["items"][0]["live"]["end"], iso(T(720)), "끝 시각이 없으면 지금도 이어지는 것으로 본다")
 
+    def test_no_raw_at_all_is_incomplete_even_without_a_live_draft(self):
+        """회전이 창을 통째로 지운 근무 — 표본이 0 이면 온전 아님이라 일괄 실행이 올린 파일에서 다시 적재한다.
+
+        반쪽 원본 정리 시험은 'live' 초안이 남은 채 판정해서, 'live' 조건이 먼저 걸려 이 줄을 지키지 못했다(돌연변이 검사)."""
+        import db
+        with db.connect() as conn:
+            _shift_row(conn, SID, WS, WS + dt.timedelta(hours=12))
+            self.assertFalse(db.raw_complete(conn, SID), "초안이 없어도 표본이 0 이면 온전 아님")
+            _pending_draft(conn, SID)
+            self.assertFalse(db.raw_complete(conn, SID), "승인 대기 초안이 있어도 표본이 0 이면 온전 아님")
+
     def test_a_live_draft_keeps_the_batch_from_trusting_the_raw(self):
         """재생 중 서버가 강제 종료된 자리 — _drop_partial 이 못 돌아 반쪽 원본과 'live' 초안이 함께 남는다.
 
