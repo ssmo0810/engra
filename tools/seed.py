@@ -148,7 +148,15 @@ def swap_in(build, live, seed):
         ck.close()
     if busy or frames != moved:
         raise SystemExit(f"빌드 DB 의 WAL 을 본 파일로 다 옮기지 못했다(busy={busy}, {moved}/{frames}) — 교체하지 않는다.")
-    shutil.copyfile(build, seed)
+    # 기준선은 임시 파일에 복사한 뒤 한 번에 바꾼다. 그 자리에 덮어쓰면 남아 있던 곁파일(-wal · -shm)이 새 파일에 얹혀,
+    # 멈춘 프로세스가 뒤늦게 닫히며 옛 행을 새 기준선에 써 넣는다(codex 지적). 복사 도중에 읽으면 반쪽 파일을 보는 것도 함께 막는다.
+    tmp = seed.with_name(seed.name + ".new")
+    shutil.copyfile(build, tmp)
+    for suf in ("-wal", "-shm"):
+        q = seed.with_name(seed.name + suf)
+        if q.exists():
+            q.unlink()
+    os.replace(tmp, seed)
     for suf in ("-wal", "-shm"):
         p = live.with_name(live.name + suf)
         if p.exists():

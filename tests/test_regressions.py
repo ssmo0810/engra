@@ -2122,6 +2122,41 @@ class ScreenNumbersAndTrends(unittest.TestCase):
 
 
 class SeedSwap(unittest.TestCase):
+    def test_swap_replaces_the_baseline_without_its_stale_sidecars(self):
+        """기준선(seed.db)에 옛 곁파일(-wal · -shm)이 남아 있으면, 본 파일만 덮어써도 그 WAL 이 새 기준선에 얹힌다 —
+        멈춘 프로세스가 뒤늦게 닫히며 옛 행을 새 파일에 써 넣는다(codex 지적). 곁파일을 지우고 임시 파일에서 한 번에 바꾼다."""
+        import importlib.util
+        import sqlite3
+        from pathlib import Path
+        d = Path(tempfile.mkdtemp(prefix="seedside_"))
+        build, live, seed = d / "seed_build.db", d / "engra.db", d / "seed.db"
+        old = sqlite3.connect(seed)                 # 옛 기준선 — 행 3개를 WAL 에 남긴 채 연결을 열어 둔다(멈춘 프로세스)
+        old.execute("PRAGMA journal_mode=WAL")
+        old.execute("PRAGMA wal_autocheckpoint=0")
+        old.execute("CREATE TABLE t (x)")
+        old.commit()
+        old.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        old.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(3)])
+        old.commit()
+        self.assertTrue((d / "seed.db-wal").stat().st_size > 0, "옛 곁파일이 있어야 이 시험이 뜻이 있다")
+        w = sqlite3.connect(build)                  # 새 빌드 — 행 50개
+        w.execute("PRAGMA journal_mode=WAL")
+        w.execute("CREATE TABLE t (x)")
+        w.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(50)])
+        w.commit()
+        w.close()
+        spec = importlib.util.spec_from_file_location("seed_tool_sidecar", os.path.join(ROOT, "tools", "seed.py"))
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        tool.swap_in(build, live, seed)
+        self.assertEqual(sorted(x.name for x in d.glob("seed.db-*")), [], "교체 뒤 옛 곁파일이 남으면 안 된다")
+        old.close()                                  # 멈춘 프로세스가 뒤늦게 닫혀도 새 기준선을 건드리면 안 된다
+        c = sqlite3.connect(seed)
+        try:
+            self.assertEqual(c.execute("SELECT COUNT(*) FROM t").fetchone()[0], 50, "새 기준선의 행이어야 한다")
+        finally:
+            c.close()
+
     def test_swap_keeps_writes_that_are_still_in_the_wal(self):
         """seed 가 빌드 DB 를 라이브로 바꿀 때 WAL 에만 남은 마지막 쓰기(승인 대기 근무의 초안·이벤트)가 사라졌다 — 본 파일만
         복사·교체하고 -wal 을 지웠다(2026-09-14 실측: 로그엔 「초안 10 · 승인 대기」 인데 engra.db 엔 그 근무가 없었다, 변경 전 코드도 같음).
