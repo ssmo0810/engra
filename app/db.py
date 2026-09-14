@@ -15,7 +15,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
-from config import DB_PATH, RAW_RETENTION_DAYS
+from config import DB_PATH, RAW_RETENTION_DAYS, SAMPLE_INTERVAL_SEC
 import numfmt
 
 SCHEMA = """
@@ -98,7 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_event_shift ON event(shift_id);
 CREATE TABLE IF NOT EXISTS draft (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     shift_id     TEXT NOT NULL UNIQUE,
-    status       TEXT NOT NULL,              -- pending | confirmed
+    status       TEXT NOT NULL,              -- live(실시간 누적 중 — 승인 불가) | pending | confirmed
     generator    TEXT,                       -- stub | claude
     model        TEXT,
     generated_at TEXT,
@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS draft_item (
     status           TEXT,                   -- 채택 항목의 처리 상태: '완료' | '진행중'. 기본값 없음 — 근무자가 골라야 승인된다 (심사평 08)
     carried_from     INTEGER,                -- 이월 항목이면 원 draft_item id. 「진행중」 은 이 사슬로 다음 근무에 이어지고, '완료' 행이 붙으면 닫힌다
     curve_json       TEXT,                   -- 근무 구간 전체 추이(1분 평균). 원본이 회전으로 지워져도 그래프가 남게 저장한다. 옛 기록은 NULL
+    live_json        TEXT,                   -- 실시간 항목의 추적 기록(처음 감지·확정 시각·AI 초·마감 검출에 없음). 일괄 경로는 NULL
     FOREIGN KEY (draft_id) REFERENCES draft(id),
     FOREIGN KEY (event_id) REFERENCES event(id)
 );
@@ -196,7 +197,7 @@ def _migrate(conn):
                 raise
 
     have = {r[1] for r in conn.execute("PRAGMA table_info(draft_item)")}
-    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT"), ("status", "TEXT"), ("carried_from", "INTEGER"), ("curve_json", "TEXT")):
+    for col, typ in (("severity_rule", "TEXT"), ("severity_reason", "TEXT"), ("handover_worthy", "INTEGER"), ("precedent_note", "TEXT"), ("precedents_all_json", "TEXT"), ("related_tags_ai", "TEXT"), ("related_note", "TEXT"), ("prev_excluded_json", "TEXT"), ("status", "TEXT"), ("carried_from", "INTEGER"), ("curve_json", "TEXT"), ("live_json", "TEXT")):
         if col not in have:
             add("draft_item", col, typ)
     have_ev = {r[1] for r in conn.execute("PRAGMA table_info(event)")}
@@ -288,13 +289,64 @@ def raw_coverage(conn, shift_id):
     return n, first
 
 
+RAW_BUCKET_MIN = 60    # 채움을 보는 칸 — 이 칸이 통째로 비면 창이 성긴 것으로 본다
+
+
+def raw_fill(conn, start, end):
+    """[start, end) 원본이 얼마나 찼나 → {samples, tags, buckets, filled, ratio, first, last, head_gap_min, tail_gap_min}.
+
+    양끝 표본만 보면 가운데가 통째로 비어도 온전해 보이고(중간에 죽은 재생이 남긴 반쪽 원본이 그렇다),
+    반대로 앞뒤 2분이 모자란 99.7% 짜리를 통째로 버린다 — 그래서 1시간 칸마다 표본이 있는지로 본다.
+    표본 간격에 기대지 않는다(연결 규약은 2초지만 데이터가 성길 수도 있다). ratio 는 규약 간격 기준 참고값이다."""
+    n, tags, first, last = conn.execute(
+        "SELECT COUNT(*), COUNT(DISTINCT tag), MIN(ts), MAX(ts) FROM raw_sample WHERE ts >= ? AND ts < ?",
+        (start, end)).fetchone()
+    s, e = datetime.fromisoformat(start), datetime.fromisoformat(end)
+    span = (e - s).total_seconds()
+    buckets = max(1, int(span // (RAW_BUCKET_MIN * 60)))
+    filled = 0
+    for i in range(buckets):
+        b0 = s + timedelta(minutes=RAW_BUCKET_MIN * i)
+        b1 = min(e, b0 + timedelta(minutes=RAW_BUCKET_MIN))
+        if conn.execute("SELECT 1 FROM raw_sample WHERE ts >= ? AND ts < ? LIMIT 1",
+                        (b0.isoformat(timespec="seconds"), b1.isoformat(timespec="seconds"))).fetchone():
+            filled += 1
+    expected = int(span / SAMPLE_INTERVAL_SEC) * (tags or 0)
+    head = (datetime.fromisoformat(first) - s).total_seconds() / 60 if first else None
+    tail = (e - datetime.fromisoformat(last)).total_seconds() / 60 if last else None
+    return {"samples": n, "tags": tags, "buckets": buckets, "filled": filled,
+            "ratio": (round(n / expected, 4) if expected else 0.0),
+            "first": first, "last": last, "head_gap_min": head, "tail_gap_min": tail}
+
+
+def raw_window_complete(conn, start, end):
+    """[start, end) 가 실제로 찼나 → (찬 여부, 채움 정보). **실시간 창 판정 전용**이다.
+
+    앞 12시간을 검출에 쓸 수 있는지만 묻는다. 배치의 재적재 판정(raw_complete)과 규칙을 합치면
+    전 태그가 한 시간 넘게 멎은 멀쩡한 근무를 「원본 없음」이라 거부한다(3라운드) — 물음이 다르다."""
+    f = raw_fill(conn, start, end)
+    ok = (f["filled"] == f["buckets"] and f["head_gap_min"] is not None
+          and f["head_gap_min"] <= GAP_MIN_MINUTES and f["tail_gap_min"] <= GAP_MIN_MINUTES)
+    return ok, f
+
+
 def raw_complete(conn, shift_id):
-    """창 전체가 남아 있나 — 첫 표본이 창 시작 1분 안이면 온전한 것으로 본다."""
+    """저장소 회전이 창을 잘랐나 — 첫 표본이 창 시작 1분 안이면 온전한 것으로 본다.
+
+    여기서 묻는 것은 「3일 회전이 원본을 지웠으니 파일에서 다시 적재해야 하나」 하나뿐이다. 창 가운데가
+    성긴지는 묻지 않는다 — 계측이 한 시간 멎어도 원본은 멀쩡한데, 그걸 「원본 없음」이라 하면
+    /pipeline/run 이 사실과 다른 문구로 거부하고 구멍은 파일에 있으니 다시 적재해도 영영 그대로다(3라운드).
+    창이 실제로 찼는지는 raw_window_complete 가 실시간 창 판정에서 따로 본다.
+
+    예외: 그 근무에 'live' 초안이 남아 있으면 False — 재생이 쌓는 원본은 마감 동기화로 초안이 pending 이 되기 전까지
+    반쪽일 수 있다. 재생 중 서버가 강제 종료되면 _drop_partial 이 못 돌아 반쪽 원본과 'live' 초안이 함께 남는데,
+    첫 표본은 창 시작이라 위 규칙은 그걸 온전으로 봐서 화면이 권하는 복구 경로(일괄 실행)가 반쪽 데이터로 초안을 만들었다."""
+    if conn.execute("SELECT 1 FROM draft WHERE shift_id = ? AND status = 'live'", (shift_id,)).fetchone():
+        return False
     n, first = raw_coverage(conn, shift_id)
-    if not n:
+    if not n:           # 쌓다 만 원본은 _drop_partial 이 비우므로 여기서 0 이 되어 「온전 아님」이다 (반증 A6)
         return False
     row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (shift_id,)).fetchone()
-    from datetime import datetime, timedelta
     return datetime.fromisoformat(first) <= datetime.fromisoformat(row["window_start"]) + timedelta(minutes=1)
 
 
@@ -540,24 +592,25 @@ def clear_outputs(conn, shift_id, include_handover=False):
     conn.execute("DELETE FROM event WHERE shift_id = ?", (shift_id,))
 
 
-def save_events(conn, shift_id, events, detector):
-    clear_outputs(conn, shift_id)
-    conn.executemany(
-        """INSERT INTO event
+_EVENT_INSERT = """INSERT INTO event
            (shift_id, tag, kind, start_ts, end_ts, severity, score,
             metrics_json, evidence, detector, created_at, waveform_json)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
-        [
-            (
-                shift_id, e["tag"], e["kind"], e.get("start_ts"), e.get("end_ts"),
-                e.get("severity"), e.get("score"),
-                json.dumps(e.get("metrics", {}), ensure_ascii=False),
-                e.get("evidence"), detector, now(),
-                json.dumps(e.get("waveform"), ensure_ascii=False) if e.get("waveform") else None,
-            )
-            for e in events
-        ],
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"""
+
+
+def _event_row(shift_id, e, detector):
+    return (
+        shift_id, e["tag"], e["kind"], e.get("start_ts"), e.get("end_ts"),
+        e.get("severity"), e.get("score"),
+        json.dumps(e.get("metrics", {}), ensure_ascii=False),
+        e.get("evidence"), detector, now(),
+        json.dumps(e.get("waveform"), ensure_ascii=False) if e.get("waveform") else None,
     )
+
+
+def save_events(conn, shift_id, events, detector):
+    clear_outputs(conn, shift_id)
+    conn.executemany(_EVENT_INSERT, [_event_row(shift_id, e, detector) for e in events])
 
 
 def load_events(conn, shift_id):
@@ -586,28 +639,30 @@ def save_draft(conn, shift_id, items, generator, model=None):
         (shift_id, generator, model, now()),
     )
     draft_id = cur.lastrowid
-    conn.executemany(
-        """INSERT INTO draft_item
-           (draft_id, event_id, seq, origin, tag, title, body, evidence,
-            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, precedents_all_json, prev_excluded_json, adopted)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
-        [
-            (
-                draft_id, it.get("event_id"), i, it.get("origin", "detected"),
-                it.get("tag"), it.get("title"), it.get("body"), it.get("evidence"),
-                it.get("severity"), it.get("suggested_action"),
-                it.get("severity_rule"), it.get("severity_reason"),
-                (None if it.get("handover_worthy") is None else int(bool(it["handover_worthy"]))),
-                it.get("precedent_note"),
-                json.dumps(it.get("related_tags_ai") or [], ensure_ascii=False), it.get("related_note"),
-                json.dumps(it.get("precedents", []), ensure_ascii=False),
-                json.dumps(it.get("precedents_all", []), ensure_ascii=False),   # 기각한 사례도 남긴다 — 라벨이 "없음" 과 "맞지 않음" 을 구분 (Codex)
-                (json.dumps(it["prev_excluded"], ensure_ascii=False) if it.get("prev_excluded") else None),
-            )
-            for i, it in enumerate(items, start=1)
-        ],
-    )
+    conn.executemany(_ITEM_INSERT, [_item_row(draft_id, i, it) for i, it in enumerate(items, start=1)])
     return draft_id
+
+
+_ITEM_INSERT = """INSERT INTO draft_item
+           (draft_id, event_id, seq, origin, tag, title, body, evidence,
+            severity, suggested_action, severity_rule, severity_reason, handover_worthy, precedent_note, related_tags_ai, related_note, precedent_json, precedents_all_json, prev_excluded_json, live_json, adopted)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)"""
+
+
+def _item_row(draft_id, seq, it):
+    return (
+        draft_id, it.get("event_id"), seq, it.get("origin", "detected"),
+        it.get("tag"), it.get("title"), it.get("body"), it.get("evidence"),
+        it.get("severity"), it.get("suggested_action"),
+        it.get("severity_rule"), it.get("severity_reason"),
+        (None if it.get("handover_worthy") is None else int(bool(it["handover_worthy"]))),
+        it.get("precedent_note"),
+        json.dumps(it.get("related_tags_ai") or [], ensure_ascii=False), it.get("related_note"),
+        json.dumps(it.get("precedents", []), ensure_ascii=False),
+        json.dumps(it.get("precedents_all", []), ensure_ascii=False),   # 기각한 사례도 남긴다 — 라벨이 "없음" 과 "맞지 않음" 을 구분 (Codex)
+        (json.dumps(it["prev_excluded"], ensure_ascii=False) if it.get("prev_excluded") else None),
+        (json.dumps(it["live"], ensure_ascii=False) if it.get("live") else None),
+    )
 
 
 def load_draft(conn, shift_id):
@@ -634,6 +689,10 @@ def load_draft(conn, shift_id):
             it["curve"] = json.loads(it.pop("curve_json", None) or "null")
         except (TypeError, ValueError):
             it["curve"] = None
+        try:
+            it["live"] = json.loads(it.pop("live_json", None) or "null")
+        except (TypeError, ValueError):
+            it["live"] = None
         draft["items"].append(it)
     return draft
 
@@ -693,6 +752,106 @@ def save_curves(conn, shift_id):
                      (json.dumps(curves[tag], separators=(",", ":")), iid))
         filled += 1
     return filled, missing
+
+
+# --- 실시간 누적 초안 (app/live.py) ------------------------------------
+# 초안 표·승인·이월은 일괄 경로와 같은 것을 쓴다. 다른 점은 둘 — 초안이 status 'live' 로 열려 확정·AI 완료된
+# 문제가 하나씩 들어오고, 마감 동기화와 AI 서술이 다 끝나야 'pending'(승인 대기)이 된다. 'live' 는 DB 에
+# 있으므로 서버를 다시 켜도 부분 초안이 승인되지 않는다(approve.decide 가 거부).
+
+def live_refusal(conn, shift_id, replace_unconfirmed=False):
+    """이 근무에 실시간 재생을 쌓을 수 없으면 그 이유(없으면 None). 재생이 근무자가 보던 초안이나 확정 기록을 조용히 덮지 않게 한다.
+    'live' 초안(멈춘·중단된 재생)은 다시 쌓는다. 승인 대기 초안은 replace_unconfirmed(데모 재촬영)일 때만 지우고,
+    확정 초안은 어떤 경우에도 거부한다."""
+    d = conn.execute("SELECT status FROM draft WHERE shift_id = ?", (shift_id,)).fetchone()
+    if d is None or d["status"] == "live":
+        return None
+    if d["status"] == "confirmed":
+        return f"{shift_id} 에는 이미 확정된 일지가 있습니다 — 실시간 재생은 확정 기록을 지우지 않습니다."
+    if replace_unconfirmed:
+        return None
+    return f"{shift_id} 에는 이미 승인 대기 초안이 있습니다 — 다시 쌓으려면 확정 안 된 초안 교체를 켜세요."
+
+
+def open_live_draft(conn, shift_id, generator, model=None, replace_unconfirmed=False):
+    """실시간 초안을 연다 → draft id. 지울 수 있는 기존 초안(live · 교체 허락된 pending)은 산출물째 지우고 새로 연다."""
+    why = live_refusal(conn, shift_id, replace_unconfirmed)
+    if why:
+        raise ValueError(why)
+    clear_outputs(conn, shift_id)
+    return conn.execute(
+        "INSERT INTO draft (shift_id, status, generator, model, generated_at) VALUES (?, 'live', ?, ?, ?)",
+        (shift_id, generator, model, now())).lastrowid
+
+
+def _live_draft(conn, draft_id):
+    """이 재생이 연 초안이 아직 'live' 인지. id 로 본다 — 멈춘 재생의 늦은 AI 결과가 같은 근무의 새 재생 초안에 섞이지 않게."""
+    d = conn.execute("SELECT shift_id, status FROM draft WHERE id = ?", (draft_id,)).fetchone()
+    if d is None or d["status"] != "live":
+        raise ValueError(f"실시간 초안 #{draft_id} 가 없거나 'live' 가 아닙니다 — 그 사이 다시 재생·일괄 실행·리셋으로 바뀌었습니다.")
+    return d["shift_id"]
+
+
+def add_events(conn, shift_id, events, detector):
+    """이벤트를 지우지 않고 더한다 → 넣은 id(순서 그대로). 일괄 경로의 save_events 는 근무 산출물을 비우고 쓴다."""
+    return [conn.execute(_EVENT_INSERT, _event_row(shift_id, e, detector)).lastrowid for e in events]
+
+
+def add_live_item(conn, draft_id, item, events, detector):
+    """확정·AI 완료된 문제 하나를 실시간 초안 끝에 넣는다 → draft_item id.
+    events = 그 문제의 멤버 이벤트(대표가 먼저). 확정 때 근거 그대로 남기고, 항목은 대표 이벤트를 가리킨다."""
+    shift_id = _live_draft(conn, draft_id)
+    ids = add_events(conn, shift_id, events, detector)
+    seq = conn.execute("SELECT COALESCE(MAX(seq), 0) + 1 FROM draft_item WHERE draft_id = ?", (draft_id,)).fetchone()[0]
+    return conn.execute(_ITEM_INSERT, _item_row(draft_id, seq, dict(item, event_id=ids[0] if ids else None))).lastrowid
+
+
+def update_live_item(conn, item_id, evidence, live):
+    """이미 들어간 실시간 항목의 근거 줄·추적 기록만 고친다 — 재발이 원 항목에 접힐 때.
+    AI 가 쓴 제목·본문·중요도는 건드리지 않는다(확정 때 그대로)."""
+    conn.execute("UPDATE draft_item SET evidence = ?, live_json = ? WHERE id = ?",
+                 (evidence, json.dumps(live, ensure_ascii=False), item_id))
+
+
+def drop_unreferenced_events(conn, shift_id, keep_ids):
+    """마감 집합(keep_ids)에도 없고 초안 항목이 가리키지도 않는 이벤트를 지운다 → 지운 수.
+    확정 때 근거로 넣었다가 마감 집합으로 대체된 행을 치워, 채점·화면이 일괄 실행과 같은 이벤트를 본다."""
+    # 빈 집합은 절을 아예 뺀다. `NOT IN (SELECT NULL)` 은 SQL 에서 참이 아니라 UNKNOWN 이라 한 행도 안 지운다 —
+    # 마감 틱에 검출이 0건인 조용한 근무가 통째로 정리를 건너뛰었다(3라운드).
+    where = f"AND id NOT IN ({','.join('?' * len(keep_ids))}) " if keep_ids else ""
+    return conn.execute(
+        f"DELETE FROM event WHERE shift_id = ? {where}"
+        f"AND id NOT IN (SELECT event_id FROM draft_item WHERE event_id IS NOT NULL)",
+        (shift_id, *keep_ids)).rowcount
+
+
+def finish_live_draft(conn, draft_id, order, finals):
+    """마감 동기화와 AI 서술이 끝난 실시간 초안을 승인 대기로 넘긴다.
+    order = 항목 id 를 보일 순서대로(초안의 항목 전부),
+    finals = {항목 id: {"live", "evidence"}} — 재발 갱신이 경합으로 되돌아갔을 수 있어 최종본으로 덮는다. 중요도는 건드리지 않는다."""
+    _live_draft(conn, draft_id)
+    have = {r[0] for r in conn.execute("SELECT id FROM draft_item WHERE draft_id = ?", (draft_id,))}
+    if set(order) != have or len(order) != len(have):
+        raise ValueError(f"실시간 초안 #{draft_id} 의 항목 순서가 초안과 다릅니다 — 순서 {len(order)}개 / 초안 {len(have)}개")
+    conn.executemany("UPDATE draft_item SET seq = ? WHERE id = ?", [(i, iid) for i, iid in enumerate(order, start=1)])
+    conn.executemany("UPDATE draft_item SET live_json = ?, evidence = ? WHERE id = ?",
+                     [(json.dumps(f["live"], ensure_ascii=False), f["evidence"], iid) for iid, f in finals.items()])
+    conn.execute("UPDATE draft SET status = 'pending', generated_at = ? WHERE id = ?", (now(), draft_id))
+
+
+def live_drafts(conn):
+    """아직 'live' 인 초안의 근무 id — 재시작·정지로 재생이 끊긴 구간을 화면이 드러내게."""
+    return [r[0] for r in conn.execute("SELECT shift_id FROM draft WHERE status = 'live' ORDER BY shift_id")]
+
+
+def unconfirmed_before(conn, shift_id):
+    """이 근무보다 구간 시작이 이른 근무 중 초안이 확정되지 않은 가장 이른 것 → (근무 id, 초안 상태 pending|live). 없으면 None."""
+    row = conn.execute(
+        """SELECT d.shift_id, d.status FROM draft d JOIN shift s ON s.id = d.shift_id
+            WHERE d.status != 'confirmed'
+              AND s.window_start < (SELECT window_start FROM shift WHERE id = ?)
+            ORDER BY s.window_start LIMIT 1""", (shift_id,)).fetchone()
+    return (row[0], row[1]) if row else None
 
 
 

@@ -281,6 +281,19 @@ def ingest(source):
     return counts
 
 
+def append(conn, rows):
+    """실시간 덧붙이기 — 1분 묶음 [(ts, tag, value)] 를 원본 표에 더한다 → 넣은 행 수 (app/live.py).
+
+    ingest 와 같은 규칙을 탄다: 행은 _rows 가 검사한 것(시간대 없는 현지시각·유한한 값)이고, 저장은 _flush(같은 태그·시각은 교체).
+    다른 점은 하나 — ingest 는 근무를 처음 만나면 그 근무 원본을 지우고 교체하지만(forget_raw), 여기서는 지우지 않는다.
+    현장에서는 RTDB 에서 「마지막 시각 이후」를 읽기 전용으로 받은 것이 이 자리로 온다.
+    """
+    buf = [(tag, ts.isoformat(timespec="seconds"), value) for ts, tag, value in rows]
+    n = len(buf)
+    _flush(conn, buf)
+    return n
+
+
 def _flush(conn, buf):
     if not buf:
         return
