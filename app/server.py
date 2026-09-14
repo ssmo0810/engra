@@ -18,6 +18,7 @@ import approve as approve_mod
 import db
 import numfmt   # 앱이 찍는 숫자 규칙 하나 — 엔진 detectors._fmt 와 같다
 import jobs
+import live       # 실시간 누적 — 재생 시작·정지·상태 (app/live.py 의 공개 함수만 부른다)
 import pipeline   # quality_summary — 초안 화면 배너 문구
 import llm
 import ports
@@ -532,7 +533,7 @@ def view_admin(handler=None):
     관리·시연용인지 구분이 안 된다. 운영 페이지엔 실제 동작만." 그래서 운영 화면에서 이쪽으로 옮겼다.
     운영 화면(DCS · 초안)은 여기를 잇지 않는다 — 주소를 아는 사람만 들어온다."""
     locked = not _admin_ok(handler) if handler is not None else False
-    body = (_admin_gate_html(locked) + _pipeline_card(locked) + _score_html()
+    body = (_admin_gate_html(locked) + _pipeline_card(locked) + _live_card(locked) + _score_html()
             + '<div class="card"><h2 style="font-size:15px">AI 계층 — 무엇을 하고, 무엇을 기준으로</h2>'
             '<p class="note" style="margin:0 0 6px">검출·묶음·수치는 전부 통계 엔진(<span class="mono">engine/</span>)이 한다. AI(<span class="mono">app/llm.py</span>)는 그 결과 위에서 네 가지만 한다 — 숫자를 만들지 않고, <b>조치를 지어내지 않는다</b>.</p>'
             '<details style="margin:0 0 8px"><summary style="cursor:pointer;font-size:13px;color:var(--sub)">네 가지 — 펼쳐 보기</summary>'
@@ -672,6 +673,61 @@ def _pipeline_card(locked):
             '<pre id="joblog" class="mono" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px;min-height:60px;max-height:280px;overflow:auto;font-size:11.5px;white-space:pre-wrap">'
             + (log or "여기에 진행이 표시됩니다.") + '</pre>' + err + link + '</div>'
             + reload_js)
+
+
+_LIVE_PHASE = {"idle": "대기", "preparing": "준비 중", "running": "재생 중", "ended": "재생 끝", "stopped": "정지됨", "failed": "실패"}
+
+
+def _live_line(st):
+    """재생 상태 한 줄 — 관리 화면과 /api/live 가 같은 글자를 쓴다."""
+    parts = [_LIVE_PHASE.get(st["phase"], st["phase"])]
+    if st.get("shift_id"):
+        c = st.get("counts") or {}
+        parts.append(st["shift_id"])
+        if st.get("clock"):
+            parts.append("근무 시계 " + st["clock"][11:16])
+        parts.append(f"관찰 중 {c.get('observing', 0)} · 서술 중 {c.get('writing', 0)} · 선택 가능 {c.get('ready', 0)}"
+                     + (f" · AI 서술 실패 {c['ai_failed']}" if c.get("ai_failed") else ""))
+    parts += [str(st[k]) for k in ("window_note", "phase_note", "error") if st.get(k)]
+    return " · ".join(parts)
+
+
+_LIVE_POLL_JS = ("<script>(function(){var el=document.getElementById('livestate');if(!el)return;"
+                 "function tick(){fetch('/api/live').then(function(r){return r.json()}).then(function(j){el.textContent=j.line;setTimeout(tick,2000);})"
+                 ".catch(function(){setTimeout(tick,5000);});}setTimeout(tick,2000);})();</script>")
+
+
+def _live_card(locked):
+    """실시간 재생 — 올린 근무 CSV 를 근무 시계로 흘려 초안을 쌓는다(app/live.py). 시작·정지만 두고 배속은 100 이다.
+
+    재생은 현장과 같은 코드(적재·검출·추적·AI·초안 저장)를 타고, 바뀌는 것은 데이터 입구 하나다. 재생 중에는 작업 락을 쥐어
+    일괄 실행·리셋·업로드 적재가 기존 거부 문구로 막힌다."""
+    st = live.status()
+    up = Path(jobs.UPLOAD_DIR)
+    names = sorted(x.name for x in up.glob("*.csv")) if up.is_dir() else []
+    sid_of = {str(x.get("source") or "")[4:]: x["shift_id"] for x in jobs.sources() if str(x.get("source") or "").startswith("csv:")}
+    running = st["phase"] in ("preparing", "running")
+
+    def opts(blank=None):
+        head = f'<option value="">{esc(blank)}</option>' if blank else ""
+        return head + "".join(f'<option value="{esc(n)}">{esc(n)}' + (f" · {esc(sid_of[n])}" if n in sid_of else "") + "</option>"
+                              for n in names)
+
+    def button(label, off, extra=""):
+        why = ' title="열쇠 필요"' if locked else ""
+        return f'<button class="btn"{extra}{why}{" disabled" if (locked or off) else ""}>{label}</button>'
+
+    sel = 'class="pill" style="font-size:13px;padding:6px 10px;min-width:240px"'
+    return ('<div class="card"><h2>실시간 재생 <span class="muted" style="font-weight:400;font-size:12px">올린 근무 CSV 를 근무 시계로 흘려 초안을 쌓는다 · 100배속</span></h2>'
+            '<p class="note" style="margin:0 0 10px">앞 근무 CSV 를 고르면 먼저 적재해 최근 12시간 창으로 검출한다. 쌓이는 구간은 근무 일지에 LIVE 로 보인다.</p>'
+            '<form method="post" action="/live/start" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">'
+            f'<select name="prev" {sel}>{opts("앞 근무 CSV 없음")}</select>'
+            f'<select name="csv" {sel}>{opts()}</select>'
+            '<label style="font-size:12.5px;display:inline-flex;gap:5px;align-items:center"><input type="checkbox" name="replace" value="1">확정 안 된 초안 교체</label>'
+            + button("재생 시작", running or not names) + '</form>'
+            '<form method="post" action="/live/stop" style="margin:0 0 8px">' + button("정지", not running, ' style="background:var(--sub)"') + '</form>'
+            f'<div id="livestate" class="mono" style="font-size:12px;color:var(--sub)">{esc(_live_line(st))}</div>'
+            + _LIVE_POLL_JS + '</div>')
 
 
 def view_draft():
@@ -1267,6 +1323,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, view_answer(path.rstrip("/").split("/")[-1]))   # /answer/<근무> (옛 /answer/<정답지>/<근무> 도 마지막 조각)
             elif path == "/api/job":
                 self._json(jobs.state())
+            elif path == "/api/live":
+                st = live.status()
+                self._json({"status": st, "line": _live_line(st)})
             elif path == "/dcs":
                 self._send(200, view_dcs())
             elif path == "/asu":
@@ -1440,7 +1499,7 @@ class Handler(BaseHTTPRequestHandler):
                     secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""   # Caddy 뒤에서만 — 로컬 http 시험은 그대로
                     self.send_header("Set-Cookie", f"engra_admin={key}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200{secure}")
                 self.end_headers(); return
-            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
+            if path in ("/admin/ai_check", "/pipeline/ingest_skip", "/reset", "/live/start", "/live/stop") or (path == "/pipeline/run" and form.get("redo", ["0"])[0] == "1"):
                 if not _admin_ok(self):
                     self._send(403, page("잠김", '<div class="card"><div class="empty">심사 기간에는 관리 동작에 열쇠가 필요합니다 — <a href="/admin">관리</a>에서 열쇠를 넣으세요.</div></div>')); return
             if path == "/admin/ai_check":
@@ -1487,6 +1546,17 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(409, page("실행 중", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
                 self.send_response(303); self.send_header("Location", "/admin"); self.end_headers()
                 return
+            if path in ("/live/start", "/live/stop"):
+                try:
+                    if path == "/live/start":
+                        live.start([(form.get("csv", [""])[0] or "").strip()],
+                                   prev_csv_name=(form.get("prev", [""])[0] or "").strip() or None,
+                                   replace_unconfirmed=form.get("replace", ["0"])[0] == "1")
+                    else:
+                        live.stop()
+                except ValueError as exc:      # 사용자 잘못(이름·순서·재생 중 아님 등) — live 의 문장을 그대로 보인다
+                    self._send(400, page("재생", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>')); return
+                self.send_response(303); self.send_header("Location", "/admin"); self.end_headers(); return
             if path == "/reopen":
                 # 확정 후 잘못 적은 것을 고친다. 이전 확정본은 이력에 남는다.
                 sid = form["shift_id"][0]
