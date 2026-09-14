@@ -260,6 +260,10 @@ NAV = (
     ("/draft", "초안", "검토·승인 → 확정 일지"),
 )
 
+# 옛 화면 주소 → 새 화면. 공개 소개 페이지(docs/intro.html 「파이프라인 열기」)·발표 PC 북마크가 아직 옛 주소를 써서
+# 404 가 됐다(조각 1 반증). /pipeline 의 기능은 관리로 갔지만 공개 링크로 관리가 새면 안 되므로 초안으로 보낸다.
+OLD_PATHS = {"/": "/draft", "/pipeline": "/draft", "/rtdb": "/dcs"}
+
 
 def _nav(active):
     out = []
@@ -337,19 +341,20 @@ def view_asu():
 # 원본이 #rtdb 해시로 탭을 직접 바꾸므로 개요 밖 화면은 !important 로 눌러 둔다. 세로 화면(폰)은 폭에 맞춰 위에 붙인다.
 # 원본의 「모의 화면 · 가상 데이터」 안내(.disc)만은 가리지 않는다 — 공개 주소라 심사위원이 보는 화면에서 가상 데이터 표시를 빼지 않는다.
 # 흐름도가 비어 있는 오른쪽 아래(범례 줄 위)에 작게 띄운다.
+# 모든 규칙은 원본에 이 구조(.hmi 안 #viewOverview · .wrap 바로 아래 .disc)가 있을 때만 켠다($ON). 원본이 바뀌어 구조가 어긋나면
+# 빈 화면이나 안내 누락이 조용히 나는 대신 원본이 그대로 보인다(조각 1 반증). 구조 자체는 test_dcs_source_has_the_structure_the_css_expects 가 본다.
 _DCS_FULL_CSS = """
 <style>
-html{background:#c8c9c4}
-html,body{height:100%;overflow:hidden}
-body{visibility:hidden}
-.hmi{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;border:0;border-radius:0}
-.hminav,#viewData,#viewScen,#viewRtdb{display:none!important}
-#viewOverview{display:flex!important;flex-direction:column;flex:1;min-height:0}
-#viewOverview svg.mimic{flex:1;min-height:0;height:0}
-#sModal{visibility:visible}
-.wrap>.disc{visibility:visible;position:fixed;right:12px;bottom:34px;z-index:5;margin:0;max-width:340px;padding:4px 9px;font-size:10.5px;line-height:1.45;opacity:.92}
-@media (orientation:portrait){.hmi{bottom:auto}#viewOverview{flex:none}#viewOverview svg.mimic{flex:none;height:auto}.wrap>.disc{left:12px;max-width:none;bottom:12px}}
-</style>"""
+html$ON{background:#c8c9c4;height:100%;overflow:hidden}
+body$ON{height:100%;overflow:hidden;visibility:hidden}
+body$ON .hmi{visibility:visible;position:fixed;inset:0;display:flex;flex-direction:column;border:0;border-radius:0}
+body$ON .hminav,body$ON #viewData,body$ON #viewScen,body$ON #viewRtdb{display:none!important}
+body$ON #viewOverview{display:flex!important;flex-direction:column;flex:1;min-height:0}
+body$ON #viewOverview svg.mimic{flex:1;min-height:0;height:0}
+body$ON #sModal{visibility:visible}
+body$ON .wrap>.disc{visibility:visible;position:fixed;right:12px;bottom:34px;z-index:5;margin:0;max-width:340px;padding:4px 9px;font-size:10.5px;line-height:1.45;opacity:.92}
+@media (orientation:portrait){body$ON .hmi{bottom:auto}body$ON #viewOverview{flex:none}body$ON #viewOverview svg.mimic{flex:none;height:auto}body$ON .wrap>.disc{left:12px;max-width:none;bottom:12px}}
+</style>""".replace("$ON", ":has(.hmi #viewOverview):has(.wrap>.disc)")
 
 
 def view_dcs():
@@ -1099,8 +1104,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         try:
-            if path == "/":   # 옛 일지 조회 주소 — 초안 목록으로 합쳤다
-                self.send_response(303); self.send_header("Location", "/draft"); self.end_headers()
+            if path in OLD_PATHS:
+                self.send_response(303); self.send_header("Location", OLD_PATHS[path]); self.end_headers()
             elif path == "/draft":
                 self._send(200, view_draft())
             elif path == "/admin":
@@ -1211,27 +1216,57 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError(f"압축을 풀면 {cls.MAX_RAW // 1048576}MB 를 넘습니다 — 근무 하나씩 올리세요")
         return bytes(out)
 
+    def _upload_file(self, part):
+        """multipart 한 조각 → (저장할 이름, 내용). 이름은 jobs.upload_name 으로만 정리한다 — 검사와 저장이 같은 이름을
+        봐야 「x.json/」 같은 이름이 열쇠 검사를 빠져나가지 않는다(조각 1 2차 재반증).
+        브라우저가 CompressionStream 으로 눌러 보낸 .gz 는 여기서 푼다 — 37MB CSV 가 수 MB 로 줄어 업로드가 수 초.
+        .gz 를 먼저 떼고 이름을 한 번만 검사한다 — 압축 때문에 이름이 3바이트 길어져, 같은 파일이 크기에 따라 되다 안 되다 했다(조각 1 3차 재반증)."""
+        name, data = part.get_filename(), part.get_payload(decode=True)
+        if jobs.name_key(name).endswith(".gz"):
+            data, name = self._gunzip(data), name[:-3]
+        return jobs.upload_name(name), data
+
+    def _check_upload_file(self, part):
+        """저장 전 검사 → 저장할 이름. 거부 사유는 예외로 올린다. 정답지인지는 저장할 이름으로 판정한다(jobs.is_key_name)."""
+        name, data = self._upload_file(part)
+        if jobs.is_key_name(name):
+            if not _admin_ok(self):
+                raise PermissionError("정답지 JSON 은 열쇠가 필요합니다 — CSV 만 따로 올리거나 관리에서 열쇠를 넣으세요")
+            jobs.key_shifts(data)
+        return name
+
     def _handle_upload(self, ctype, raw):
         # 생성기 CSV + 정답지 JSON. 표준 라이브러리 email 파서로 multipart 를 푼다.
         import email.parser, email.policy
         msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(
             b"Content-Type: " + ctype.encode() + b"\r\n\r\n" + raw)
-        saved, paths, key_sids = [], [], []
-        try:
-            for part in msg.iter_parts():
-                fn = part.get_filename()
-                if fn:
-                    data = part.get_payload(decode=True)
-                    if fn.endswith(".gz"):
-                        # 브라우저가 CompressionStream 으로 눌러 보낸 것 — 37MB CSV 가 수 MB 로 줄어 업로드가 수 초
-                        data, fn = self._gunzip(data), fn[:-3]
-                    if fn.endswith(".json") and not _admin_ok(self):
-                        raise PermissionError("정답지 업로드는 심사 기간에 열쇠가 필요합니다 — 관리에서 열쇠를 넣으세요")
-                    p, sids = jobs.save_upload(fn, data)
-                    saved.append(p.name); paths.append(p); key_sids += sids
-        except Exception as exc:
-            self._send(400, page("업로드 실패", '<div class="card"><div class="empty">' + esc(exc) + '</div></div>', active="/admin"))
+        # 저장하기 전에 올린 파일을 전부 검사하고, 하나라도 거부되면 아무것도 저장하지 않는다. 파일마다 저장하며 검사했더니
+        # 열쇠 잠금에서 CSV·정답지 JSON 을 함께 올리면 앞의 CSV 는 uploads/ 에 남고 적재는 안 되는 부분 상태가 생겼다(조각 1 반증).
+        # 검사에서 푼 내용은 들고 있지 않고 저장할 때 다시 푼다 — 전부 풀어 두면 압축 폭탄 여러 개(파일당 MAX_RAW)로 메모리가 찬다.
+        parts = [part for part in msg.iter_parts() if part.get_filename()]
+        rejected, names = [], {}
+        for part in parts:
+            shown = str(part.get_filename()).replace("\x00", "\\x00")
+            try:
+                name = self._check_upload_file(part)
+            except Exception as exc:
+                rejected.append(f"{shown}: {exc}")
+                continue
+            names.setdefault(jobs.name_key(name), (name, []))[1].append(shown)
+        # 정리·정규화하면 같은 이름이 되는 파일이 한 요청에 둘 — 알림 없이 뒤 파일이 앞 파일을 덮었다(조각 1 2·3차 재반증)
+        rejected += [f"같은 이름으로 저장될 파일이 둘: {name} ← {' , '.join(src)}" for name, src in names.values() if len(src) > 1]
+        if rejected:
+            self._send(400, page("업로드 실패", '<div class="card"><div class="empty">아무 파일도 저장하지 않았습니다 — '
+                                             + esc(" · ".join(rejected)) + '</div></div>', active="/admin"))
             return
+        try:
+            paths, key_sids = jobs.save_uploads(self._upload_file(part) for part in parts)
+        except Exception as exc:   # 검사를 통과한 뒤의 실패 = 서버 쪽 문제. 경로 같은 자세한 내용은 로그에만 — 응답에 서버 절대 경로가 나갔다(조각 1 2차 재반증)
+            print(f"  !! UPLOAD 저장 실패: {type(exc).__name__}: {exc}")
+            self._send(500, page("업로드 실패", '<div class="card"><div class="empty">업로드를 끝내지 못했습니다 — 서버 오류('
+                                             + esc(type(exc).__name__) + '). 자세한 내용은 서버 로그에 있습니다.</div></div>', active="/admin"))
+            return
+        saved = [p.name for p in paths]
         print("  UPLOAD " + str(saved))
         csvs = [p for p in paths if p.suffix == ".csv"]
         queued = (not jobs.ingest_async(csvs)) if csvs else False   # 올린 CSV 는 바로 적재 → 그 안의 근무가 전부 목록에

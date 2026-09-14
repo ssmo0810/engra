@@ -1197,6 +1197,7 @@ class TwoScreens(unittest.TestCase):
     """
 
     longMessage = False   # 실패하면 화면 전체 대신 이유 한 줄만
+    DCS_ON = ":has(.hmi #viewOverview):has(.wrap>.disc)"   # /dcs 전체 화면 규칙이 켜지는 조건 — 원본 구조가 CSS 가 기대는 대로일 때만
 
     DAY = ("2026-08-25-day", "2026-08-25T06:00:00", "2026-08-25T18:00:00")
     NIGHT = ("2026-08-25-night", "2026-08-25T18:00:00", "2026-08-26T06:00:00")
@@ -1229,14 +1230,16 @@ class TwoScreens(unittest.TestCase):
                                 "VALUES (?, NULL, 1, 'detected', 'TI-403', '항목', '본문', '중')", (did,)).lastrowid
 
     def test_old_screens_are_gone(self):
+        """옛 화면 주소는 새 화면으로 돌려보낸다 — 공개 소개 페이지(docs/intro.html)·발표 PC 북마크가 아직 /pipeline 을 써서
+        404 가 됐다(조각 1 반증 발견). /pipeline 의 기능은 관리로 갔지만 공개 링크로 관리가 새면 안 되므로 초안으로 보낸다."""
         _fresh_db()
-        for p in ("/rtdb", "/pipeline"):
-            code, body, _ = self._get(p)
-            self.assertEqual(code, 404, p)
-            self.assertIn('class="nav"', body, "옛 주소로 들어와도 이동줄로 돌아갈 길이 있다")
-            self.assertNotIn('href="/admin"', body, "404 에도 관리 링크는 없다")
-        code, _, out = self._get("/")
-        self.assertEqual((code, out.get("Location")), (303, "/draft"), "옛 일지 조회 주소는 초안 목록으로")
+        for old, new in (("/", "/draft"), ("/pipeline", "/draft"), ("/rtdb", "/dcs")):
+            code, _, out = self._get(old)
+            self.assertEqual((code, out.get("Location")), (303, new), old)
+        code, body, _ = self._get("/nope")
+        self.assertEqual(code, 404)
+        self.assertIn('class="nav"', body, "없는 주소로 들어와도 이동줄로 돌아갈 길이 있다")
+        self.assertNotIn('href="/admin"', body, "404 에도 관리 링크는 없다")
 
     def test_dcs_is_the_overview_alone(self):
         _fresh_db()
@@ -1246,7 +1249,63 @@ class TwoScreens(unittest.TestCase):
         self.assertNotIn('class="nav"', body, "ENGRA 이동줄 없이 전체 화면")
         self.assertNotIn("<b>ENGRA</b> 교대 인수인계", body, "ENGRA 상단바 없음")
         self.assertNotIn('href="/admin"', body, "공개 화면에 관리 링크가 새면 안 된다")
-        self.assertIn(".hminav,#viewData,#viewScen,#viewRtdb{display:none!important}", body, "원본 탭 줄·개요 밖 화면을 가린다")
+        css = body[body.rindex("<style>"):]
+        for sel in (".hminav", "#viewData", "#viewScen", "#viewRtdb"):
+            self.assertIn(f"body{self.DCS_ON} {sel}", css, f"원본 탭 줄·개요 밖 화면({sel})을 가린다")
+
+    def test_dcs_css_is_off_unless_source_structure_matches(self):
+        """전체 화면 규칙은 CSS 가 기대는 원본 구조(.hmi 안 #viewOverview · .wrap 바로 아래 .disc)가 있을 때만 켜진다.
+        원본이 바뀌어 구조가 어긋나면 빈 화면이나 안내 누락이 조용히 나는 대신 원본이 그대로 보인다(조각 1 반증 발견)."""
+        import re
+        _fresh_db()
+        import server
+        css = server._DCS_FULL_CSS.split("<style>", 1)[1]
+        sels = [s.strip() for s in re.findall(r"([^{}]+)\{", css) if not s.strip().startswith("@")]
+        self.assertTrue(sels, "규칙을 못 찾음")
+        for s in sels:
+            for part in s.split(","):
+                self.assertIn(self.DCS_ON, part, f"조건 없이 켜지는 규칙: {part.strip()}")
+
+    def test_dcs_source_has_the_structure_the_css_expects(self):
+        """/dcs CSS 가 기대는 원본 구조를 서빙된 HTML 에서 요소 관계로 확인한다 — 문자열이 아니라 트리로.
+        원본(docs/asu_dcs_overview.html, 임도영님 파일)이 바뀌어 이게 깨지면 전체 화면이 꺼지므로 여기서 먼저 알린다."""
+        from html.parser import HTMLParser
+        _fresh_db()
+        code, body, _ = self._get("/dcs")
+        self.assertEqual(code, 200)
+
+        class Tree(HTMLParser):
+            VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+
+            def __init__(self):
+                super().__init__()
+                self.stack, self.hmi, self.disc, self.disc_under_wrap, self.ov_in_hmi, self.mimic_in_hmi = [], 0, 0, 0, 0, 0
+
+            def handle_starttag(self, tag, attrs):
+                a = dict(attrs)
+                cls = (a.get("class") or "").split()
+                in_hmi = any("hmi" in c for _, c in self.stack)
+                self.hmi += "hmi" in cls
+                if "disc" in cls:
+                    self.disc += 1
+                    self.disc_under_wrap += bool(self.stack) and "wrap" in self.stack[-1][1]
+                self.ov_in_hmi += a.get("id") == "viewOverview" and in_hmi
+                self.mimic_in_hmi += tag == "svg" and "mimic" in cls and in_hmi
+                if tag not in self.VOID:
+                    self.stack.append((tag, cls))
+
+            def handle_endtag(self, tag):
+                for i in range(len(self.stack) - 1, -1, -1):   # 짝이 안 맞으면 가장 가까운 같은 태그까지 닫는다
+                    if self.stack[i][0] == tag:
+                        del self.stack[i:]
+                        break
+
+        t = Tree()
+        t.feed(body)
+        self.assertEqual(t.hmi, 1, "class=hmi 는 정확히 1개")
+        self.assertEqual((t.disc, t.disc_under_wrap), (1, 1), ".disc 는 1개이고 .wrap 바로 아래")
+        self.assertEqual(t.ov_in_hmi, 1, ".hmi 안에 #viewOverview")
+        self.assertGreaterEqual(t.mimic_in_hmi, 1, ".hmi 안에 svg.mimic")
 
     def test_dcs_keeps_mock_data_notice(self):
         """전체 화면이어도 원본의 「모의 화면 · 가상 데이터」 안내는 보이게 둔다 — 공개 주소라 심사위원이 보는 화면에서 가상 데이터 표시를 빼지 않는다."""
@@ -1286,6 +1345,245 @@ class TwoScreens(unittest.TestCase):
         self.assertIn('accept=".csv,.json"', body, "근무 CSV 와 정답지를 같은 폼으로 올린다")
         self.assertIn('type="checkbox" name="redo" value="1"', body, "「확정돼 있어도 다시 만들기」는 실행의 선택지")
         self.assertIn('id="joblog"', body, "/pipeline 에만 있던 작업 진행 표시가 관리로 와야 한다")
+
+
+class UploadAllOrNothing(unittest.TestCase):
+    """올린 파일은 전부 검사한 뒤에 저장한다 — 하나라도 거부되면 아무것도 저장하지 않는다.
+
+    파일마다 저장하면서 검사했더니, 열쇠 잠금에서 CSV 와 정답지 JSON 을 함께 올리면 앞의 CSV 가 uploads/ 에 저장만 되고
+    적재는 안 되는 부분 상태가 남았다(조각 1 반증 발견). 형식이 틀린 정답지도 같은 길로 파일이 먼저 남았다.
+    """
+
+    longMessage = False
+    CSV = ("shift_a.csv", b"timestamp,tag,value\n2026-08-25T06:00:00,TI-403,-172.5\n")
+    KEY = ("asu_answer_x.json", b'{"shift_id": "2026-08-25-day", "injected": []}')
+
+    def setUp(self):
+        from pathlib import Path
+        _fresh_db()
+        import jobs
+        self.dir = tempfile.mkdtemp(prefix="engra_up_")
+        self.ingested = []
+        self._keep = (jobs.UPLOAD_DIR, jobs.SEEN_FILE, jobs.ingest_async, os.environ.get("ENGRA_ADMIN_KEY"))
+        jobs.UPLOAD_DIR, jobs.SEEN_FILE = Path(self.dir), Path(self.dir) / ".keys_first_seen.json"
+        jobs.ingest_async = lambda paths, skip_bad=False: self.ingested.extend(paths) or True   # 적재 스레드는 띄우지 않는다
+        os.environ["ENGRA_ADMIN_KEY"] = "k-test"   # 심사 기간 잠금
+
+    def tearDown(self):
+        import shutil
+        import jobs
+        jobs.UPLOAD_DIR, jobs.SEEN_FILE, jobs.ingest_async, key = self._keep
+        if key is None:
+            os.environ.pop("ENGRA_ADMIN_KEY", None)
+        else:
+            os.environ["ENGRA_ADMIN_KEY"] = key
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _upload(self, files, cookie=None):
+        """multipart 본문을 만들어 업로드 핸들러 본체만 부른다. (코드, 본문, Location)."""
+        import server
+        b = "ENGRAtestBOUNDARY"
+        raw = b"".join(f'--{b}\r\nContent-Disposition: form-data; name="files"; filename="{fn}"\r\n'
+                       f'Content-Type: application/octet-stream\r\n\r\n'.encode() + data + b"\r\n" for fn, data in files)
+        raw += f"--{b}--\r\n".encode()
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = "/pipeline/upload"; self.sent = []; self.out = {}
+                self.headers = {"Cookie": cookie} if cookie else {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, k, v): self.out[k] = v
+            def end_headers(self): pass
+
+        h = Fake()
+        h._handle_upload(f"multipart/form-data; boundary={b}", raw)
+        return h.sent[-1] + (h.out.get("Location"),)
+
+    def test_locked_csv_with_key_file_saves_nothing(self):
+        code, body, _ = self._upload([self.CSV, self.KEY])
+        self.assertEqual(code, 400, "열쇠 없이 정답지가 섞이면 거부")
+        self.assertIn("asu_answer_x.json", body, "어느 파일이 왜 거부됐는지 적는다")
+        self.assertEqual(os.listdir(self.dir), [], "하나라도 거부되면 앞의 CSV 도 저장하지 않는다")
+        self.assertEqual(self.ingested, [], "적재도 시작하지 않는다")
+
+    def test_locked_csv_alone_is_ingested(self):
+        code, _, loc = self._upload([self.CSV])
+        self.assertEqual((code, loc), (303, "/admin"), "CSV 는 열쇠 없이 올린다")
+        self.assertEqual(os.listdir(self.dir), ["shift_a.csv"])
+        self.assertEqual([p.name for p in self.ingested], ["shift_a.csv"], "올린 CSV 는 바로 적재")
+
+    def test_broken_key_file_saves_nothing(self):
+        code, body, _ = self._upload([self.CSV, ("asu_answer_bad.json", b'{"nope": 1}')], cookie="engra_admin=k-test")
+        self.assertEqual(code, 400, "형식이 틀린 정답지는 거부")
+        self.assertIn("asu_answer_bad.json", body, "어느 파일인지 적는다")
+        self.assertEqual(os.listdir(self.dir), [], "형식 검사도 저장 전에 — 파일이 먼저 남으면 안 된다")
+
+    def test_broken_gzip_saves_nothing(self):
+        code, body, _ = self._upload([self.CSV, ("shift_b.csv.gz", b"not gzip")])
+        self.assertEqual(code, 400, "풀리지 않는 압축 파일은 거부")
+        self.assertIn("shift_b.csv.gz", body, "어느 파일인지 적는다")
+        self.assertEqual(os.listdir(self.dir), [], "압축 검사도 저장 전에")
+
+    def test_bad_shift_id_saves_nothing_and_keeps_same_name_file(self):
+        """열쇠가 있어도 shift_id 가 목록·객체면 등록에서 TypeError 가 나 앞의 CSV·JSON 이 uploads/ 에 남았고,
+        같은 이름의 기존 파일은 덮였다(조각 1 재반증). 검사가 저장 전제조건까지 보고, 기존 파일은 그대로 둔다."""
+        old = os.path.join(self.dir, "shift_a.csv")
+        with open(old, "wb") as f:
+            f.write(b"OLD")
+        for key in (b'{"shift_id": ["x"], "injected": []}', b'{"shift_list": [{"shift_id": {"a": 1}}]}'):
+            code, body, _ = self._upload([self.CSV, ("asu_answer_b.json", key)], cookie="engra_admin=k-test")
+            self.assertEqual(code, 400, key)
+            self.assertIn("asu_answer_b.json", body, "어느 파일인지 적는다")
+            self.assertEqual(os.listdir(self.dir), ["shift_a.csv"], "새 파일이 남으면 안 된다")
+            with open(old, "rb") as f:
+                self.assertEqual(f.read(), b"OLD", "같은 이름의 기존 파일을 덮으면 안 된다")
+
+    def test_empty_file_name_saves_nothing(self):
+        """파일 이름이 「/」·「.」 이면 저장할 이름이 비어 폴더에 쓰려다 실패했고, 그 전에 저장된 CSV 가 남거나
+        같은 이름 파일을 덮었다(조각 1 재반증)."""
+        old = os.path.join(self.dir, "shift_a.csv")
+        with open(old, "wb") as f:
+            f.write(b"OLD")
+        for bad in ("/", "."):
+            code, _, _ = self._upload([("shift_a.csv", b"NEW," + self.CSV[1]), (bad, b"x")])
+            self.assertEqual(code, 400, bad)
+            self.assertEqual(os.listdir(self.dir), ["shift_a.csv"], bad)
+            with open(old, "rb") as f:
+                self.assertEqual(f.read(), b"OLD", bad)
+
+    def test_numeric_shift_id_is_rejected(self):
+        """숫자 shift_id 가 등록되면 관리 카드의 sorted(KEYS) 가 문자열과 섞여 TypeError — /admin 이 500 이 됐다(조각 1 재반증)."""
+        import jobs, server
+        code, _, _ = self._upload([self.KEY, ("asu_answer_n.json", b'{"shift_id": 123, "injected": []}')], cookie="engra_admin=k-test")
+        self.assertEqual(code, 400, "숫자 shift_id 는 거부")
+        self.assertEqual(os.listdir(self.dir), [], "함께 올린 정상 정답지도 저장하지 않는다")
+        self.assertEqual(jobs.KEYS, {}, "등록도 없다")
+        server._pipeline_card(False)   # 500 이 나던 자리 — 예외 없이 그려져야 한다
+
+    def test_failure_while_saving_leaves_nothing(self):
+        """검사를 통과한 뒤 저장 도중 실패해도 이번 요청의 파일은 하나도 반영하지 않는다 — 임시 이름으로 다 쓴 뒤에 옮긴다."""
+        import jobs
+        old = os.path.join(self.dir, "a.csv")
+        with open(old, "wb") as f:
+            f.write(b"OLD")
+
+        def files():
+            yield "a.csv", b"NEW"
+            raise OSError("디스크 가득 참(시험)")
+
+        with self.assertRaises(OSError):
+            jobs.save_uploads(files())
+        self.assertEqual(os.listdir(self.dir), ["a.csv"], "임시 파일도 남기지 않는다")
+        with open(old, "rb") as f:
+            self.assertEqual(f.read(), b"OLD", "옮기기 전에 실패했으니 기존 파일은 그대로")
+
+    def test_key_is_judged_on_the_saved_name(self):
+        """열쇠·형식 검사는 저장될 이름으로 판정한다 — 원래 이름 「x.json/」 으로 판정해 열쇠를 건너뛰고 x.json 으로 저장·등록됐다(조각 1 2차 재반증)."""
+        import gzip, jobs
+        for name, data in (("x.json/", self.KEY[1]), ("x.json/.gz", gzip.compress(self.KEY[1]))):
+            code, _, _ = self._upload([self.CSV, (name, data)])
+            self.assertEqual(code, 400, name)
+            self.assertEqual(os.listdir(self.dir), [], name)
+            self.assertEqual(jobs.KEYS, {}, name)
+
+    def test_same_saved_name_twice_is_rejected(self):
+        """한 요청 안에서 정리된 이름이 겹치면 알림 없이 뒤 파일이 앞 파일을 덮었다(조각 1 2차 재반증)."""
+        import gzip, jobs
+        key2 = b'{"shift_id": "2026-08-25-night", "injected": []}'
+        for files in ([("dup.csv", self.CSV[1]), ("dup.csv.gz", gzip.compress(b"NEW," + self.CSV[1]))],
+                      [("d1/asu_answer_x.json", self.KEY[1]), ("d2/asu_answer_x.json", key2)]):
+            code, body, _ = self._upload(files, cookie="engra_admin=k-test")
+            self.assertEqual(code, 400, files[0][0])
+            self.assertIn("같은 이름으로 저장될 파일이 둘", body, files[0][0])
+            self.assertEqual(os.listdir(self.dir), [], files[0][0])
+            self.assertEqual(jobs.KEYS, {}, files[0][0])
+        with self.assertRaises(ValueError):   # 저장 함수도 스스로 막는다
+            jobs.save_uploads([("a.csv", b"1"), ("a.csv", b"2")])
+        self.assertEqual(os.listdir(self.dir), [], "임시 파일도 남기지 않는다")
+
+    def test_unsavable_names_are_rejected_before_saving(self):
+        """NUL 이 들어간 이름 · 255바이트를 넘는 이름은 검사에서 400 — 저장 단계 500 이 되던 것(조각 1 2차 재반증)."""
+        for name in ("a\x00b.csv", "a" * 252 + ".csv"):
+            code, _, _ = self._upload([self.CSV, (name, b"x")])
+            self.assertEqual(code, 400, repr(name[:12]))
+            self.assertEqual(os.listdir(self.dir), [], repr(name[:12]))
+
+    def test_long_but_valid_name_is_saved(self):
+        """245바이트 이름은 정상 — 임시 이름에 원래 이름을 붙여 임시 파일에서만 길이 제한에 걸리던 회귀(조각 1 2차 재반증)."""
+        name = "a" * 241 + ".csv"
+        code, _, loc = self._upload([(name, self.CSV[1])])
+        self.assertEqual((code, loc), (303, "/admin"))
+        self.assertEqual(os.listdir(self.dir), [name])
+
+    def test_save_failure_does_not_leak_server_paths(self):
+        """검사를 통과한 뒤 저장이 실패하면 500 이지만, 본문에는 고정 문구와 예외 종류만 — 서버 경로는 로그에만(조각 1 2차 재반증)."""
+        from pathlib import Path
+        import jobs
+        not_a_dir = Path(self.dir) / "uploads"
+        not_a_dir.write_bytes(b"")          # 폴더 자리에 파일 → 저장 단계에서 실패
+        jobs.UPLOAD_DIR = not_a_dir
+        code, body, _ = self._upload([self.CSV])
+        self.assertEqual(code, 500)
+        self.assertNotIn(self.dir, body, "서버 경로가 응답에 나가면 안 된다")
+        self.assertIn("FileExistsError", body, "예외 종류는 보인다")
+
+    def test_key_check_ignores_extension_case(self):
+        """열쇠 검사가 대소문자를 구분해 「asu_answer_x.JSON」 이 빠져나갔다 — 대소문자를 구분하지 않는 파일시스템에서는
+        기존 .json 정답지를 덮어썼다(조각 1 3차 재반증)."""
+        import jobs
+        code, _, _ = self._upload([("asu_answer_x.JSON", self.KEY[1])])
+        self.assertEqual(code, 400, "확장자 대소문자와 무관하게 열쇠를 본다")
+        self.assertEqual(os.listdir(self.dir), [])
+        self.assertEqual(jobs.KEYS, {})
+
+    def test_same_name_after_unicode_normalization_is_rejected(self):
+        """중복 검사가 문자열 비교라, 자모 조합만 다른 같은 이름(NFC/NFD)이 조용히 덮였다(조각 1 3차 재반증)."""
+        import unicodedata
+        nfc, nfd = unicodedata.normalize("NFC", "근무.csv"), unicodedata.normalize("NFD", "근무.csv")
+        self.assertNotEqual(nfc, nfd, "두 꼴이 달라야 시험이 성립한다")
+        code, body, _ = self._upload([(nfc, self.CSV[1]), (nfd, b"NEW," + self.CSV[1])])
+        self.assertEqual(code, 400)
+        self.assertIn("같은 이름으로 저장될 파일이 둘", body)
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_long_name_with_gz_is_saved(self):
+        """.gz 를 떼기 전에 이름을 검사해, 253바이트 이름이 압축되면(브라우저가 .gz 를 붙여 256바이트) 400 이 됐다 —
+        같은 파일이 크기에 따라 되다 안 되다 했다(조각 1 3차 재반증)."""
+        import gzip
+        name = "a" * 249 + ".csv"
+        code, _, loc = self._upload([(name + ".gz", gzip.compress(self.CSV[1]))])
+        self.assertEqual((code, loc), (303, "/admin"), "압축을 풀고 난 이름이 255바이트 안이면 정상 저장")
+        self.assertEqual(os.listdir(self.dir), [name])
+
+    def test_normal_uploads_still_pass(self):
+        import gzip, jobs
+        code, _, loc = self._upload([self.CSV, self.KEY], cookie="engra_admin=k-test")
+        self.assertEqual((code, loc), (303, "/admin"))
+        self.assertTrue({"shift_a.csv", "asu_answer_x.json"} <= set(os.listdir(self.dir)))
+        self.assertIn("2026-08-25-day", jobs.KEYS)
+        bundle = b'{"shift_list": [{"shift_id": "s1", "injected": []}, {"shift_id": "s2", "injected": []}]}'
+        code, _, loc = self._upload([("shift_b.csv.gz", gzip.compress(self.CSV[1])), ("asu_answer_all.json", bundle)],
+                                    cookie="engra_admin=k-test")
+        self.assertEqual((code, loc), (303, "/admin"))
+        self.assertTrue({"shift_b.csv", "asu_answer_all.json"} <= set(os.listdir(self.dir)), "압축은 풀고 이름에서 .gz 를 뗀다")
+        self.assertTrue({"s1", "s2"} <= set(jobs.KEYS))
+        self.assertEqual([p.name for p in self.ingested], ["shift_a.csv", "shift_b.csv"])
+
+
+class SnapshotLinks(unittest.TestCase):
+    longMessage = False
+
+    def test_back_link_to_list_becomes_static(self):
+        """정적 스냅숏(sample/)에서 상세의 「‹ 목록으로」가 index.html 로 바뀌어야 한다 — 목록 주소가 / 에서 /draft 로
+        바뀌며 치환이 빗나가 죽은 링크가 됐다(조각 1 반증 발견)."""
+        sys.path.append(os.path.join(ROOT, "tools"))
+        import snapshot
+        html = ('<style></style><div class="nav"><a class="on" href="/draft">초안</a></div>'
+                '<a class="back" href="/draft">‹ 목록으로</a><div class="card">본문</div>')
+        out = snapshot.to_static(html, "handover.html")
+        self.assertNotIn('href="/draft"', out, "/draft 링크가 정적본에 남으면 죽은 링크")
+        self.assertIn('<a class="back" href="index.html">', out, "「‹ 목록으로」는 index.html 로")
 
 
 if __name__ == "__main__":

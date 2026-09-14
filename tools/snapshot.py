@@ -27,7 +27,7 @@ OUT = ROOT / "sample"
 # smoke.sh 에서 같은 병을 두 번 겪었다. 항상 보관 기간 안에 있는 오늘을 쓴다.
 DAY = _dt.date.today().isoformat()
 PAGES = {
-    "index.html": "/",
+    "index.html": "/draft",   # 목록. / 는 /draft 로 303 이고, 화면의 「‹ 목록으로」·이동줄도 /draft 를 가리킨다
     "draft.html": f"/shift/{DAY}-night",
     "handover.html": f"/shift/{DAY}-day",
 }
@@ -163,7 +163,8 @@ def main():
         (ROOT / "app" / f).unlink(missing_ok=True)
     shutil.rmtree(ROOT / "app" / "__pycache__", ignore_errors=True)
 
-    leftover = [n for n in PAGES if "/shift/" in (OUT / n).read_text(encoding="utf-8")]
+    # 목록 주소가 / 에서 /draft 로 바뀌며 「‹ 목록으로」 치환이 조용히 빗나갔다(조각 1 반증) — /draft 링크가 남아도 멈춘다
+    leftover = [n for n in PAGES if any(s in (OUT / n).read_text(encoding="utf-8") for s in ("/shift/", 'href="/draft"'))]
     if leftover:
         raise SystemExit(f"정적 링크로 안 바뀐 페이지: {leftover}")
     print(f"\n생성 위치: {OUT}  (링크·폼 정적화 확인)")
