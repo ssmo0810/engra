@@ -307,7 +307,10 @@ def raw_fill(conn, start, end):
 
 
 def raw_window_complete(conn, start, end):
-    """[start, end) 가 온전한가 → (온전 여부, 채움 정보). 실시간 창 판정과 배치 재적재 판정이 같은 규칙을 쓴다."""
+    """[start, end) 가 실제로 찼나 → (찬 여부, 채움 정보). **실시간 창 판정 전용**이다.
+
+    앞 12시간을 검출에 쓸 수 있는지만 묻는다. 배치의 재적재 판정(raw_complete)과 규칙을 합치면
+    전 태그가 한 시간 넘게 멎은 멀쩡한 근무를 「원본 없음」이라 거부한다(3라운드) — 물음이 다르다."""
     f = raw_fill(conn, start, end)
     ok = (f["filled"] == f["buckets"] and f["head_gap_min"] is not None
           and f["head_gap_min"] <= GAP_MIN_MINUTES and f["tail_gap_min"] <= GAP_MIN_MINUTES)
@@ -315,14 +318,17 @@ def raw_window_complete(conn, start, end):
 
 
 def raw_complete(conn, shift_id):
-    """창이 온전한가 — 채움률과 양끝 빈 시간으로 본다.
+    """저장소 회전이 창을 잘랐나 — 첫 표본이 창 시작 1분 안이면 온전한 것으로 본다.
 
-    첫 표본만 보면 재생이 중간에 죽어 남긴 반쪽 원본(늘 구간 시작부터 쌓으므로 first == 구간 시작)도 「온전」으로 보여,
-    회복 경로가 그것으로 조용히 초안을 만든다 — 12시간 근무를 1시간 40분치로 쓴 일지가 승인 대기까지 갔다(반증 A)."""
-    row = conn.execute("SELECT window_start, window_end FROM shift WHERE id = ?", (shift_id,)).fetchone()
-    if row is None:
+    여기서 묻는 것은 「3일 회전이 원본을 지웠으니 파일에서 다시 적재해야 하나」 하나뿐이다. 창 가운데가
+    성긴지는 묻지 않는다 — 계측이 한 시간 멎어도 원본은 멀쩡한데, 그걸 「원본 없음」이라 하면
+    /pipeline/run 이 사실과 다른 문구로 거부하고 구멍은 파일에 있으니 다시 적재해도 영영 그대로다(3라운드).
+    창이 실제로 찼는지는 raw_window_complete 가 실시간 창 판정에서 따로 본다."""
+    n, first = raw_coverage(conn, shift_id)
+    if not n:           # 쌓다 만 원본은 _drop_partial 이 비우므로 여기서 0 이 되어 「온전 아님」이다 (반증 A6)
         return False
-    return raw_window_complete(conn, row["window_start"], row["window_end"])[0]
+    row = conn.execute("SELECT window_start FROM shift WHERE id = ?", (shift_id,)).fetchone()
+    return datetime.fromisoformat(first) <= datetime.fromisoformat(row["window_start"]) + timedelta(minutes=1)
 
 
 GAP_MIN_MINUTES = 10   # 이보다 오래 값이 없으면 '계측 결측 구간' — 초안에 태그·시간대로 들어간다 (경모님 2026-08-27)
@@ -734,9 +740,11 @@ def update_live_item(conn, item_id, evidence, live, severity=None):
 def drop_unreferenced_events(conn, shift_id, keep_ids):
     """마감 집합(keep_ids)에도 없고 초안 항목이 가리키지도 않는 이벤트를 지운다 → 지운 수.
     확정 때 근거로 넣었다가 마감 집합으로 대체된 행을 치워, 채점·화면이 일괄 실행과 같은 이벤트를 본다."""
-    marks = ",".join("?" * len(keep_ids)) if keep_ids else "SELECT NULL"
+    # 빈 집합은 절을 아예 뺀다. `NOT IN (SELECT NULL)` 은 SQL 에서 참이 아니라 UNKNOWN 이라 한 행도 안 지운다 —
+    # 마감 틱에 검출이 0건인 조용한 근무가 통째로 정리를 건너뛰었다(3라운드).
+    where = f"AND id NOT IN ({','.join('?' * len(keep_ids))}) " if keep_ids else ""
     return conn.execute(
-        f"DELETE FROM event WHERE shift_id = ? AND id NOT IN ({marks}) "
+        f"DELETE FROM event WHERE shift_id = ? {where}"
         f"AND id NOT IN (SELECT event_id FROM draft_item WHERE event_id IS NOT NULL)",
         (shift_id, *keep_ids)).rowcount
 

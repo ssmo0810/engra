@@ -824,10 +824,13 @@ class FoldingAndEvents(unittest.TestCase):
             d = db.load_draft(conn, SID)
         self.assertEqual(len(d["items"]), 1)
         it = d["items"][0]
-        self.assertEqual(it["severity"], "상", "더 큰 재발이 접히면 중요도를 올린다")
+        self.assertEqual(it["severity"], "중", "항목 중요도는 AI 판정 그대로 — 더 큰 재발이 접혀도 덮지 않는다")
         self.assertIn("재발 1회 — 08:00", it["evidence"], "마감 뒤에도 근거 줄이 최종본이어야 한다")
+        self.assertIn("재발 중 가장 큰 것은 중요도 상", it["evidence"],
+                      "덮지 않는 대신 더 큰 재발이 있었다는 사실은 근거 줄에 남는다")
         self.assertEqual(it["live"]["end"], iso(T(150)))
         self.assertEqual(live.items()[0]["score_max"], 9.0)
+        self.assertEqual(live.items()[0]["recur_severity"], "상", "카드에는 재발 최댓값이 따로 뜬다")
         self.assertEqual((sec.false_confirm, sec.false_confirm_tracks), (1, 2),
                          "화면 숫자는 카드 기준(접힌 재발 뺌), 틱 실험 대조값은 추적기 기준")
 
@@ -887,7 +890,8 @@ class FoldingAndEvents(unittest.TestCase):
             d = db.load_draft(conn, SID)
         self.assertEqual((d["status"], len(d["items"])), ("pending", 1))
         self.assertIn("재발 1회 — 08:00", d["items"][0]["evidence"], "실패 뒤 다시 쓴 항목에도 접힌 재발이 들어간다")
-        self.assertEqual(d["items"][0]["severity"], "상")
+        self.assertEqual(d["items"][0]["severity"], "중", "다시 쓴 뒤에도 항목 값은 AI 판정 그대로다")
+        self.assertIn("재발 중 가장 큰 것은 중요도 상", d["items"][0]["evidence"])
         live.forget()
 
     def test_recurrence_that_vanishes_before_confirming_still_folds(self):
@@ -978,10 +982,31 @@ class WindowAndRawJudgement(unittest.TestCase):
         with db.connect() as conn:
             left = conn.execute("SELECT COUNT(*) FROM raw_sample WHERE ts >= ?", (iso(WS),)).fetchone()[0]
             self.assertEqual(left, 0, "쌓다 만 원본은 비운다 — 남으면 일괄 실행이 반쪽 데이터로 초안을 만든다")
+            self.assertFalse(db.raw_complete(conn, SID),
+                             "비웠으니 표본이 0 이고, 배치는 파일에서 다시 적재한다 (반증 A6 은 여기서 닫힌다)")
             conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
                              [(tag, iso(T(i)), 1.0) for i in range(100) for tag in TAGS])
-            self.assertFalse(db.raw_complete(conn, SID), "12시간 중 100분치는 「온전」이 아니다")
+            ok, fill = db.raw_window_complete(conn, iso(WS), iso(WS + dt.timedelta(hours=12)))
+            self.assertFalse(ok, "12시간 중 100분치는 실시간 창으로 쓸 수 없다")
+            self.assertEqual((fill["filled"], fill["buckets"]), (2, 12))
         self.assertIn("멈춘 구간", live.approve_lock(SID))
+
+    def test_a_long_outage_keeps_the_raw_complete_for_the_batch(self):
+        """전 태그가 91분 멎어도 원본은 멀쩡하다 — 배치가 「원본 없음」이라 거부하면 안 된다(3라운드 ①).
+
+        두 물음은 다르다: raw_complete 는 「회전이 창을 잘랐나」, raw_window_complete 는 「창이 실제로 찼나」.
+        한 함수로 합쳤더니 데이터가 다 있는 근무에 /pipeline/run 이 사실과 다른 400 을 냈다."""
+        import db
+        with db.connect() as conn:
+            _shift_row(conn, SID, WS, WS + dt.timedelta(hours=12))
+            conn.executemany("INSERT INTO raw_sample (tag, ts, value) VALUES (?,?,?)",
+                             [(tag, iso(T(i)), 1.0) for i in range(720) if not 59 <= i < 150 for tag in TAGS])
+            self.assertTrue(db.raw_complete(conn, SID),
+                            "앞을 자른 것이 아니므로 배치는 그대로 돌아야 한다 — 구멍은 「계측 결측 구간」으로 초안에 적힌다")
+            self.assertTrue(db.find_gaps(conn, SID), "같은 구멍을 find_gaps 는 결측 구간으로 정상 취급한다")
+            ok, fill = db.raw_window_complete(conn, iso(WS), iso(WS + dt.timedelta(hours=12)))
+            self.assertFalse(ok, "같은 원본이라도 실시간 창 판정은 한 칸이 통째로 빈 것을 덜 찼다고 본다")
+            self.assertEqual((fill["filled"], fill["buckets"]), (11, 12))
 
     def test_tick_interval_must_divide_the_shift(self):
         import live
@@ -1014,6 +1039,22 @@ class WindowAndRawJudgement(unittest.TestCase):
             d = db.load_draft(conn, SID)
         self.assertEqual(len(d["items"]), 1, "끝 시각이 없다고 실시간에서만 사라지면 안 된다")
         self.assertEqual(d["items"][0]["live"]["end"], iso(T(720)), "끝 시각이 없으면 지금도 이어지는 것으로 본다")
+
+    def test_closing_with_no_detection_still_cleans_the_event_table(self):
+        """마감 검출이 0건인 조용한 근무도 정리가 돌아야 한다(3라운드 ③).
+
+        keep_ids 가 비었을 때 `id NOT IN (SELECT NULL)` 로 흉내내면 SQL 에서 참이 아니라 한 행도 안 지워진다 —
+        그 근무만 조용히 「채점이 일괄과 같아진다」가 깨졌다."""
+        import db
+        with db.connect() as conn:
+            _shift_row(conn, SID, WS, WS + dt.timedelta(hours=12))
+            db.add_events(conn, SID, [ev("TI-101", "드리프트", 0, 30, i) for i in range(1, 4)], "test")
+            ids = [r[0] for r in conn.execute("SELECT id FROM event WHERE shift_id = ? ORDER BY id", (SID,))]
+            item_id = _pending_draft(conn, SID)[0]
+            conn.execute("UPDATE draft_item SET event_id = ? WHERE id = ?", (ids[0], item_id))
+            dropped = db.drop_unreferenced_events(conn, SID, [])
+            left = [r[0] for r in conn.execute("SELECT id FROM event WHERE shift_id = ? ORDER BY id", (SID,))]
+        self.assertEqual((dropped, left), (2, [ids[0]]), "초안이 가리키는 한 건만 남고 나머지는 지워진다")
 
 
 class ClockAndContract(unittest.TestCase):

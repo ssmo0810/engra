@@ -143,7 +143,8 @@ K_TICKS = 3             # 사라짐: 확정 전 K틱 연속 결과에 없음
 STOP_Q_BAN_MIN = 60     # (가) 근무 시작 창에서만 — 경과 60분 전 정지 질문 금지(시작 창 10/10 근무 경과 10분 오탐, 실측)
 AI_WORKERS = 8
 MAX_SPEED = 1000
-# 앞 12시간이 온전한지는 db.raw_window_complete(채움률 + 양끝 빈 시간)로 본다 — 배치 재적재 판정과 같은 규칙이다
+# 앞 12시간이 찼는지는 db.raw_window_complete(칸 채움 + 양끝 빈 시간)로 본다 — 실시간 창 전용 규칙이고,
+# 배치의 재적재 판정(db.raw_complete, 「회전이 잘랐나」)과는 묻는 것이 다르다
 
 _TICK = timedelta(minutes=TICK_MIN)
 _WAVE_PAD = timedelta(seconds=pipeline.WAVE_PAD_SEC)
@@ -365,18 +366,31 @@ class _Track:
         return max(ends) if ends else None
 
     def evidence_line(self):
-        """감지 근거 — 접힌 재발이 있으면 그 시각을 한 줄로 남긴다(문장은 확정 때 것 그대로)."""
+        """감지 근거 — 접힌 재발이 있으면 그 시각을 한 줄로 남긴다(문장은 확정 때 것 그대로).
+        재발이 원 항목보다 중요하면 그 사실도 여기 적는다 — 항목 중요도는 AI 판정 그대로 두기 때문이다."""
         base = self.prob.item.get("evidence") or ""
         if not self.recurrences:
             return base
-        return f"{base}\n재발 {len(self.recurrences)}회 — " + " · ".join(_iso(r.first_seen)[11:16] for r in self.recurrences)
+        line = f"{base}\n재발 {len(self.recurrences)}회 — " + " · ".join(_iso(r.first_seen)[11:16] for r in self.recurrences)
+        top = self.recur_severity()
+        return line + (f"\n재발 중 가장 큰 것은 중요도 {top} — 위 판단은 처음 확정된 건 기준이다." if top else "")
 
-    def severity(self, base=None):
-        """접힌 재발까지 합친 중요도 — 더 큰 쪽을 쓴다. base 를 주면 그것(AI 가 판정한 값)을 원 항목 값으로 본다."""
+    def severity(self):
+        """항목 중요도 — AI 가 판정한 값 그대로다. 접힌 재발이 더 커도 덮지 않는다.
+
+        덮었더니 승인 화면이 「중요도 상(통계 하 → AI 판정 상)」이라 적고 그 밑에 AI 가 쓴 '하' 근거 문장을
+        나란히 보여, AI 가 한 적 없는 판정을 AI 것이라 말했다(3라운드). 재발 최댓값은 근거 줄·카드에 드러낸다."""
+        return self.ai_severity or self.prob.item.get("severity")
+
+    def recur_severity(self):
+        """접힌 재발 중 항목보다 큰 중요도가 있으면 그 최댓값, 없으면 None."""
         rank = {"상": 0, "중": 1, "하": 2}
-        own = base if base is not None else (self.ai_severity or self.prob.item.get("severity"))
-        cands = [s for s in [own] + [r.prob.item.get("severity") for r in self.recurrences] if s in rank]
-        return min(cands, key=lambda s: rank[s]) if cands else own
+        cands = [s for s in (r.prob.item.get("severity") for r in self.recurrences) if s in rank]
+        if not cands:
+            return None
+        top = min(cands, key=lambda s: rank[s])
+        own = self.severity()
+        return top if own not in rank or rank[top] < rank[own] else None
 
     def members_all(self):
         """접힌 재발까지 합친 멤버 (tag, kind)."""
@@ -416,6 +430,7 @@ class _Track:
             "confirm": self.state if self.state in ("ended", "closed") else None,
             "ongoing": self.ongoing, "not_in_close": self.not_in_close, "recurrence_of": self.recurrence_of,
             "tag": it.get("tag"), "kind": p.kind, "title": it.get("title"), "severity": self.severity(),
+            "recur_severity": self.recur_severity(),    # 항목보다 큰 재발이 있으면 카드에만 드러낸다 (항목 값은 AI 판정 그대로)
             "evidence": self.evidence_line(), "score": p.score, "score_max": self.score_top(),
             "start": _iso(p.minstart), "end": _iso(self.end_at()),
             "recurrences": [_iso(r.first_seen) for r in self.recurrences],
@@ -937,15 +952,19 @@ class _Replay:
         with _lock:
             if not root.draft_item_id or root.saved_recur == len(root.recurrences):
                 return
-            item_id, evidence, live = root.draft_item_id, root.evidence_line(), root.live()
-            sev, n = root.severity(), len(root.recurrences)
         try:
             with self.writing(), db.connect() as conn:
-                db.update_live_item(conn, item_id, evidence, live, sev)
+                # 스냅샷을 쓰기 잠금 아래에서 뜬다 — 락 밖에서 뜨면 겹친 두 호출(틱 스레드의 접기 · AI 스레드의
+                # 저장 직후)의 쓰기 순서가 스냅샷 순서와 뒤집혀 재발 1회분이 2회분을 덮는다(codex 반증).
+                # 잠금 차례는 코드 전체가 지키는 wlock → _lock 그대로다.
+                with _lock:
+                    item_id, evidence, live = root.draft_item_id, root.evidence_line(), root.live()
+                    n = len(root.recurrences)
+                db.update_live_item(conn, item_id, evidence, live)   # 중요도는 안 건드린다 — 항목 값은 AI 판정 그대로
+                with _lock:
+                    root.saved_recur = n
         except _Stopped:
             return
-        with _lock:
-            root.saved_recur = n
 
     def _wave(self, sec, e, closing):
         """감지 구간 ±30분 파형(pipeline._waveform). 마감 틱은 배치와 같게 구간 원본 [구간 시작, 끝) 에서만 뜬다."""
@@ -1076,8 +1095,7 @@ class _Replay:
             new = {key: v for key, v in out.items() if key != "metrics"}   # 저장 스키마엔 없는 임시 필드 (pipeline 과 같음)
             with _lock:
                 ai_sec = round(time.monotonic() - tr.conf_wall, 2)
-                tr.ai_severity = new.get("severity")        # AI 가 판정한 중요도 — 접힌 재발과 견줄 기준
-                new["severity"] = tr.severity()
+                tr.ai_severity = new.get("severity")        # AI 가 판정한 중요도 = 항목 값. 접힌 재발이 더 커도 덮지 않는다
                 new["evidence"], new["live"] = tr.evidence_line(), dict(tr.live(), ai_sec=ai_sec)
                 n_recur = len(tr.recurrences)
             with self.writing(), db.connect() as conn:
