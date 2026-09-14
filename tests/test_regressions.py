@@ -2190,6 +2190,106 @@ class SeedSwap(unittest.TestCase):
                 c.close()
 
 
+class EditAndColors(unittest.TestCase):
+    """경모님 지시 — 확정 일지는 「수정」으로 바로 고치고(재검토라는 이름·확인 단계 없이), 화면에 상태 색을 준다.
+    중요도 색은 되살리지 않는다(경모님이 없앤 것)."""
+
+    SID = "2026-08-25-day"
+
+    def setUp(self):
+        _fresh_db()
+        import approve
+        import db
+        with db.connect() as conn:
+            conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                         "VALUES (?, 'day', '2026-08-25T06:00:00', '2026-08-25T18:00:00', 'test', ?)", (self.SID, db.now()))
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'pending','test',?)",
+                               (self.SID, db.now())).lastrowid
+            self.iid = conn.execute("INSERT INTO draft_item (draft_id, seq, origin, tag, title, body, evidence, severity) "
+                                    "VALUES (?,1,'detected','TI-403','TI-403 드리프트','본문','근거','중')", (did,)).lastrowid
+        approve.decide(self.SID, {self.iid: {"adopted": True, "status": "완료"}})
+
+    def _post(self, path, pairs):
+        import server
+        from urllib.parse import urlencode
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = path; self.sent = []; self.headers = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        h._handle_form(urlencode(pairs).encode())
+        return h.sent[-1]
+
+    def test_confirmed_log_offers_edit_without_a_confirm_step(self):
+        import server
+        body = server.view_shift(self.SID)
+        self.assertIn('action="/reopen"', body, "고치는 자리는 그대로 쓴다(이력도 그대로 남는다)")
+        self.assertRegex(body, r"<button[^>]*>\s*수정\s*</button>", "「수정」 버튼")
+        self.assertNotIn("재검토", body, "이름을 바꿨다")
+        self.assertNotIn("confirm(", body, "눌러서 바로 고칠 수 있게 — 확인 단계 없음")
+
+    def test_edit_opens_the_editable_screen_and_keeps_the_history(self):
+        import db
+        import server
+        code, _ = self._post("/reopen", [("shift_id", self.SID)])
+        self.assertEqual(code, 303)
+        with db.connect() as conn:
+            self.assertEqual(db.load_draft(conn, self.SID)["status"], "pending", "초안으로 돌아간다")
+            self.assertIsNone(db.load_handover(conn, self.SID))
+            self.assertEqual(len(db.handover_rounds(conn, self.SID)), 1, "이전 확정본은 이력으로 남는다(기획서 4-3)")
+        body = server.view_shift(self.SID)
+        self.assertIn('action="/approve"', body, "바로 고칠 수 있는 화면")
+        self.assertIn("TI-403", body)
+
+    def _rules(self):
+        import re
+        import server
+        css = re.sub(r"/\*.*?\*/", "", server.STYLE, flags=re.S)
+        out = {}
+        for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+            out.setdefault(sel.strip(), []).append(body)
+        return out
+
+    def test_each_state_has_its_own_color(self):
+        rules = self._rules()
+        want = (".pill.live", ".pill.done", ".pill.going", '.item[data-state="observing"]',
+                '.item[data-state="ready"]', '.item[data-state="ai_failed"]')
+        seen = {}
+        for sel in want:
+            with self.subTest(selector=sel):
+                hit = [b for k, b in ((k, b) for k, v in rules.items() for b in v) if sel in k]
+                self.assertTrue(hit, f"{sel} 규칙이 없다")
+                seen[sel] = "".join(hit)
+                self.assertRegex(seen[sel], r"(background|border-left|color)\s*:", f"{sel} 에 색이 없다")
+        self.assertEqual(len({v for v in seen.values()}), len(want), "상태마다 다른 색이어야 한다")
+
+    def test_sk_red_stays_the_single_accent(self):
+        import server
+        self.assertLessEqual(server.STYLE.upper().count("#EA002C"), 2,
+                             "SK 레드는 --accent 정의(밝은/어두운 화면)에만 — 나머지는 그 토큰을 쓴다")
+
+    def test_dark_screen_redefines_the_tokens(self):
+        import re
+        import server
+        m = re.search(r"@media\s*\(prefers-color-scheme:\s*dark\)\s*\{(.*?)\n\}", server.STYLE, re.S)
+        self.assertIsNotNone(m, "어두운 화면 규칙이 없다")
+        for tok in ("--bg:", "--card:", "--ink:", "--line:"):
+            self.assertIn(tok, m.group(1), f"어두운 화면에서 {tok} 를 다시 정하지 않았다")
+
+    def test_graph_draws_in_color(self):
+        import server
+        svg = server._curve([(i / 10, 10.0 + i) for i in range(11)], "2026-08-25T06:00:00", "2026-08-25T18:00:00",
+                            band=(0.2, 0.5), limit=18.0, unit="℃")
+        self.assertIn('stroke="var(--chart)"', svg, "선에 색")
+        self.assertIn("var(--band)", svg, "감지 구간 음영에 색")
+        self.assertIn('stroke="var(--accent)"', svg, "한계선은 빨강 하나")
+
+
 class SnapshotLinks(unittest.TestCase):
     longMessage = False
 

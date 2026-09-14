@@ -26,8 +26,34 @@ from config import DOCS_DIR
 
 # demo/index.html 에서 옮겨온 디자인 토큰과 컴포넌트
 STYLE = """
-:root{--ink:#191b1f;--sub:#5f6672;--line:#e4e1dc;--bg:#f7f6f3;--card:#fff;
-      --accent:#EA002C;--ok:#1a6b3c;--warn:#8a5300;--bad:#b3261e;--chip:#f2f0ec}
+:root{--ink:#191b1f;--sub:#5f6672;--line:#e4e1dc;--bg:#f7f6f3;--card:#fff;--chip:#f2f0ec;
+      --accent:#EA002C;                            /* SK 레드 — 워드마크·주 버튼·한계선에만 */
+      --ok:#1a6b3c;--ok-soft:#e4f1e8;              /* 확정·완료 */
+      --warn:#8a5300;--warn-soft:#fbeed3;          /* 초안(승인 대기) */
+      --go:#0f6b63;--go-soft:#e1f2f0;              /* 진행중 — 다음 근무로 이어진다 */
+      --bad:#b3261e;--bad-soft:#fde4e6;            /* AI 서술 실패 */
+      --live:#0b62c4;--live-soft:#e5effb;          /* 쌓이는 중 */
+      --obs:#4c5a6b;--obs-soft:#eef1f5;            /* 관찰 중·서술 중 — 아직 못 고른다 */
+      --ready:#3a4aa0;--ready-soft:#ecedfa;        /* 선택 가능 */
+      --chart:#0b62c4;--band:#f0b323;              /* 그래프 선 · 감지 구간 음영 */
+      --why-bg:#f6f5f2;--why-line:#d5d1ca;--sug-bg:#f1f6f2;--sug-line:#a9cdb6;
+      --disc-bg:#fff8e6;--disc-line:#efe2bd;--off-bg:#fbfaf8}
+
+/* 어두운 화면 — 토큰만 다시 정한다. 규칙은 하나고 색만 갈린다 */
+@media (prefers-color-scheme: dark){
+:root{--ink:#e8e6e3;--sub:#a6a29c;--line:#33312e;--bg:#131312;--card:#1c1b1a;--chip:#262421;
+      --accent:#ff4d68;
+      --ok:#61c48c;--ok-soft:#12301f;
+      --warn:#e0a654;--warn-soft:#33260f;
+      --go:#54bdb0;--go-soft:#10302c;
+      --bad:#ff6b63;--bad-soft:#3a1a18;
+      --live:#5aa2f5;--live-soft:#10243c;
+      --obs:#9fb0c2;--obs-soft:#1e2530;
+      --ready:#9aa6ee;--ready-soft:#1d2040;
+      --chart:#5aa2f5;--band:#d9a03c;
+      --why-bg:#232120;--why-line:#3d3a36;--sug-bg:#16251b;--sug-line:#2f5c3f;
+      --disc-bg:#2a2413;--disc-line:#4a3f1f;--off-bg:#191817}
+}
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
@@ -57,7 +83,7 @@ a{color:inherit}
 .back{display:inline-block;margin-bottom:14px;font-size:13px;font-weight:700;
       color:var(--accent);text-decoration:none}
 .back:hover{text-decoration:underline}
-.disc{font-size:13px;color:var(--sub);background:#fff8e6;border:1px solid #efe2bd;
+.disc{font-size:13px;color:var(--sub);background:var(--disc-bg);border:1px solid var(--disc-line);
       padding:9px 13px;border-radius:8px;margin-bottom:14px}
 .sc{border-collapse:collapse;width:100%;font-size:13px}
 .sc th,.sc td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
@@ -66,10 +92,11 @@ a{color:inherit}
 /* 상태 — 초안 호박 · 확정 초록 · 관찰 중 흐린 회색. 빨강은 워드마크·LIVE·주 버튼에만 */
 .pill{font-size:13px;font-weight:700;padding:2px 9px;border-radius:999px;
       background:var(--chip);color:var(--sub);white-space:nowrap}
-.pill.on,.pill.done{background:#e4f1e8;color:var(--ok)}
-.pill.amber,.pill.going{background:#fbeed3;color:var(--warn)}
-.pill.red{background:#fde4e6;color:var(--bad)}
-.pill.live{background:var(--accent);color:#fff}
+.pill.on,.pill.done{background:var(--ok-soft);color:var(--ok)}          /* 확정 · 완료 */
+.pill.amber{background:var(--warn-soft);color:var(--warn)}              /* 초안(승인 대기) */
+.pill.going{background:var(--go-soft);color:var(--go)}                  /* 진행중 — 완료와 한눈에 갈리게 다른 색 */
+.pill.red{background:var(--bad-soft);color:var(--bad)}
+.pill.live{background:var(--live);color:#fff}                           /* 쌓이는 중 — 빨강은 워드마크·주 버튼에 남긴다 */
 
 /* 한 화면 — 왼쪽 근무 목록(고정 폭) + 오른쪽 그 근무의 내용. 목록과 내용이 따로 열리면
    같은 근무를 두 번 찾아 들어가야 한다(경모님 2026-09-14) */
@@ -84,7 +111,9 @@ a{color:inherit}
 .nrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;
       border-top:1px solid var(--line);text-decoration:none;color:inherit}
 .nrow:hover{background:var(--bg)}
-.nrow.on{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}
+.nrow.on{background:var(--chip);box-shadow:inset 3px 0 0 var(--accent)}   /* 고른 줄 — 빨강은 선택 표시 하나 */
+.nrow.live{background:var(--live-soft)}
+.nrow.live .date{color:var(--live)}
 .nrow .date{font-size:14px;font-weight:700;letter-spacing:-.02em}
 .nrow .kind{font-size:13px;color:var(--sub)}
 .nrow .pill{margin-left:auto;font-size:12px}
@@ -106,19 +135,25 @@ a{color:inherit}
 /* 초안 항목 — 제목 → 본문 → 근거 순. 왼쪽 색 띠는 뺐다(경모님 2026-09-14) — 경계는 카드 테두리가 잡는다 */
 .item{border:1px solid var(--line);border-radius:10px;
       padding:14px 16px;margin-bottom:10px;background:var(--card);transition:.15s}
-.item.off{opacity:.55;background:#fbfaf8}
+.item.off{opacity:.55;background:var(--off-bg)}
+/* 상태 색 — 「지금 무엇인가」(관찰 중 · 선택 가능 · 실패)를 나타낸다. 상태가 같으면 색도 같아서 항목끼리 비교되지 않는다 */
+.item[data-state="ready"]{border-left:3px solid var(--ready)}
+.item[data-state="observing"],.item[data-state="writing"]{border-left:3px solid var(--obs);background:var(--obs-soft)}
+.item[data-state="ai_failed"]{border-left:3px solid var(--bad);background:var(--bad-soft)}
+.item.obs .pill{background:var(--card);color:var(--obs);border:1px solid var(--obs)}
+.item[data-state="ai_failed"] .pill{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
 .item .row1{display:flex;align-items:flex-start;gap:10px}
 .item input[type=checkbox]{width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
 .item .ttl{font-weight:700;font-size:16px;flex:1;letter-spacing:-.01em}
 .item .meta{font-size:13px;color:var(--sub);margin:4px 0 10px 28px}
 .item .body{margin-left:28px}
-.why{font-size:13px;background:#f6f5f2;border-left:3px solid #d5d1ca;padding:8px 12px;
+.why{font-size:13px;background:var(--why-bg);border-left:3px solid var(--why-line);padding:8px 12px;
      border-radius:0 6px 6px 0;margin-bottom:10px}
 .why b{color:var(--ink)}
-.sug{font-size:13px;background:#f1f6f2;border-left:3px solid #a9cdb6;padding:8px 12px;
+.sug{font-size:13px;background:var(--sug-bg);border-left:3px solid var(--sug-line);padding:8px 12px;
      border-radius:0 6px 6px 0;margin-bottom:10px}
 .sug .lb{font-size:13px;font-weight:700;color:var(--ok);display:block;margin-bottom:3px}
-.sug button{font:inherit;font-size:13px;border:1px solid #a9cdb6;background:var(--card);
+.sug button{font:inherit;font-size:13px;border:1px solid var(--sug-line);background:var(--card);
             color:var(--ok);border-radius:6px;padding:2px 9px;cursor:pointer;margin-left:6px}
 textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;
          font-size:14px;resize:vertical;min-height:38px;background:var(--card);color:inherit}
@@ -132,7 +167,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .bar .need{color:var(--accent);font-size:13px;font-weight:700}
 .btn{font:inherit;font-weight:700;font-size:14px;padding:10px 22px;border-radius:8px;border:none;
      cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
-.btn:disabled{background:#c9c5be;cursor:not-allowed}
+.btn:disabled{background:var(--line);color:var(--sub);cursor:not-allowed}
 .btn.ghost{background:var(--card);color:var(--sub);border:1px solid var(--line)}
 
 /* 완료 / 진행중 — 기본 선택 없음. 고르지 않으면 승인이 막힌다 */
@@ -140,9 +175,10 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .st label{border:1px solid var(--line);border-radius:999px;padding:3px 12px;cursor:pointer;
           display:inline-flex;gap:6px;align-items:center}
 .st input[type=radio]{accent-color:var(--accent);margin:0}
-.st label:has(input:checked){border-color:var(--ink);background:var(--ink);color:#fff}
+.st label:has(input[value="완료"]:checked){border-color:var(--ok);background:var(--ok);color:#fff}
+.st label:has(input[value="진행중"]:checked){border-color:var(--go);background:var(--go);color:#fff}
 .st .lb{font-size:13px;font-weight:700;color:var(--sub)}
-.item.need{border-color:var(--accent);box-shadow:0 0 0 2px #fde4e6}
+.item.need{border-color:var(--accent);box-shadow:0 0 0 2px var(--bad-soft)}
 .item.need .st .lb{color:var(--accent)}
 .item.need .st .lb::after{content:" — 골라야 승인됩니다"}
 
@@ -150,7 +186,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .carry .ci{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-top:10px;background:var(--card)}
 .carry .ci .t{font-weight:700;font-size:14px}
 .carry .ci .m{font-size:13px;color:var(--sub);margin:3px 0 7px}
-.carry .ci .c{font-size:13px;background:#f6f5f2;padding:7px 11px;border-radius:6px;margin-bottom:10px}
+.carry .ci .c{font-size:13px;background:var(--why-bg);padding:7px 11px;border-radius:6px;margin-bottom:10px}
 
 /* 수동 추가 */
 .item.man{border-style:dashed}
@@ -168,7 +204,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 1
 .ent{border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:12px;background:var(--card);position:relative}
 .ent .t{font-weight:700;font-size:14px}
 .ent .m{font-size:13px;color:var(--sub);margin-bottom:5px}
-.ent .c{font-size:13px;background:#f6f5f2;padding:8px 12px;border-radius:6px}
+.ent .c{font-size:13px;background:var(--why-bg);padding:8px 12px;border-radius:6px}
 .ex{border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin-bottom:10px;opacity:.75;position:relative}
 .ex .t{font-size:13px}
 
@@ -913,12 +949,10 @@ def _view_confirmed(shift_id, draft, handover):
 {esc((handover["confirmed_at"] or "").replace("T", " "))} · 감지 {len(own)}건 중
 <b>{handover["adopted_count"]}건 채택 / {handover["excluded_count"]}건 제외</b></div>
 {_rounds_html(shift_id)}
-<form method="post" action="/reopen" style="margin:10px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"
-      onsubmit="return confirm('이 일지를 재검토 상태로 되돌립니다. 지금 확정본은 이력에 남고, 재확정 전까지는 다음 근무의 과거 조치로 회수되지 않습니다.')">
+<form method="post" action="/reopen" style="margin:10px 0 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
 <input type="hidden" name="shift_id" value="{esc(shift_id)}">
-<input class="tin" name="reason" placeholder="재검토 사유 (선택) — 예: 3번 항목 코멘트 오기" style="flex:1;min-width:260px">
-<button class="btn" style="background:var(--sub)">재검토</button>
-<span class="muted" style="font-size:13px">확정 후 잘못 적은 것을 고칠 때 — 채택·코멘트는 그대로</span>
+<button class="btn" style="background:var(--ready)">수정</button>
+<span class="muted" style="font-size:13px">눌러서 바로 고칩니다 — 채택·코멘트는 그대로이고, 지금 확정본은 이력에 남습니다</span>
 </form>
 {"".join(ents)}{ex}
 </div>"""
@@ -1028,7 +1062,7 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, 
         cur.append(f"{X(f):.1f},{Y(v):.1f}")
         prev = f
     segs.append(cur)
-    poly = "".join(f'<polyline points="{" ".join(s)}" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/>'
+    poly = "".join(f'<polyline points="{" ".join(s)}" fill="none" stroke="var(--chart)" stroke-width="1.6" stroke-linejoin="round"/>'
                    for s in segs if len(s) > 1)
     yt = "".join(
         f'<line x1="{L}" y1="{Y(ylo + span * k / 3):.1f}" x2="{W - R}" y2="{Y(ylo + span * k / 3):.1f}" stroke="var(--line)" stroke-dasharray="2 3"/>'
@@ -1047,12 +1081,12 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, 
     shade = ""
     if band:
         f0, f1 = max(0.0, band[0]), min(1.0, band[1])
-        shade = f'<rect x="{X(f0):.1f}" y="{T}" width="{max(3.0, (f1 - f0) * pw):.1f}" height="{ph}" fill="var(--accent)" opacity=".13"/>'
+        shade = f'<rect x="{X(f0):.1f}" y="{T}" width="{max(3.0, (f1 - f0) * pw):.1f}" height="{ph}" fill="var(--band)" opacity=".22"/>'
     lim = ""
     if isinstance(limit, (int, float)) and ylo <= limit <= yhi:
         lim = (f'<line x1="{L}" y1="{Y(limit):.1f}" x2="{W - R}" y2="{Y(limit):.1f}" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 4"/>'
                f'<text x="{W - R}" y="{Y(limit) - 4:.1f}" font-size="10" text-anchor="end" fill="var(--accent)">한계 {numfmt.fmt(limit)}{esc(unit)}</text>')
-    end = f'<circle cx="{X(pts[-1][0]):.1f}" cy="{Y(pts[-1][1]):.1f}" r="3" fill="var(--ink)"/>'
+    end = f'<circle cx="{X(pts[-1][0]):.1f}" cy="{Y(pts[-1][1]):.1f}" r="3" fill="var(--chart)"/>'
     data = ""
     if minutes and len(minutes) == len(pts):
         # 정수 분 · 소수 한 자리 화면 좌표 · 화면 표기 문자열만 보낸다 — 실수를 그대로 JSON 에 넣으면 3.2e-05 가 나온다
@@ -1065,8 +1099,8 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, 
             f'border:1px solid var(--line);border-radius:8px">{yt}{shade}{poly}{lim}{end}{xt}'
             f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T + ph}" stroke="var(--line)"/>'
             f'<line x1="{L}" y1="{T + ph}" x2="{W - R}" y2="{T + ph}" stroke="var(--line)"/>'
-            f'<line class="cur" x1="0" y1="{T}" x2="0" y2="{T + ph}" stroke="var(--accent)" stroke-width="1" style="display:none"/>'
-            f'<circle class="dot" cx="0" cy="0" r="4" fill="var(--accent)" style="display:none"/></svg>'
+            f'<line class="cur" x1="0" y1="{T}" x2="0" y2="{T + ph}" stroke="var(--chart)" stroke-width="1" style="display:none"/>'
+            f'<circle class="dot" cx="0" cy="0" r="4" fill="var(--chart)" style="display:none"/></svg>'
             + (f'<div class="muted" style="font-size:13px;margin-top:3px">{note}</div>' if note else "")
             + '<div class="tip mono" style="display:none;position:absolute;top:6px;transform:translateX(-50%);background:var(--ink);color:#fff;'
               'font-size:11.5px;padding:3px 8px;border-radius:4px;white-space:nowrap;pointer-events:none"></div></div>')

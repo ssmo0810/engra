@@ -179,7 +179,7 @@ class LiveDraftScreen(unittest.TestCase):
         self._fake_live()
         import server
         body = server.view_shift(H.SID)
-        self.assertIn('data-state="observing"', body, "관찰 중 카드가 있어야 한다")
+        self.assertIn('<div class="item obs off" data-state="observing"', body, "관찰 중 카드가 있어야 한다")
         card = _card(body, "p2")
         self.assertIn('data-tag="PI-201"', card)
         self.assertIn("지금 크기", card, "무엇이 얼마나 움직이는지 보여야 한다")
@@ -215,7 +215,7 @@ class LiveDraftScreen(unittest.TestCase):
         import server
         body = server.view_shift(H.SID)
         self.assertNotIn(self.LOCK, body)
-        self.assertNotIn('data-state="observing"', body, "닫힌 근무에 회색 카드를 그리지 않는다")
+        self.assertNotIn('<div class="item obs', body, "닫힌 근무에 회색 카드를 그리지 않는다")
         self.assertRegex(body, r'<button[^>]*id="approve"(?![^>]*disabled)')
 
     def test_api_live_cards_feeds_the_polling(self):
@@ -458,7 +458,7 @@ class AiFailureRetry(unittest.TestCase):
         self._failed()
         import server
         body = server.view_shift(H.SID)
-        self.assertIn('data-state="ai_failed"', body, "실패한 항목이 화면에서 사라지면 안 된다")
+        self.assertIn('<div class="item obs off" data-state="ai_failed"', body, "실패한 항목이 화면에서 사라지면 안 된다")
         self.assertIn("AI 호출 실패 — 시험용", body)
         self.assertRegex(body, r'<button[^>]*id="approve"[^>]*disabled', "실패가 남아 있으면 승인은 잠긴다")
 
