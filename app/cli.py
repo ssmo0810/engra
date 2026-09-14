@@ -136,7 +136,7 @@ def cmd_draft(args):
         print("  감지된 항목이 없습니다.")
     for it in d["items"]:
         mark = {1: "채택", 0: "제외"}.get(it["adopted"], "미결정")
-        print(f"\n  #{it['id']} [{it['severity'] or '-'}] {it['title']}   ({mark})")
+        print(f"\n  #{it['id']} {it['title']}   ({mark})")
         print(f"      {it['body']}")
         if it["evidence"]:
             print(f"      근거: {it['evidence']}")

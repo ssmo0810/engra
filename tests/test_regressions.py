@@ -2290,6 +2290,57 @@ class EditAndColors(unittest.TestCase):
         self.assertIn('stroke="var(--accent)"', svg, "한계선은 빨강 하나")
 
 
+    def test_graph_is_skipped_when_the_range_is_not_finite(self):
+        """값이 부동소수 최대치 근처면 여백을 더한 범위가 무한대가 되어 자리수 계산이 멈췄다(탐침 재현) —
+        그릴 수 없으면 그래프만 빼고 화면의 나머지는 그대로 간다."""
+        import server
+        wide = [(0.0, 1.0e308), (0.5, 1.79e308), (1.0, 1.5e308)]
+        self.assertEqual(server._curve(wide, "2026-08-25T06:00:00", "2026-08-25T18:00:00"), "",
+                         "그릴 수 없으면 빈 문자열 — 오류를 내지 않는다")
+        ok = server._curve([(0.0, 10.0), (1.0, 20.0)], "2026-08-25T06:00:00", "2026-08-25T18:00:00")
+        self.assertIn("<svg", ok, "보통 값은 그대로 그린다")
+
+
+class ConfirmedBodyOrder(unittest.TestCase):
+    """확정 일지 본문의 번호도 화면과 같은 순서(처음 감지된 시각)로 매긴다 — 엔진이 넘긴 중요도 순서가 본문에만 남아 있었다(반증 A)."""
+
+    SID = "2026-08-25-day"
+    ROWS = (("PI-901", "2026-08-25T15:00:00", "상"),      # 엔진 순서 = 중요도 순(늦게 감지된 것이 먼저 온다)
+            ("TI-403", "2026-08-25T07:00:00", "중"),
+            ("FI-602", "2026-08-25T11:00:00", "중"))
+
+    def setUp(self):
+        _fresh_db()
+        import db
+        self.ids = {}
+        with db.connect() as conn:
+            conn.execute("INSERT INTO shift (id, kind, window_start, window_end, source, ingested_at) "
+                         "VALUES (?, 'day', '2026-08-25T06:00:00', '2026-08-25T18:00:00', 'test', ?)", (self.SID, db.now()))
+            did = conn.execute("INSERT INTO draft (shift_id, status, generator, generated_at) VALUES (?,'pending','test',?)",
+                               (self.SID, db.now())).lastrowid
+            for seq, (tag, start, sev) in enumerate(self.ROWS, start=1):
+                eid = conn.execute(
+                    "INSERT INTO event (shift_id, tag, kind, start_ts, end_ts, severity, score, metrics_json, evidence, detector, created_at) "
+                    "VALUES (?,?,'드리프트',?,?,?,1.0,'{}','근거','engine',?)", (self.SID, tag, start, start, sev, db.now())).lastrowid
+                self.ids[tag] = conn.execute(
+                    "INSERT INTO draft_item (draft_id, event_id, seq, origin, tag, title, body, evidence, severity) "
+                    "VALUES (?,?,?,'detected',?,?,'본문','근거',?)", (did, eid, seq, tag, f"{tag} 드리프트", sev)).lastrowid
+
+    def test_body_numbers_follow_the_first_detection_time(self):
+        import re
+        import approve
+        import db
+        import server
+        r = approve.decide(self.SID, {i: {"adopted": True, "status": "완료"} for i in self.ids.values()})
+        numbered = [ln for ln in r["body"].splitlines() if re.match(r"^\d+\. ", ln)]
+        self.assertEqual([ln.split()[1] for ln in numbered], ["TI-403", "FI-602", "PI-901"], "본문 번호는 처음 감지된 시각 순")
+        seen = re.findall(r"(TI-403|FI-602|PI-901) 드리프트", server.view_shift(self.SID))
+        first = list(dict.fromkeys(seen))
+        self.assertEqual(first, ["TI-403", "FI-602", "PI-901"], "화면 차례와 같아야 한다")
+        with db.connect() as conn:
+            self.assertEqual([it["seq"] for it in db.load_draft(conn, self.SID)["items"]], [1, 2, 3], "DB 의 seq 는 그대로 둔다")
+
+
 class SnapshotLinks(unittest.TestCase):
     longMessage = False
 

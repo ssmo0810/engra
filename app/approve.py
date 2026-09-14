@@ -43,7 +43,6 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
             raise ValueError(f"이 초안에 없는 항목입니다: {sorted(unknown)}")
 
         for item_id, d in decisions.items():
-            # 근무자가 중요도를 바꿨으면 그 값이 최종이다. AI 판정은 제안이지 결정이 아니다.
             if d.get("comment"):
                 d["comment"] = str(d["comment"])[:1000]     # 공개 폼. 무제한이면 디스크 증식 경로
             adopted_flag = 1 if d.get("adopted") else 0
@@ -51,19 +50,12 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
             status = d.get("status") if adopted_flag else None
             if status is not None and status not in db.ITEM_STATUSES:
                 raise ValueError(f"상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {status!r}")
-            sev = d.get("severity")
-            if sev in ("상", "중", "하"):
-                conn.execute(
-                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?, severity = ?
-                       WHERE id = ? AND draft_id = ?""",
-                    (adopted_flag, d.get("comment"), db.now(), status, sev, item_id, draft["id"]),
-                )
-            else:
-                conn.execute(
-                    """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?
-                       WHERE id = ? AND draft_id = ?""",
-                    (adopted_flag, d.get("comment"), db.now(), status, item_id, draft["id"]),
-                )
+            # 중요도는 승인으로 바꾸지 않는다 — 화면에서 뺐고(경모님 2026-09-14), 엔진·AI 가 매긴 값은 기록으로 둔다.
+            conn.execute(
+                """UPDATE draft_item SET adopted = ?, comment = ?, decided_at = ?, status = ?
+                   WHERE id = ? AND draft_id = ?""",
+                (adopted_flag, d.get("comment"), db.now(), status, item_id, draft["id"]),
+            )
 
         # 직접 추가. 상태가 비었으면 비운 채 넣는다 — 아래 최종 검사가 다른 빈 항목과 함께 짚고 전부 되돌린다.
         for m in manual:
@@ -137,7 +129,9 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=(
                 raise ValueError(f"뒤 근무 {sid} 가 #{rid} {it['title'] or ''} 를 진행중으로 이어받았습니다 — "
                                  f"상태를 바꾸려면 그 근무를 먼저 재검토로 되돌리세요.")
 
-        adopted = [it for it in final["items"] if it["adopted"] == 1 and it["origin"] != "carried"]
+        # 본문 번호도 화면과 같은 순서(처음 감지된 시각)로 매긴다 — 엔진이 넘긴 중요도 순서가 본문에만 남아 있었다(반증 A).
+        starts = db.item_starts(conn, shift_id)
+        adopted = db.by_time([it for it in final["items"] if it["adopted"] == 1 and it["origin"] != "carried"], starts)
         excluded = [it for it in final["items"] if it["adopted"] == 0]
         carried_rows = [it for it in final["items"] if it["origin"] == "carried"]
 

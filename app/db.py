@@ -730,6 +730,22 @@ def raw_curve(conn, shift_id, tag):
             "v": [round(v, d) for v in vals]}
 
 
+def item_starts(conn, shift_id):
+    """이 근무의 이벤트 id → 처음 감지된 시각. 화면과 확정 일지 본문이 같은 순서를 쓰게 한다."""
+    return {e["id"]: e["start_ts"] for e in load_events(conn, shift_id)}
+
+
+def by_time(items, starts):
+    """처음 감지된 시각 순으로 세운다. 엔진은 항목을 중요도 순으로 정렬해 넘기는데(engine/api.py compose),
+    중요도를 화면에서 뺐으니(경모님 2026-09-14) 그 순서는 근거 없이 뒤섞여 보인다. 원본 품질 항목은 맨 앞,
+    직접 추가는 맨 뒤, 시각을 모르는 것(이벤트 없는 항목)은 감지 항목 뒤, 같은 시각이면 원래 순서. DB 의 seq 는 그대로 둔다."""
+    def key(pair):
+        seq, it = pair
+        group = {"quality": 0, "manual": 2}.get(it.get("origin"), 1)
+        return (group, starts.get(it.get("event_id")) or "9999", seq)
+    return [it for _, it in sorted(enumerate(items), key=key)]
+
+
 def save_curves(conn, shift_id):
     """그 근무 초안 항목 가운데 곡선이 빈 것에 원본 1분 평균 곡선을 저장한다. (채운 항목 수, 원본이 없어 못 채운 항목 수).
 

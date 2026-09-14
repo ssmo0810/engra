@@ -1039,6 +1039,10 @@ def _curve(pts, t0, t1, *, height=150, band=None, limit=None, unit="", ticks=5, 
     ylo -= pad
     yhi += pad
     span = (yhi - ylo) or 1.0
+    if not (math.isfinite(ylo) and math.isfinite(yhi) and math.isfinite(span)):
+        # 값이 부동소수 최대치 근처면 여백을 더한 범위가 무한대가 된다 — 자리수 계산이 거기서 멈췄다(탐침 재현).
+        # 그릴 수 없는 그래프는 빼고 나머지 화면은 그대로 간다(원본이 없을 때와 같다).
+        return ""
     W, H = 720, height
     L, R, T, B = 64, 12, 10, 26            # 축 여백 — 쉼표 붙은 큰 수(40,131)가 들어갈 만큼
     pw, ph = W - L - R, H - T - B
@@ -1161,20 +1165,12 @@ def _waves(shift_id):
 
 
 def _starts(shift_id):
-    """근무의 이벤트 id → 처음 감지된 시각."""
+    """근무의 이벤트 id → 처음 감지된 시각. 순서 규칙은 db.by_time 에 있다 — 확정 일지 본문도 같은 것을 쓴다."""
     with db.connect() as conn:
-        return {e["id"]: e["start_ts"] for e in db.load_events(conn, shift_id)}
+        return db.item_starts(conn, shift_id)
 
 
-def _by_time(items, starts):
-    """화면 순서 = 처음 감지된 시각. 엔진은 항목을 중요도 순으로 정렬해 넘기는데(engine/api.py compose),
-    중요도를 화면에서 뺐으니(경모님 2026-09-14) 그 순서는 근거 없이 뒤섞여 보인다. 원본 품질 항목은 맨 앞,
-    직접 추가는 맨 뒤, 시각을 모르는 것(이벤트 없는 항목)은 감지 항목 뒤, 같은 시각이면 원래 순서. DB 의 seq 는 그대로 둔다."""
-    def key(pair):
-        seq, it = pair
-        group = {"quality": 0, "manual": 2}.get(it.get("origin"), 1)
-        return (group, starts.get(it.get("event_id")) or "9999", seq)
-    return [it for _, it in sorted(enumerate(items), key=key)]
+_by_time = db.by_time
 
 
 def _prev_ex_note(pe):
