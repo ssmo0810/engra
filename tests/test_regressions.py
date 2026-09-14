@@ -1145,6 +1145,33 @@ class StatusSwitchAndCarry(unittest.TestCase):
             self.assertEqual(db.open_items(conn, self.NEXT[0]), [], "원 근무를 재확정해도 뒤 근무가 닫은 항목은 닫혀 있어야 한다")
         self.assertEqual(kept.get(ids[0], {}).get("status"), "완료")
 
+    # --- 머지 전 마무리 — 기존 기록의 상태 표시 · 요청 잘못은 400 (팀장 결정 2026-09-14) -------------
+
+    def test_legacy_null_status_draws_no_pill(self):
+        """기능 도입 전에 확정된 기록은 상태가 NULL 이다. 「상태 없음」 알약을 붙이면 데모 사이트의 확정 근무가
+        결함처럼 보인다 — 완료/진행중이 있는 항목에만 알약을 붙인다."""
+        ids = self._three_shifts()
+        import approve, db, server
+        approve.decide(self.DAY[0], {ids[0]: {"adopted": True, "status": "완료"}, ids[1]: {"adopted": True, "status": "완료"}})
+        with db.connect() as conn:
+            conn.execute("UPDATE draft_item SET status = NULL WHERE id = ?", (ids[1],))   # 기능 도입 전에 확정된 행
+            draft = db.load_draft(conn, self.DAY[0])
+            h = db.load_handover(conn, self.DAY[0])
+        page = server._view_confirmed(self.DAY[0], draft, h)
+        self.assertNotIn("상태 없음", page)
+        self.assertEqual(page.count('class="pill done">완료'), 1, "상태가 있는 항목에만 알약")
+
+    def test_forged_item_number_is_400_not_500(self):
+        ids = self._three_shifts()
+        code, _ = self._post([("shift_id", self.DAY[0]), ("item", "abc")])
+        self.assertEqual(code, 400, "숫자가 아닌 항목 번호는 요청 잘못이다")
+
+    def test_approving_a_shift_without_draft_is_400_not_500(self):
+        ids = self._three_shifts()
+        code, body = self._post([("shift_id", "2026-01-01-day"), ("item", ids[0]), (f"status_{ids[0]}", "완료")])
+        self.assertEqual(code, 400)
+        self.assertIn("초안이 없습니다", body)
+
 
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):

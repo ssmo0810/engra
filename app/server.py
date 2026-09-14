@@ -795,8 +795,10 @@ def _view_confirmed(shift_id, draft, handover, active="/"):
 
 
 def _status_pill(status):
-    cls = {"완료": "pill done", "진행중": "pill going"}.get(status, "pill")
-    return f'<span class="{cls}">{esc(status or "상태 없음")}</span>'
+    # 기능 도입 전에 확정된 기록은 상태가 NULL 이다. 「상태 없음」 알약을 붙이면 데모 사이트의 확정 근무가
+    # 결함처럼 보여서, 완료/진행중이 있는 항목에만 알약을 붙인다(팀장 결정 2026-09-14).
+    cls = {"완료": "pill done", "진행중": "pill going"}.get(status)
+    return f'<span class="{cls}">{esc(status)}</span>' if cls else ""
 
 
 def _status_radios(name, cur=None, labels=("완료", "진행중")):
@@ -1390,7 +1392,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             shift_id = form["shift_id"][0]
-            chosen = {int(v) for v in form.get("item", [])}
 
             def _back(msg, items=()):
                 """상태가 빈 채택 항목 — 어느 항목인지 짚어 주고 초안으로 되돌려 보낸다. 저장된 것은 없다."""
@@ -1399,6 +1400,11 @@ class Handler(BaseHTTPRequestHandler):
                                                   f'<p class="note">{esc(msg)}</p>'
                                                   + (f'<ul style="margin:0 0 10px 18px;font-size:13px">{lis}</ul>' if lis else "")
                                                   + f'<a class="back" href="/shift/{esc(shift_id)}">‹ 초안으로 돌아가 상태를 고른다</a></div>', active="/draft"))
+
+            try:
+                chosen = {int(v) for v in form.get("item", [])}
+            except ValueError:      # 위조된 항목 번호 — 요청 잘못이라 400 (500 이 났다)
+                _back(f"항목 번호가 아닙니다: {', '.join(form.get('item', []))}"); return
 
             # 직접 추가는 여러 건이 올 수 있다. 제목·내용·상태가 같은 이름으로 반복 전송되고 순서로 짝짓는다.
             # parse_qs 기본값은 빈 값을 버려 짝이 어긋난다(앞 건 내용이 비면 뒤 건 내용이 당겨졌다 — 실측). 빈 값을 살려 읽는다.
@@ -1414,6 +1420,8 @@ class Handler(BaseHTTPRequestHandler):
 
             with db.connect() as conn:
                 draft = db.load_draft(conn, shift_id)
+            if draft is None:       # 초안 없는 근무 — 요청 잘못이라 400 (draft["items"] 에서 500 이 났다)
+                _back(f"{shift_id} 의 초안이 없습니다."); return
             decisions = {
                 it["id"]: {
                     "adopted": it["id"] in chosen or it["origin"] == "manual",
