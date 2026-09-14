@@ -1400,22 +1400,17 @@ class Handler(BaseHTTPRequestHandler):
                                                   + (f'<ul style="margin:0 0 10px 18px;font-size:13px">{lis}</ul>' if lis else "")
                                                   + f'<a class="back" href="/shift/{esc(shift_id)}">‹ 초안으로 돌아가 상태를 고른다</a></div>', active="/draft"))
 
-            # 직접 추가는 여러 건이 올 수 있다. 같은 이름으로 반복 전송된다.
-            # 상태는 제목과 같은 순서로 나란히 온다(빈 값 포함). 저장 전에 검사한다 — 상태 없는 수동 항목이 먼저 들어가 남으면 안 된다.
-            titles = form.get("manual_title", [])
-            bodies = form.get("manual_body", [])
-            mstat = form.get("manual_status", [])
-            manual = []
-            for i, title in enumerate(titles):
-                title = title.strip()
-                if title:
-                    st = (mstat[i].strip() if i < len(mstat) else "")
-                    if st not in db.ITEM_STATUSES:
-                        _back("직접 추가한 항목에도 완료/진행중을 골라야 합니다.", [("직접 추가", title)]); return
-                    manual.append((title, bodies[i].strip() if i < len(bodies) else "", st))
-            manual_status = {}
-            for title, body, st in manual:
-                manual_status[approve_mod.add_manual(shift_id, title, body)] = st
+            # 직접 추가는 여러 건이 올 수 있다. 제목·내용·상태가 같은 이름으로 반복 전송되고 순서로 짝짓는다.
+            # parse_qs 기본값은 빈 값을 버려 짝이 어긋난다(앞 건 내용이 비면 뒤 건 내용이 당겨졌다 — 실측). 빈 값을 살려 읽는다.
+            # 넣는 것은 decide 가 승인과 같은 트랜잭션에서 한다 — 승인이 거부되면 함께 되돌아간다.
+            keep = parse_qs(raw.decode("utf-8", "replace"), keep_blank_values=True)
+            titles = keep.get("manual_title", [])
+            bodies = keep.get("manual_body", [])
+            mstat = keep.get("manual_status", [])
+            manual = [{"title": t.strip(),
+                       "body": bodies[i].strip() if i < len(bodies) else "",
+                       "status": (mstat[i].strip() if i < len(mstat) else "") or None}
+                      for i, t in enumerate(titles) if t.strip()]
 
             with db.connect() as conn:
                 draft = db.load_draft(conn, shift_id)
@@ -1424,7 +1419,7 @@ class Handler(BaseHTTPRequestHandler):
                     "adopted": it["id"] in chosen or it["origin"] == "manual",
                     "comment": (form.get(f"comment_{it['id']}", [""])[0] or "").strip() or None,
                     "severity": (form.get(f"sev_{it['id']}", [""])[0] or "").strip() or None,
-                    "status": manual_status.get(it["id"]) or (form.get(f"status_{it['id']}", [""])[0] or "").strip() or None,
+                    "status": (form.get(f"status_{it['id']}", [""])[0] or "").strip() or None,
                 }
                 for it in draft["items"] if it["origin"] != "carried"
             }
@@ -1434,10 +1429,13 @@ class Handler(BaseHTTPRequestHandler):
                 if k.startswith("carry_") and not k.startswith("carry_comment_"):
                     st = (v[0] or "").strip()
                     if st:
-                        rid = int(k[len("carry_"):])
+                        try:
+                            rid = int(k[len("carry_"):])
+                        except ValueError:      # 위조된 키 — 요청 잘못이라 400 (500 이 났다)
+                            _back(f"이월 항목 번호가 아닙니다: {k}"); return
                         carried[rid] = {"status": st, "comment": (form.get(f"carry_comment_{rid}", [""])[0] or "").strip() or None}
             try:
-                approve_mod.decide(shift_id, decisions, carried=carried)
+                approve_mod.decide(shift_id, decisions, carried=carried, manual=manual)
             except approve_mod.StatusMissing as exc:
                 _back("채택한 항목마다 완료 / 진행중을 골라야 승인됩니다. 아래 항목이 비어 있습니다.", exc.items); return
             except ValueError as exc:      # 위조된 상태 값·없는 항목·열려 있지 않은 이월 항목 — 요청 잘못이라 400

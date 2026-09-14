@@ -18,12 +18,15 @@ class StatusMissing(ValueError):
                          + ", ".join(f"#{i} {t or ''}".strip() for i, t in items))
 
 
-def decide(shift_id, decisions, confirmed_by="근무자", carried=None):
+def decide(shift_id, decisions, confirmed_by="근무자", carried=None, manual=()):
     """decisions: {항목id: {"adopted": bool, "comment": str, "status": '완료'|'진행중'}}
     carried:   {원 항목id: {"status": '완료'|'진행중', "comment": str}} — 이월 항목을 이번 근무에서 어떻게 했나.
+    manual:    [{"title": str, "body": str, "status": '완료'|'진행중'}] — 근무자가 직접 추가한 항목. 채택으로 들어간다.
 
     채택한 항목은 상태가 있어야 확정된다(기본값 없음 — 안 읽고 승인하는 것을 막는다, 심사평 08).
     검사는 폼이 아니라 여기서 한다. 폼을 우회해도 상태 없는 채택은 저장되지 않는다.
+    직접 추가도 이 트랜잭션 안에서 넣는다 — 승인 전에 따로 커밋했더니 승인이 거부돼도
+    상태 없는 수동 행이 초안에 남았다(실측).
     """
     with db.connect() as conn:
         draft = db.load_draft(conn, shift_id)
@@ -57,6 +60,19 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None):
                        WHERE id = ? AND draft_id = ?""",
                     (adopted_flag, d.get("comment"), db.now(), status, item_id, draft["id"]),
                 )
+
+        # 직접 추가. 상태가 비었으면 비운 채 넣는다 — 아래 최종 검사가 다른 빈 항목과 함께 짚고 전부 되돌린다.
+        for m in manual:
+            status = m.get("status") or None
+            if status is not None and status not in db.ITEM_STATUSES:
+                raise ValueError(f"상태는 {'/'.join(db.ITEM_STATUSES)} 중 하나입니다. 받은 것: {status!r}")
+            conn.execute(
+                """INSERT INTO draft_item
+                   (draft_id, event_id, seq, origin, tag, title, body, severity, adopted, decided_at, status)
+                   VALUES (?, NULL, (SELECT COALESCE(MAX(seq), 0) + 1 FROM draft_item WHERE draft_id = ?),
+                           'manual', NULL, ?, ?, '중', 1, ?, ?)""",
+                (draft["id"], draft["id"], m["title"], m.get("body"), db.now(), status),
+            )
 
         # 손대지 않은 항목은 제외로 본다. 미결정 상태로 확정되면
         # 나중에 "왜 안 적혔는지" 를 알 수 없다.
@@ -109,22 +125,6 @@ def decide(shift_id, decisions, confirmed_by="근무자", carried=None):
         "body": body,
         "prev_round": round_no,      # 재승인이면 이력으로 남긴 회차. 처음이면 None
     }
-
-
-def add_manual(shift_id, title, body, tag=None, severity="중"):
-    """근무자가 직접 추가하는 항목. 감지되지 않은 것도 일지에 들어가야 한다."""
-    with db.connect() as conn:
-        draft = db.load_draft(conn, shift_id)
-        if draft is None:
-            raise ValueError(f"{shift_id} 의 초안이 없습니다.")
-        seq = max((it["seq"] or 0) for it in draft["items"]) + 1 if draft["items"] else 1
-        cur = conn.execute(
-            """INSERT INTO draft_item
-               (draft_id, event_id, seq, origin, tag, title, body, severity, adopted)
-               VALUES (?, NULL, ?, 'manual', ?, ?, ?, ?, 1)""",
-            (draft["id"], seq, tag, title, body, severity),
-        )
-        return cur.lastrowid
 
 
 def render(shift_id, adopted, carried=()):

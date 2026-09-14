@@ -896,6 +896,67 @@ class StatusSwitchAndCarry(unittest.TestCase):
             n = conn.execute("SELECT COUNT(*) FROM draft_item WHERE origin='manual'").fetchone()[0]
         self.assertEqual(n, 0, "거부됐으면 수동 항목이 저장돼 남으면 안 된다")
 
+    def _post(self, pairs):
+        """소켓 없이 /approve 핸들러 본체만 부른다. 마지막 응답 (코드, 본문)."""
+        import server
+        from urllib.parse import urlencode
+
+        class Fake(server.Handler):
+            def __init__(self):
+                self.path = "/approve"; self.sent = []; self.headers = {}
+            def _send(self, code, body, ctype=""): self.sent.append((code, body))
+            def send_response(self, code): self.sent.append((code, ""))
+            def send_header(self, *a): pass
+            def end_headers(self): pass
+
+        h = Fake()
+        h._handle_form(urlencode(pairs).encode())
+        return h.sent[-1]
+
+    def test_rejected_approval_leaves_no_manual_row(self):
+        """직접 추가에 상태가 있어도 다른 채택 항목의 상태가 비어 승인이 거부되면 아무것도 남으면 안 된다.
+        직접 추가를 승인 전에 따로 커밋해 상태 없는 수동 행이 초안에 남았다(실측)."""
+        ids = self._three_shifts()
+        import db
+        code, body = self._post([("shift_id", self.DAY[0]), ("item", ids[0]),
+                                 ("manual_title", "직접 건"), ("manual_body", "내용"), ("manual_status", "진행중")])
+        self.assertEqual(code, 400)
+        self.assertIn("헌팅 확인", body, "상태가 빈 감지 항목을 짚어야 한다")
+        with db.connect() as conn:
+            n = conn.execute("SELECT COUNT(*) FROM draft_item WHERE origin='manual'").fetchone()[0]
+            self.assertIsNone(db.load_handover(conn, self.DAY[0]))
+        self.assertEqual(n, 0, "거부된 승인의 직접 추가 항목이 남으면 안 된다")
+
+    def test_decide_lists_every_missing_status_and_rolls_back_manual(self):
+        ids = self._three_shifts()
+        import approve, db
+        with self.assertRaises(approve.StatusMissing) as cm:
+            approve.decide(self.DAY[0], {ids[0]: {"adopted": True}},
+                           manual=[{"title": "직접 건", "body": "", "status": None}])
+        self.assertEqual(sorted(t for _, t in cm.exception.items), ["직접 건", "헌팅 확인"], "빈 항목을 한 번에 다 짚는다")
+        with db.connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM draft_item WHERE origin='manual'").fetchone()[0], 0)
+
+    def test_manual_fields_stay_paired_when_a_body_is_blank(self):
+        """parse_qs 기본값은 빈 값을 버린다. 앞 건의 내용이 비면 뒤 건의 내용이 앞 건으로 당겨졌다."""
+        ids = self._three_shifts()
+        import db
+        code, body = self._post([("shift_id", self.DAY[0]),
+                                 ("manual_title", "앞 건"), ("manual_status", "완료"), ("manual_body", ""),
+                                 ("manual_title", "뒤 건"), ("manual_status", "진행중"), ("manual_body", "뒤 내용")])
+        self.assertEqual(code, 303, body[:300])
+        with db.connect() as conn:
+            rows = {r["title"]: (r["body"], r["status"]) for r in conn.execute(
+                "SELECT title, body, status FROM draft_item WHERE origin='manual'")}
+        self.assertEqual(rows["앞 건"], ("", "완료"))
+        self.assertEqual(rows["뒤 건"], ("뒤 내용", "진행중"))
+
+    def test_forged_carry_key_is_400_not_500(self):
+        ids = self._three_shifts()
+        code, _ = self._post([("shift_id", self.DAY[0]), ("item", ids[0]), (f"status_{ids[0]}", "완료"),
+                              ("carry_abc", "완료")])
+        self.assertEqual(code, 400, "숫자가 아닌 이월 항목 번호는 요청 잘못이다")
+
 
 class LlmGuards(unittest.TestCase):
     def test_cli_subprocess_declares_utf8(self):
