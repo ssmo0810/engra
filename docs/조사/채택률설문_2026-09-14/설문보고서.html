@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ENGRA 초안 채택률 조사 결과</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* ENGRA 화면과 같은 토큰을 쓴다 — 이 보고서는 ENGRA 문서다.
+   라이트 단일 테마로 확정: HMI 색을 따라가는 것이 이 문서의 요점이고, 인쇄도 그대로 나온다. */
+:root{
+  --bg:#f6f5f3; --card:#ffffff; --ink:#14161a; --sub:#6b7280; --faint:#9aa0a6;
+  --line:#e2e0dc; --line-soft:#eeece8;
+  --adopt:#2b5fb8;          /* 채택 — 검증 통과 (CVD ΔE 21.7) */
+  --reject:#EA002C;         /* 제외 — ENGRA accent, 검증 통과 */
+  --warn:#b45309;
+  color-scheme:light;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:960px; margin:0 auto; padding-block:0 72px; padding-left:20px; padding-right:20px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-variant-numeric:tabular-nums}
+
+/* ── 머리 ── */
+header{padding-block:40px 28px; border-bottom:2px solid var(--ink); margin-bottom:32px}
+.eyebrow{font-size:11.5px; letter-spacing:.14em; color:var(--sub); font-weight:600; text-transform:uppercase;
+  font-family:"IBM Plex Mono",monospace}
+h1{font-size:30px; font-weight:700; letter-spacing:-.5px; line-height:1.3; margin-top:8px; text-wrap:balance}
+.meta{display:flex; flex-wrap:wrap; gap:6px 22px; margin-top:14px; font-size:13px; color:var(--sub)}
+.meta b{color:var(--ink); font-weight:600}
+
+/* ── 핵심 수치 ── */
+.headline{display:flex; flex-wrap:wrap; align-items:center; gap:10px 26px;
+  background:var(--card); border:1px solid var(--line); border-left:3px solid var(--adopt);
+  border-radius:10px; padding:22px 26px; margin-bottom:14px}
+.big{font-size:52px; font-weight:700; letter-spacing:-2px; line-height:1; color:var(--adopt)}
+.big small{font-size:19px; font-weight:600; letter-spacing:-.5px}
+.headline p{font-size:14px; color:var(--sub); max-width:42ch; line-height:1.65; text-wrap:pretty}
+.headline p b{color:var(--ink)}
+
+.caveat{background:#fff8e6; border:1px solid #f0e3bd; border-radius:9px;
+  padding:14px 18px; font-size:13.5px; color:#6b5518; margin-bottom:36px; max-width:78ch}
+.caveat b{color:var(--warn)}
+
+/* ── 구역 ── */
+section{margin-bottom:46px; scroll-margin-top:20px}
+h2{font-size:19px; font-weight:700; letter-spacing:-.3px; padding-bottom:9px;
+  border-bottom:1px solid var(--line); margin-bottom:20px; display:flex; align-items:baseline; gap:10px}
+h2 .n{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--faint); font-weight:400}
+h3{font-size:15.5px; font-weight:600; margin:24px 0 10px}
+p{max-width:74ch; margin-bottom:12px}
+p.note{font-size:13.5px; color:var(--sub)}
+ul{margin:0 0 14px 20px; max-width:74ch} li{margin-bottom:6px}
+a{color:var(--adopt)}
+
+/* ── 유닛 차트: 응답자 31명 = 칸 31개 ── */
+figure{background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:22px 24px 18px; margin-bottom:22px}
+figcaption{font-size:13px; color:var(--sub); margin-bottom:18px; display:flex;
+  flex-wrap:wrap; gap:8px 18px; align-items:center}
+.key{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--sub)}
+.key i{width:11px; height:11px; border-radius:2px; display:inline-block}
+.k-adopt i{background:var(--adopt)} .k-reject i{background:var(--reject)}
+.rows{display:flex; flex-direction:column; gap:14px}
+.row{display:grid; grid-template-columns:minmax(0,1fr); gap:6px; border-radius:6px;
+  padding:6px 8px; margin:-6px -8px; transition:background .12s}
+.row:hover,.row:focus-visible{background:#f4f6fa; outline:none}
+.rowhead{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap}
+.sev{font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.06em;
+  border:1px solid var(--line); color:var(--sub); border-radius:3px; padding:1px 6px}
+.sev.hi{border-color:#f3c9cf; color:#b3002a; background:#fff5f6}
+.rowtitle{font-size:13.5px; font-weight:500}
+.rowtitle .tag{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--adopt)}
+.cells{display:flex; gap:2px; flex-wrap:wrap; align-items:center}
+.cell{width:13px; height:20px; border-radius:2px; background:var(--adopt); flex:none}
+.cell.out{background:var(--reject)}
+.rowval{margin-left:auto; font-family:"IBM Plex Mono",monospace; font-size:13px;
+  font-weight:600; white-space:nowrap; padding-left:12px}
+.rowval span{color:var(--sub); font-weight:400}
+.unan{color:var(--adopt)}
+
+/* ── 표 ── */
+.tbl{width:100%; border-collapse:collapse; font-size:13.5px; margin-bottom:14px}
+.tbl th{text-align:left; font-size:11.5px; letter-spacing:.06em; color:var(--sub);
+  font-weight:600; padding:0 12px 7px 0; border-bottom:1px solid var(--line); white-space:nowrap}
+.tbl td{padding:9px 12px 9px 0; border-bottom:1px solid var(--line-soft); vertical-align:top}
+.tbl td.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .total td{font-weight:600; border-top:1px solid var(--line); border-bottom:none}
+.scroll{overflow-x:auto; margin-bottom:14px}
+
+blockquote{border-left:3px solid var(--line); padding:2px 0 2px 16px; margin:12px 0 16px;
+  color:var(--ink); font-size:14px; max-width:74ch}
+blockquote.q{border-left-color:var(--adopt)}
+blockquote b{font-weight:600}
+cite{display:block; font-size:12px; color:var(--faint); font-style:normal; margin-top:5px}
+
+.finding{background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:20px 22px; margin-bottom:16px}
+.finding h3{margin-top:0}
+.pull{border-left:3px solid var(--reject); padding-left:14px; margin:14px 0; font-size:14px; max-width:70ch}
+
+footer{border-top:1px solid var(--line); padding-top:20px; margin-top:8px;
+  font-size:12.5px; color:var(--sub)}
+footer code{font-family:"IBM Plex Mono",monospace; font-size:12px; background:var(--card);
+  border:1px solid var(--line); border-radius:3px; padding:1px 5px}
+
+@media (max-width:620px){
+  h1{font-size:24px} .big{font-size:40px}
+  .cell{width:9px; height:17px}
+  .rowval{margin-left:0; padding-left:0}
+}
+@media print{
+  body{background:#fff; font-size:11pt}
+  .wrap{max-width:none}
+  figure,.finding,.headline{break-inside:avoid}
+  section{break-inside:auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">ENGRA · 현장 실측</div>
+  <h1>인수인계 초안 채택률 조사 결과</h1>
+  <div class="meta">
+    <span>대상 <b>2026-09-14 주간 근무 초안</b></span>
+    <span>응답 <b class="mono">31건</b> · 완전 익명</span>
+    <span>수집 <b class="mono">14:26 ~ 16:26</b> (120분)</span>
+    <span>조사 <b>임도영</b> · 팀 앙그라쥬</span>
+  </div>
+</header>
+
+<div class="headline">
+  <div class="big mono">97<small>%</small></div>
+  <p>운전원 <b>31명</b>에게 ENGRA가 자동 생성한 초안 <b>5건</b>을 보여준 결과,
+     <b>155개 판단 중 150개</b>가 「최종 인수인계서에 채택」으로 선택되었습니다.</p>
+</div>
+
+<div class="caveat">
+  <b>함께 읽어야 할 것</b> — 31명 중 28명이 5건을 전부 채택했습니다.
+  이 수치는 안건별 취사선택의 결과라기보다 <b>초안 전반에 대한 수용도</b>로 읽어야 합니다.
+  자세한 한계는 <a href="#limits">5절</a>에 있습니다.
+</div>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="items">
+<h2><span class="n">01</span> 안건별 채택률</h2>
+
+<figure>
+  <figcaption>
+    칸 하나가 응답자 한 명입니다 (안건마다 31칸).
+    <span class="key k-adopt"><i></i> 채택한다</span>
+    <span class="key k-reject"><i></i> 채택 안한다</span>
+  </figcaption>
+  <div class="rows" id="rows"></div>
+</figure>
+
+<div class="scroll">
+<table class="tbl">
+  <thead><tr>
+    <th>#</th><th>중요도</th><th>안건</th><th>채택</th><th>비율</th>
+  </tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td>상</td><td>AI-707(LP O2 순도) 하강 드리프트 — 근무 내내 진행, L 한계까지 13.1시간</td><td class="num">30 / 31</td><td class="num">97%</td></tr>
+    <tr><td class="num">2</td><td>중</td><td>SI-507(터빈 회전수) 순간 이탈 — 1.5분, 알람 미발생</td><td class="num">31 / 31</td><td class="num">100%</td></tr>
+    <tr><td class="num">3</td><td>상</td><td>LI-701(HP 레벨) 급상승 — 105분간 23.1%, 배출 밸브 개도 동반 상승</td><td class="num">28 / 31</td><td class="num">90%</td></tr>
+    <tr><td class="num">4</td><td>상</td><td>ZI-805(LV-802 개도) 상승 — H 한계까지 0.9시간, 전 근무보다 빨라짐</td><td class="num">30 / 31</td><td class="num">97%</td></tr>
+    <tr><td class="num">5</td><td>상</td><td>ZI-201(IGV 개도)–FI-204(토출 유량) 연동 끊김 — 41분</td><td class="num">31 / 31</td><td class="num">100%</td></tr>
+    <tr class="total"><td></td><td></td><td>합계</td><td class="num">150 / 155</td><td class="num">97%</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>만장일치 2건이 말하는 것</h3>
+<p>100%를 받은 <b>안건 2와 5는 둘 다 「기존 방식으로는 안 보이는 것」</b>입니다.</p>
+<ul>
+  <li><b>안건 2</b> — 1.5분짜리 순간 이탈. 알람 지속시간에 미달해 알람이 울리지 않았고,
+      교대 시점엔 이미 복귀해 있어 <b>화면과 알람 이력만 보면 존재 자체를 모릅니다.</b></li>
+  <li><b>안건 5</b> — 두 태그의 평소 연동이 41분간 끊김. <b>어느 태그도 단독으로는 정상 범위</b>라
+      태그별 트렌드를 아무리 봐도 안 잡힙니다.</li>
+</ul>
+<p>ENGRA가 없으면 인수인계에 남지 않았을 항목에 <b>31명 전원이 이견을 내지 않았습니다.</b>
+   이것이 이 조사에서 가장 강한 근거입니다.</p>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="dist">
+<h2><span class="n">02</span> 응답 분포</h2>
+<div class="scroll">
+<table class="tbl">
+  <tbody>
+    <tr><td>5건 전부 채택</td><td class="num">28명 (90%)</td></tr>
+    <tr><td>4건 채택</td><td class="num">1명</td></tr>
+    <tr><td>3건 채택</td><td class="num">2명</td></tr>
+    <tr><td>자유 의견 작성</td><td class="num">25명 (81%)</td></tr>
+    <tr><td>안건별 이유 작성</td><td class="num">5명 (16%)</td></tr>
+    <tr><td>제출 간격 중앙값</td><td class="num">2.4분</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="reasons">
+<h2><span class="n">03</span> 이유를 적은 5명 — 숫자보다 값어치 있는 것</h2>
+
+<div class="finding">
+<h3>① 「운전 조작에 따른 변화는 인계 대상이 아니다」</h3>
+<p>한 응답자가 5개 안건 전부에 이유를 달고 <b>2건을 제외</b>했습니다.</p>
+<div class="scroll">
+<table class="tbl">
+  <thead><tr><th>안건</th><th>판단</th><th>이유</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td>채택</td><td>근무 중 발생한 특이사항으로 경과 추이 확인을 공유하기 위해</td></tr>
+    <tr><td class="num">2</td><td>채택</td><td>순간 이탈이라 하더라도 근무자 인지를 위해</td></tr>
+    <tr><td class="num">3</td><td><b style="color:#EA002C">제외</b></td><td><b>공정 운전에 따른 변화일 뿐이라 생각하여</b></td></tr>
+    <tr><td class="num">4</td><td><b style="color:#EA002C">제외</b></td><td><b>공정 운전에 따른 변화일 뿐이라 생각하여</b></td></tr>
+    <tr><td class="num">5</td><td>채택</td><td>공정 자동 운전 중 발생한 특이사항으로</td></tr>
+  </tbody>
+</table>
+</div>
+<p>기준이 일관됩니다 — <b>설비 이상은 넘기고, 운전 조작으로 생긴 정상 거동은 안 넘긴다.</b>
+   제외한 안건 3·4는 실제로 서로 연동된 한 사건(레벨 상승 ↔ 배출 밸브 개도 상승)이고,
+   이 응답자는 그것을 「누가 밸브를 조작해서 생긴 정상 거동」으로 읽었습니다.</p>
+<div class="pull">
+  <b>ENGRA의 한계를 정확히 짚습니다.</b> 엔진은 「평소와 다르다」는 잡지만
+  <b>「그것이 운전 조작 때문인지 설비 이상 때문인지」는 구분하지 못합니다.</b>
+</div>
+</div>
+
+<div class="finding">
+<h3>② 「상습 항목이면 안 넘긴다」</h3>
+<p>안건 2에 달린 조건부 채택입니다.</p>
+<blockquote class="q"><b>“단 평소 자주있는 알람이라면 채택안할거같습니다”</b>
+  <cite>안건 2 — SI-507 터빈 회전수 순간 이탈 (채택)</cite></blockquote>
+<p>1회성이면 인계 가치가 있지만 반복되는 것이면 노이즈라는 기준입니다.
+   현재 초안은 <b>같은 태그·같은 종류가 몇 근무째 반복 검출되는지를 보여주지 않습니다.</b></p>
+<p class="note">그 안건은 31/31 만장일치 채택이었습니다. 반복 여부를 알려줬다면 이 사람은 제외했을 수도
+   있다는 뜻이라, 표시가 없으면 채택률이 실제보다 높게 나올 수 있습니다.</p>
+</div>
+
+<div class="finding">
+<h3>③ 채택에도 등급이 있다</h3>
+<p>또 다른 응답자는 채택하면서 <b>조치 수준을 구분</b>해 적었습니다.</p>
+<div class="scroll">
+<table class="tbl">
+  <thead><tr><th>안건</th><th>적은 말</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td>이상 추이로 인수인계 후 <b>지속 트래킹 요함</b></td></tr>
+    <tr><td class="num">2</td><td>이상 신호로 간헐적 헌팅 <b>추적관찰 필요</b></td></tr>
+    <tr><td class="num">3</td><td><b>조치 필요</b></td></tr>
+    <tr><td class="num">4</td><td><b>추이 지속관찰</b></td></tr>
+  </tbody>
+</table>
+</div>
+<p>같은 「채택」이라도 <b>조치 필요 / 추적관찰 / 단순 공유</b>로 갈립니다.
+   설문은 2지선다였는데 응답자가 스스로 이유란에 등급을 적어 넣었습니다.</p>
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="limits">
+<h2><span class="n">04</span> 이 수치의 한계</h2>
+<ul>
+  <li><b>변별력이 낮습니다.</b> 31명 중 28명이 5건 전부 채택. 제출 간격 중앙값 2.4분으로,
+      5개 안건과 그래프를 모두 검토하기엔 빠른 편입니다.</li>
+  <li><b>초안이 애초에 갈릴 여지가 적었습니다.</b> 5건 중 4건이 중요도 「상」이었습니다.
+      중요도 「하」 항목이나 앞 근무자가 제외했던 항목이 섞였다면 결과가 달랐을 수 있습니다.</li>
+  <li><b>이유란 작성률 16%.</b> 제외 사유가 3건뿐이라 「왜 버리는가」의 표본이 부족합니다.</li>
+  <li><b>익명 조사라 중복 응답을 배제할 수 없습니다.</b> 후반 자유 의견 중 문체가 매우 유사한 것이
+      있어 동일인 재응답 또는 생성형 도구 사용 가능성이 있습니다.</li>
+</ul>
+
+<h3>권장 표현</h3>
+<blockquote>운전원 31명에게 ENGRA 초안 5건을 제시한 결과 <b>97%(150/155)가 채택으로 선택</b>되었고,
+  특히 <b>기존 방식으로는 검출되지 않는 2개 항목(순간 이탈, 태그 간 연동 끊김)은 31명 전원이 채택</b>했다.
+  다만 대부분이 전 항목을 채택해, 이 수치는 안건별 취사선택보다 <b>초안 전반의 수용도</b>로 해석한다.</blockquote>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="voices">
+<h2><span class="n">05</span> 자유 의견 <span class="n" style="font-size:12px">25건 중 발췌</span></h2>
+
+<h3>문제 인식을 확인해 준 것</h3>
+<blockquote class="q">“운전할 때 운전하느랴, 인수인계 이벤트 쓰느랴 바쁠 때가 있는데 이게 있다면 수월 할 것 같습니다”</blockquote>
+<blockquote class="q">“시각적으로 보기 편해서 한눈에 보기 쉽고 즉각 대응할 수 있다는 점에서 필요하다고 느껴지네요!
+  놓칠수 있는 부분까지 알아서 보여주니까 신뢰감 있는 자료로 다가와집니다.”</blockquote>
+<blockquote class="q">“편리하여 운전 집중도를 향상시키는데 도움될것 같습니다”</blockquote>
+
+<h3>도입 조건을 단 것</h3>
+<blockquote>“dcs와 연동이 잘 된다면 인수인계시 좋은 소스가 될것 같습니다.”</blockquote>
+<blockquote>“도움될 것 같음. 익숙해지는 과정 및 수정 보완은 필요”</blockquote>
+
+<h3>기능 요구 — 유일하게 「무엇을 더」를 말한 것</h3>
+<blockquote class="q">“실제로 활용시 유용할 것으로 사료됨.
+  <b>해당 설비와 관련된 트러블 이력이나 첨부자료(도면, 메뉴얼, 작업절차)등도
+  운전시 참고하도록 포함되면 좋겠음.</b>”</blockquote>
+<p class="note">ENGRA가 이미 「과거 조치」로 확정 일지를 인용하고 있으므로 방향은 일치합니다.
+   도면·절차서까지 잇는 것은 로드맵 Phase 2(축적된 일지 근거로 검색·인용)의 연장선입니다.</p>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="next">
+<h2><span class="n">06</span> 다음 과제</h2>
+<div class="scroll">
+<table class="tbl">
+  <thead><tr><th>우선</th><th>과제</th><th>근거</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1</td><td><b>운전 조작 vs 설비 이상 구분</b> — 조작에 따른 정상 거동을 초안에서 걸러내거나 표시</td><td class="num">3-①</td></tr>
+    <tr><td class="num">2</td><td><b>반복 검출 이력 표시</b> — 같은 태그·종류가 몇 근무째 나오는지 초안에 노출</td><td class="num">3-②</td></tr>
+    <tr><td class="num">3</td><td><b>채택 등급 도입</b> — 조치 필요 / 추적관찰 / 공유 3단</td><td class="num">3-③</td></tr>
+    <tr><td class="num">4</td><td><b>참고자료 연결</b> — 도면·메뉴얼·작업절차를 안건에 첨부</td><td class="num">5</td></tr>
+    <tr><td class="num">5</td><td><b>다음 회차 설계 보완</b> — 중요도 「하」·이전 제외 항목을 섞어 변별력 확보</td><td class="num">4</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<!-- ─────────────────────────────────────────── -->
+<section id="method">
+<h2><span class="n">07</span> 조사 방법</h2>
+
+<h3>대상 초안이 만들어진 경로</h3>
+<ul>
+  <li><b>데이터</b> — 생성기에서 2026-09-14 주간 랜덤 생성. 기준선이 잠정이 되지 않도록
+      <b>9/13 주간 → 9/13 야간 → 9/14 주간</b> 3근무를 체인으로 생성하고, 앞 2근무는
+      적재·검출·확정까지 끝내 「과거 조치」가 실제로 회수되게 했습니다.</li>
+  <li><b>주입된 이상 7건</b> — 순도 헌팅(앞 근무에서 이어짐) / 터빈 회전수 순간 강하 /
+      HP Column 고레벨(알람 발생) / LIN 탱크 출하 / 압축기 서지 전조 /
+      순도 동반 저하(다음 근무로 이어짐) / 토출온도 드리프트(다음 근무로 이어짐)</li>
+  <li><b>엔진 검출 21건 → AI 초안 5개 안건</b> (AI가 같은 사건끼리 묶음)</li>
+  <li><b>AI</b> — <span class="mono">ENGRA_LLM=cli</span>, <span class="mono">claude-opus-5</span></li>
+</ul>
+
+<h3>설문 구성</h3>
+<p>안건마다 세 덩어리로만 구성했습니다. 글이 길면 읽히지 않는다는 1차 피드백을 반영한 것입니다.</p>
+<ul>
+  <li><b>안건 N. 제목</b> (굵게) + 중요도</li>
+  <li>추이 그래프</li>
+  <li>「최종 인수인계서에 채택하시겠습니까?」 <span class="mono">채택한다 / 채택 안한다</span> (필수) + 이유(선택)</li>
+</ul>
+<p>맨 앞에 ASU 공정 개요도 1장(태그 위치 확인용), 맨 뒤에 자유 의견란을 두었습니다.</p>
+
+<h3>표기 원칙</h3>
+<p>통계 용어를 쓰지 않았습니다. <span class="mono">잔차 6.4σ</span> 같은 표현은 그 이벤트의 실제 파형을
+   기준선과 대조해 <b>「평소보다 최대 7% 낮아짐」</b>으로 환산했습니다.
+   숫자를 계산할 수 없는 경우에는 %를 지어내지 않고 표현만 삭제했습니다.</p>
+</section>
+
+<footer>
+  <p>같은 폴더의 파일 — <code>설문응답_원본.csv</code> (응답 31건 원본) ·
+     <code>설문_미리보기.txt</code> (설문 문구 전문) ·
+     <code>도구/tally.py</code> (집계 재현) ·
+     <code>그림/</code> (공정도·추이 그래프) ·
+     <code>engra_survey_그림포함.gs</code> (설문 생성 스크립트)</p>
+  <p style="margin-top:8px">설문은 2026-09-14 마감되었습니다.</p>
+</footer>
+
+</div>
+
+<script>
+/* 유닛 차트 — 응답자 31명을 칸으로. 표와 같은 수를 그린다. */
+var ITEMS = [
+  {n:1, sev:"상", tag:"AI-707", rest:"(LP O2 순도) 하강 드리프트", adopt:30},
+  {n:2, sev:"중", tag:"SI-507", rest:"(터빈 회전수) 순간 이탈", adopt:31},
+  {n:3, sev:"상", tag:"LI-701", rest:"(HP 레벨) 급상승", adopt:28},
+  {n:4, sev:"상", tag:"ZI-805", rest:"(LV-802 개도) 상승", adopt:30},
+  {n:5, sev:"상", tag:"ZI-201–FI-204", rest:" 연동 끊김", adopt:31}
+];
+var TOTAL = 31;
+
+var host = document.getElementById('rows');
+ITEMS.forEach(function (it) {
+  var out = TOTAL - it.adopt;
+  var pct = Math.round(it.adopt / TOTAL * 100);
+
+  var row = document.createElement('div');
+  row.className = 'row';
+  row.tabIndex = 0;
+  row.setAttribute('role', 'img');
+  row.setAttribute('aria-label',
+    '안건 ' + it.n + ' ' + it.tag + it.rest + ', 중요도 ' + it.sev +
+    ', 채택 ' + it.adopt + '명, 채택 안함 ' + out + '명, ' + pct + '퍼센트');
+
+  var head = document.createElement('div');
+  head.className = 'rowhead';
+  head.innerHTML =
+    '<span class="sev' + (it.sev === '상' ? ' hi' : '') + '">중요도 ' + it.sev + '</span>' +
+    '<span class="rowtitle"><span class="mono" style="color:var(--faint)">' + it.n + '.</span> ' +
+    '<span class="tag">' + it.tag + '</span>' + it.rest + '</span>' +
+    '<span class="rowval' + (out === 0 ? ' unan' : '') + '">' + it.adopt + '<span>/' + TOTAL + '</span>' +
+    '&nbsp;&nbsp;' + pct + '%' + (out === 0 ? ' <span style="font-weight:600">만장일치</span>' : '') + '</span>';
+
+  var cells = document.createElement('div');
+  cells.className = 'cells';
+  for (var i = 0; i < TOTAL; i++) {
+    var c = document.createElement('span');
+    c.className = 'cell' + (i >= it.adopt ? ' out' : '');
+    c.title = i >= it.adopt ? '채택 안한다' : '채택한다';
+    cells.appendChild(c);
+  }
+
+  row.appendChild(head);
+  row.appendChild(cells);
+  host.appendChild(row);
+});
+</script>
+</body>
+</html>
